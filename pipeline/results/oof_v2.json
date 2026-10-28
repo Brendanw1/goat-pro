@@ -1,0 +1,57 @@
+{
+ "design": "stuff_v2 csw_norm (13 features, per-class monotone); college harness --oof semantics",
+ "folds": 4,
+ "fold_def": "crc32(game_pk) % 1000 // 250 \u2014 whole games, TRAIN seasons (2023-24) only; per cell, fit on 3 folds' taken pitches, predict the held fold's train-season pitches (all of them, so grade construction matches production)",
+ "grade_construction": "season_grades from the OOF predictions with the production frozen scale (per-cell league constants, no pitcher identity \u2014 what deployment scores new seasons with); 2025/26 grades are out-of-sample already and untouched",
+ "oof_coverage_train_rows": 1.0,
+ "yoy": {
+  "2023->2024": {
+   "before_in_sample": 0.7440246202772605,
+   "after_oof": 0.7432738796437236,
+   "note": "both seasons out-of-fold after"
+  },
+  "2024->2025": {
+   "before_in_sample": 0.7841478356966088,
+   "after_oof": 0.7846182002461967,
+   "note": "2024 out-of-fold after; 2025 was never trained on"
+  },
+  "2025->2026": {
+   "value": 0.7826943675166574,
+   "note": "no training season involved; unchanged by OOF"
+  }
+ },
+ "predictiveness_vs_naive": {
+  "2023->2024": {
+   "before": {
+    "grade": 0.26607517606230097,
+    "naive": 0.24043016916261953
+   },
+   "after": {
+    "grade": 0.245675480342682,
+    "naive": 0.24043016916261953
+   }
+  },
+  "2024->2025": {
+   "before": {
+    "grade": 0.3066586639646968,
+    "naive": 0.2410180968994231
+   },
+   "after": {
+    "grade": 0.3224306673519413,
+    "naive": 0.2410180968994231
+   }
+  },
+  "2025->2026": {
+   "value": {
+    "grade": 0.21135466665574912,
+    "naive": 0.31341170909088684
+   },
+   "note": "no training season involved; unchanged by OOF"
+  }
+ },
+ "determinism_delta_vs_stuff_v2_json": {
+  "2023->2024": 0.0,
+  "2024->2025": 0.0,
+  "2025->2026": 0.0
+ }
+}

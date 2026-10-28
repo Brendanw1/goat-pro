@@ -1,0 +1,95 @@
+{
+ "coverage": {
+  "2024": 316997,
+  "2025": 330422,
+  "2026": 331816
+ },
+ "reliability": {
+  "d_bat_speed": {
+   "split_half": 0.518,
+   "yoy": {
+    "2024->2025": 0.53,
+    "2025->2026": 0.614
+   }
+  },
+  "d_length": {
+   "split_half": 0.85,
+   "yoy": {
+    "2024->2025": 0.779,
+    "2025->2026": 0.82
+   }
+  },
+  "d_intercept_y": {
+   "split_half": 0.89,
+   "yoy": {
+    "2024->2025": 0.8,
+    "2025->2026": 0.857
+   }
+  },
+  "abs_intercept": {
+   "split_half": 0.725,
+   "yoy": {
+    "2024->2025": 0.72,
+    "2025->2026": 0.774
+   }
+  }
+ },
+ "incremental_cv_r2": {
+  "2024->2025 k": {
+   "n": 412,
+   "naive": 0.2996,
+   "naive+stuff": 0.3328,
+   "naive+stuff+mix": 0.3263,
+   "+d_bat_speed": -0.0045,
+   "+d_bat_speed|mix": -0.0042,
+   "+d_length": 0.0025,
+   "+d_length|mix": 0.0034,
+   "+d_intercept_y": -0.003,
+   "+d_intercept_y|mix": -0.0019,
+   "+abs_intercept": -0.0008,
+   "+abs_intercept|mix": -0.0003
+  },
+  "2024->2025 csw": {
+   "n": 412,
+   "naive": 0.2393,
+   "naive+stuff": 0.2522,
+   "naive+stuff+mix": 0.253,
+   "+d_bat_speed": 0.0029,
+   "+d_bat_speed|mix": -0.0008,
+   "+d_length": 0.0019,
+   "+d_length|mix": -0.0049,
+   "+d_intercept_y": 0.0022,
+   "+d_intercept_y|mix": -0.0037,
+   "+abs_intercept": 0.0086,
+   "+abs_intercept|mix": 0.0059
+  },
+  "2025->2026 k": {
+   "n": 432,
+   "naive": 0.2912,
+   "naive+stuff": 0.3788,
+   "naive+stuff+mix": 0.3762,
+   "+d_bat_speed": -0.0044,
+   "+d_bat_speed|mix": -0.0042,
+   "+d_length": -0.0023,
+   "+d_length|mix": -0.004,
+   "+d_intercept_y": -0.0038,
+   "+d_intercept_y|mix": -0.0062,
+   "+abs_intercept": -0.001,
+   "+abs_intercept|mix": -0.0015
+  },
+  "2025->2026 csw": {
+   "n": 432,
+   "naive": 0.2649,
+   "naive+stuff": 0.2932,
+   "naive+stuff+mix": 0.3049,
+   "+d_bat_speed": 0.008,
+   "+d_bat_speed|mix": 0.0113,
+   "+d_length": 0.005,
+   "+d_length|mix": -0.0027,
+   "+d_intercept_y": 0.0102,
+   "+d_intercept_y|mix": 0.0009,
+   "+abs_intercept": 0.0084,
+   "+abs_intercept|mix": 0.0089
+  }
+ }
+}

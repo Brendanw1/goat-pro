@@ -1,0 +1,105 @@
+{
+ "validation": {
+  "r": 0.966,
+  "n_pitcher_pitchtypes": 2018,
+  "min_count": 100,
+  "published_vs_ours_slope": 0.991,
+  "published_vs_ours_intercept": 1.79,
+  "published_sd": 6.61,
+  "ours_sd": 6.44
+ },
+ "within_season_r_stuff_vs_tj": {
+  "2023": {
+   "r": 0.593,
+   "n": 755
+  },
+  "2024": {
+   "r": 0.587,
+   "n": 752
+  },
+  "2025": {
+   "r": 0.617,
+   "n": 761
+  },
+  "2026": {
+   "r": 0.619,
+   "n": 754
+  }
+ },
+ "pairs": {
+  "2023->2024": {
+   "n": 544,
+   "stuff_vs_tj_r_season_a": 0.592,
+   "our_stuff": {
+    "yoy_r": 0.749,
+    "r_next_csw": 0.373,
+    "r_next_k": 0.429
+   },
+   "our_stuff_crossfit": {
+    "yoy_r": 0.811,
+    "r_next_csw": 0.202,
+    "r_next_k": 0.324
+   },
+   "tjstuff": {
+    "yoy_r": 0.846,
+    "r_next_csw": 0.196,
+    "r_next_k": 0.376
+   },
+   "naive": {
+    "r_next_csw": 0.38,
+    "r_next_k": 0.426
+   }
+  },
+  "2024->2025": {
+   "n": 552,
+   "stuff_vs_tj_r_season_a": 0.576,
+   "our_stuff": {
+    "yoy_r": 0.767,
+    "r_next_csw": 0.322,
+    "r_next_k": 0.397
+   },
+   "our_stuff_crossfit": {
+    "yoy_r": 0.826,
+    "r_next_csw": 0.199,
+    "r_next_k": 0.307
+   },
+   "tjstuff": {
+    "yoy_r": 0.865,
+    "r_next_csw": 0.169,
+    "r_next_k": 0.327
+   },
+   "naive": {
+    "r_next_csw": 0.399,
+    "r_next_k": 0.385
+   }
+  },
+  "2025->2026": {
+   "n": 549,
+   "stuff_vs_tj_r_season_a": 0.64,
+   "our_stuff": {
+    "yoy_r": 0.806,
+    "r_next_csw": 0.27,
+    "r_next_k": 0.432
+   },
+   "our_stuff_crossfit": {
+    "yoy_r": 0.826,
+    "r_next_csw": 0.224,
+    "r_next_k": 0.408
+   },
+   "tjstuff": {
+    "yoy_r": 0.869,
+    "r_next_csw": 0.199,
+    "r_next_k": 0.371
+   },
+   "naive": {
+    "r_next_csw": 0.412,
+    "r_next_k": 0.42
+   }
+  }
+ },
+ "notes": {
+  "tj_scale": "100 - 10*(raw-mu)/sd over all 2023-26 pitches (raw is run-value-like, lower=better)",
+  "population": "pitchers with a Stuff+ grade and >=50 pa_taken pitches in both seasons of the pair",
+  "tj_training_window": "not stated in the model JSON or the KB copy; undetermined"
+ }
+}

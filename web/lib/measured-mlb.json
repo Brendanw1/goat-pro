@@ -1,0 +1,326 @@
+{
+  "DISCIPLINE_HALF_HITTER_MLB": {
+    "contactPct": 111,
+    "firstPitchSwingPct": 66,
+    "oContactPct": 40,
+    "oSwingPct": 142,
+    "swStrPct": 271,
+    "swingPct": 304,
+    "twoKChasePct": 68,
+    "whiffPct": 111,
+    "zContactPct": 107,
+    "zWhiffPct": 107,
+    "zonePctSeen": 1310
+  },
+  "DISCIPLINE_HALF_PITCHER_MLB": {
+    "calledStrikePct": 481,
+    "chasePct": 651,
+    "firstPitchStrikePct": 556,
+    "oContactPct": 71,
+    "oWhiffPct": 71,
+    "putawayPct": 301,
+    "swStrPct": 456,
+    "swingPct": 774,
+    "whiffPct": 192,
+    "zContactPct": 207,
+    "zSwingPct": 309,
+    "zWhiffPct": 207,
+    "zonePct": 655
+  },
+  "measured": "2026-10-27",
+  "method": "split-half at the season's median game_date, min 25 events per half per player; Pearson r across players, Fisher-z pooled over 2023-2025; Spearman-Brown to the full season; k = D(1-r_full)/r_full on the mean full-season denominator. 2026 held out as a stability check, not pooled.",
+  "min_half_den": 25,
+  "report_hitter": {
+    "contactPct": {
+      "D": 581,
+      "holdout_2026_r_full": 0.866,
+      "k": 111,
+      "n_per_season": [
+        440,
+        438,
+        438
+      ],
+      "r_full": 0.84,
+      "r_half": 0.724
+    },
+    "firstPitchSwingPct": {
+      "D": 338,
+      "holdout_2026_r_full": 0.797,
+      "k": 66,
+      "n_per_season": [
+        411,
+        413,
+        412
+      ],
+      "r_full": 0.837,
+      "r_half": 0.72
+    },
+    "oContactPct": {
+      "D": 209,
+      "holdout_2026_r_full": 0.858,
+      "k": 40,
+      "n_per_season": [
+        380,
+        370,
+        365
+      ],
+      "r_full": 0.839,
+      "r_half": 0.723
+    },
+    "oSwingPct": {
+      "D": 609,
+      "holdout_2026_r_full": 0.801,
+      "k": 142,
+      "n_per_season": [
+        447,
+        442,
+        441
+      ],
+      "r_full": 0.811,
+      "r_half": 0.682
+    },
+    "swStrPct": {
+      "D": 1166,
+      "holdout_2026_r_full": 0.831,
+      "k": 271,
+      "n_per_season": [
+        477,
+        464,
+        464
+      ],
+      "r_full": 0.811,
+      "r_half": 0.682
+    },
+    "swingPct": {
+      "D": 1166,
+      "holdout_2026_r_full": 0.781,
+      "k": 304,
+      "n_per_season": [
+        477,
+        464,
+        464
+      ],
+      "r_full": 0.793,
+      "r_half": 0.657
+    },
+    "twoKChasePct": {
+      "D": 240,
+      "holdout_2026_r_full": 0.801,
+      "k": 68,
+      "n_per_season": [
+        390,
+        385,
+        381
+      ],
+      "r_full": 0.78,
+      "r_half": 0.639
+    },
+    "whiffPct": {
+      "D": 581,
+      "holdout_2026_r_full": 0.866,
+      "k": 111,
+      "n_per_season": [
+        440,
+        438,
+        438
+      ],
+      "r_full": 0.84,
+      "r_half": 0.724
+    },
+    "zContactPct": {
+      "D": 420,
+      "holdout_2026_r_full": 0.809,
+      "k": 107,
+      "n_per_season": [
+        422,
+        423,
+        426
+      ],
+      "r_full": 0.798,
+      "r_half": 0.664
+    },
+    "zWhiffPct": {
+      "D": 420,
+      "holdout_2026_r_full": 0.809,
+      "k": 107,
+      "n_per_season": [
+        422,
+        423,
+        426
+      ],
+      "r_full": 0.798,
+      "r_half": 0.664
+    },
+    "zonePctSeen": {
+      "D": 1166,
+      "holdout_2026_r_full": 0.465,
+      "k": 1310,
+      "n_per_season": [
+        477,
+        464,
+        464
+      ],
+      "r_full": 0.471,
+      "r_half": 0.308
+    }
+  },
+  "report_pitcher": {
+    "calledStrikePct": {
+      "D": 751,
+      "holdout_2026_r_full": 0.484,
+      "k": 481,
+      "n_per_season": [
+        544,
+        523,
+        535
+      ],
+      "r_full": 0.609,
+      "r_half": 0.438
+    },
+    "chasePct": {
+      "D": 491,
+      "holdout_2026_r_full": 0.499,
+      "k": 651,
+      "n_per_season": [
+        510,
+        508,
+        510
+      ],
+      "r_full": 0.43,
+      "r_half": 0.274
+    },
+    "firstPitchStrikePct": {
+      "D": 279,
+      "holdout_2026_r_full": 0.258,
+      "k": 556,
+      "n_per_season": [
+        461,
+        451,
+        447
+      ],
+      "r_full": 0.334,
+      "r_half": 0.201
+    },
+    "oContactPct": {
+      "D": 179,
+      "holdout_2026_r_full": 0.693,
+      "k": 71,
+      "n_per_season": [
+        395,
+        393,
+        377
+      ],
+      "r_full": 0.716,
+      "r_half": 0.557
+    },
+    "oWhiffPct": {
+      "D": 179,
+      "holdout_2026_r_full": 0.693,
+      "k": 71,
+      "n_per_season": [
+        395,
+        393,
+        377
+      ],
+      "r_full": 0.716,
+      "r_half": 0.557
+    },
+    "putawayPct": {
+      "D": 320,
+      "holdout_2026_r_full": 0.583,
+      "k": 301,
+      "n_per_season": [
+        469,
+        460,
+        462
+      ],
+      "r_full": 0.515,
+      "r_half": 0.347
+    },
+    "swStrPct": {
+      "D": 919,
+      "holdout_2026_r_full": 0.607,
+      "k": 456,
+      "n_per_season": [
+        558,
+        533,
+        545
+      ],
+      "r_full": 0.668,
+      "r_half": 0.502
+    },
+    "swingPct": {
+      "D": 919,
+      "holdout_2026_r_full": 0.566,
+      "k": 774,
+      "n_per_season": [
+        558,
+        533,
+        545
+      ],
+      "r_full": 0.543,
+      "r_half": 0.372
+    },
+    "whiffPct": {
+      "D": 475,
+      "holdout_2026_r_full": 0.666,
+      "k": 192,
+      "n_per_season": [
+        503,
+        502,
+        496
+      ],
+      "r_full": 0.712,
+      "r_half": 0.553
+    },
+    "zContactPct": {
+      "D": 347,
+      "holdout_2026_r_full": 0.645,
+      "k": 207,
+      "n_per_season": [
+        472,
+        470,
+        475
+      ],
+      "r_full": 0.626,
+      "r_half": 0.455
+    },
+    "zSwingPct": {
+      "D": 493,
+      "holdout_2026_r_full": 0.594,
+      "k": 309,
+      "n_per_season": [
+        505,
+        504,
+        501
+      ],
+      "r_full": 0.615,
+      "r_half": 0.444
+    },
+    "zWhiffPct": {
+      "D": 347,
+      "holdout_2026_r_full": 0.645,
+      "k": 207,
+      "n_per_season": [
+        472,
+        470,
+        475
+      ],
+      "r_full": 0.626,
+      "r_half": 0.455
+    },
+    "zonePct": {
+      "D": 919,
+      "holdout_2026_r_full": 0.613,
+      "k": 655,
+      "n_per_season": [
+        558,
+        533,
+        545
+      ],
+      "r_full": 0.584,
+      "r_half": 0.412
+    }
+  },
+  "script": "pipeline/measure_discipline_mlb.py"
+}

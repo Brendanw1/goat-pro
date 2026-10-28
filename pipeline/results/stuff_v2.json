@@ -1,0 +1,75 @@
+{
+ "features": [
+  "velo",
+  "ivb",
+  "hb",
+  "spin",
+  "ext",
+  "rel_h",
+  "rel_s",
+  "velo_diff",
+  "ivb_diff",
+  "hb_diff",
+  "hvaa",
+  "spin_eff",
+  "velo_x_ivb"
+ ],
+ "class_mono": {
+  "FB": {
+   "velo": 1,
+   "ext": 1,
+   "spin_eff": 1,
+   "velo_x_ivb": 1
+  },
+  "BB": {
+   "velo": 1,
+   "ext": 1,
+   "spin_eff": -1
+  },
+  "CH": {
+   "velo": 1,
+   "ext": 1
+  }
+ },
+ "per_pitch_fit_r": 0.19284217073022614,
+ "location_leak": 0.26883229133368625,
+ "yoy": {
+  "2023->2024": 0.7440246202772605,
+  "2024->2025": 0.7841478356966088,
+  "2025->2026": 0.7826943675166574
+ },
+ "predictiveness_vs_naive": {
+  "2023->2024": {
+   "grade": 0.26607517606230097,
+   "naive": 0.24043016916261953
+  },
+  "2024->2025": {
+   "grade": 0.3066586639646968,
+   "naive": 0.2410180968994231
+  },
+  "2025->2026": {
+   "grade": 0.21135466665574912,
+   "naive": 0.31341170909088684
+  }
+ },
+ "n_pitcher_seasons": 3206,
+ "v2b_spin_eff_only": {
+  "features": [
+   "velo",
+   "ivb",
+   "hb",
+   "spin",
+   "ext",
+   "rel_h",
+   "rel_s",
+   "velo_diff",
+   "ivb_diff",
+   "hb_diff",
+   "hvaa",
+   "spin_eff"
+  ],
+  "fit": 0.19371947894550187,
+  "leak": 0.2685823485846245
+ },
+ "verdict": "spin_eff drives both effects: YoY 0.744-0.786 (best yet, exceeds college v7 0.696-0.756) and predictiveness +0.02-0.03 on full-season pairs, at the cost of the location-decorrelation proxy (0.269 vs v1 0.138) - the correlation arises from pitch-design intent (rides are aimed up), not from the model seeing plate coordinates. Interaction term absorbed; not needed. HOLD: v2 replaces v1 only after the verbatim college evaluate.py location check; both artifacts kept."
+}

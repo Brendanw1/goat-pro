@@ -1,0 +1,77 @@
+{
+ "shape_features": [
+  "velo",
+  "ivb",
+  "hb",
+  "spin",
+  "ext",
+  "rel_h",
+  "rel_s",
+  "velo_diff",
+  "ivb_diff",
+  "hb_diff",
+  "spin_eff",
+  "velo_x_ivb"
+ ],
+ "context": [
+  "plate_x",
+  "plate_z",
+  "balls",
+  "strikes"
+ ],
+ "params": {
+  "n_estimators": 500,
+  "learning_rate": 0.05,
+  "num_leaves": 31,
+  "min_child_samples": 500,
+  "subsample": 0.8,
+  "subsample_freq": 1,
+  "colsample_bytree": 0.8,
+  "n_jobs": 5,
+  "verbose": -1
+ },
+ "e_stuff": {
+  "yoy": {
+   "2023->2024": 0.832,
+   "2024->2025": 0.855,
+   "2025->2026": 0.87
+  },
+  "per_pitch_fit_rv": 0.0171,
+  "per_pitch_fit_csw": 0.0256,
+  "leak_z": 0.1196,
+  "leak_x": 0.0166
+ },
+ "e_pitching": {
+  "yoy": {
+   "2023->2024": 0.638,
+   "2024->2025": 0.592,
+   "2025->2026": 0.6
+  },
+  "per_pitch_fit_rv": 0.1897,
+  "per_pitch_fit_csw": 0.256,
+  "leak_z": 0.033,
+  "leak_x": 0.0134
+ },
+ "e_location": {
+  "yoy": {
+   "2023->2024": 0.675,
+   "2024->2025": 0.645,
+   "2025->2026": 0.703
+  },
+  "per_pitch_fit_rv": 0.1839,
+  "per_pitch_fit_csw": 0.2495,
+  "leak_z": 0.0001,
+  "leak_x": 0.0205
+ },
+ "e_swing": {
+  "yoy": {
+   "2023->2024": 0.807,
+   "2024->2025": 0.804,
+   "2025->2026": 0.817
+  },
+  "per_pitch_fit_rv": 0.0167,
+  "per_pitch_fit_csw": 0.0309,
+  "leak_z": 0.1304,
+  "leak_x": 0.1499
+ }
+}

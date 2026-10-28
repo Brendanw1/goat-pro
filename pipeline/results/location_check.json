@@ -1,0 +1,106 @@
+{
+ "definition": "vt_baseball evaluate.py location_dependence() verbatim",
+ "min_pitches": 100,
+ "materiality_bar": 0.01,
+ "d1_documented": {
+  "pitcher_grade_vs_mean_height": {
+   "A_noev": 0.007,
+   "v5": 0.147,
+   "v6": 0.112
+  },
+  "per_pitch_max": 0.002
+ },
+ "designs": {
+  "v1": {
+   "2025": {
+    "pitcher_grade_vs_mean_height": 0.11,
+    "pitcher_grade_vs_mean_side": 0.145,
+    "pitcher_grade_vs_mean_side_raw": 0.0,
+    "per_pitch": {
+     "plate_z": 0.295,
+     "plate_x_arm": 0.138,
+     "plate_x": 0.088
+    },
+    "n_pitchers": 722,
+    "n_pitches": 705676
+   },
+   "2026": {
+    "pitcher_grade_vs_mean_height": 0.063,
+    "pitcher_grade_vs_mean_side": 0.137,
+    "pitcher_grade_vs_mean_side_raw": 0.001,
+    "per_pitch": {
+     "plate_z": 0.216,
+     "plate_x_arm": 0.122,
+     "plate_x": 0.065
+    },
+    "n_pitchers": 635,
+    "n_pitches": 509520
+   }
+  },
+  "v2": {
+   "2025": {
+    "pitcher_grade_vs_mean_height": 0.104,
+    "pitcher_grade_vs_mean_side": 0.143,
+    "pitcher_grade_vs_mean_side_raw": 0.005,
+    "per_pitch": {
+     "plate_z": 0.294,
+     "plate_x_arm": 0.137,
+     "plate_x": 0.088
+    },
+    "n_pitchers": 722,
+    "n_pitches": 705676
+   },
+   "2026": {
+    "pitcher_grade_vs_mean_height": 0.059,
+    "pitcher_grade_vs_mean_side": 0.135,
+    "pitcher_grade_vs_mean_side_raw": 0.003,
+    "per_pitch": {
+     "plate_z": 0.216,
+     "plate_x_arm": 0.121,
+     "plate_x": 0.065
+    },
+    "n_pitchers": 635,
+    "n_pitches": 509520
+   }
+  }
+ },
+ "verdicts": {
+  "2025": {
+   "season": 2025,
+   "bar": 0.01,
+   "worst_v2_minus_v1": 0.0,
+   "metrics": [
+    {
+     "metric": "pitcher-level height",
+     "v1": 0.11,
+     "v2": 0.104,
+     "v2_minus_v1": -0.006,
+     "materially_worse": false
+    },
+    {
+     "metric": "pitcher-level side",
+     "v1": 0.145,
+     "v2": 0.143,
+     "v2_minus_v1": -0.002,
+     "materially_worse": false
+    },
+    {
+     "metric": "per-pitch plate_z",
+     "v1": 0.295,
+     "v2": 0.294,
+     "v2_minus_v1": -0.001,
+     "materially_worse": false
+    },
+    {
+     "metric": "per-pitch plate_x_arm",
+     "v1": 0.138,
+     "v2": 0.137,
+     "v2_minus_v1": -0.001,
+     "materially_worse": false
+    }
+   ],
+   "verdict": "v2 replaces v1"
+  }
+ },
+ "export_refresh": "v2 won: the artifact refresh is deliberately NOT run by this check. bakeoff.export currently hard-bakes the v1 feature list (tm.STUFF_FEATURES + global MONO); wire stuff_v2's FEATURES/CLASS_MONO into it first, then the one-command refresh is `python pipeline/bakeoff.py export --target csw_norm` (plus the rv pitching leg it always runs)"
+}

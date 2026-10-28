@@ -1,0 +1,407 @@
+{
+ "2024 N=25 all": {
+  "n": 598,
+  "grade_r": 0.268,
+  "naive_r": 0.218,
+  "cv_r2_naive": 0.045,
+  "cv_r2_grade": 0.066,
+  "cv_r2_both": 0.106,
+  "grade_beats_naive": true
+ },
+ "2024 N=25 debut": {
+  "n": 122,
+  "grade_r": 0.403,
+  "naive_r": 0.119,
+  "cv_r2_naive": -0.021,
+  "cv_r2_grade": 0.115,
+  "cv_r2_both": 0.095,
+  "grade_beats_naive": true
+ },
+ "2024 N=25 demoted": {
+  "n": 87,
+  "grade_r": 0.271,
+  "naive_r": 0.214,
+  "cv_r2_naive": -0.027,
+  "cv_r2_grade": -0.008,
+  "cv_r2_both": 0.002,
+  "grade_beats_naive": true
+ },
+ "2024 N=50 all": {
+  "n": 580,
+  "grade_r": 0.284,
+  "naive_r": 0.272,
+  "cv_r2_naive": 0.063,
+  "cv_r2_grade": 0.069,
+  "cv_r2_both": 0.122,
+  "grade_beats_naive": true
+ },
+ "2024 N=50 debut": {
+  "n": 113,
+  "grade_r": 0.429,
+  "naive_r": 0.233,
+  "cv_r2_naive": -0.001,
+  "cv_r2_grade": 0.169,
+  "cv_r2_both": 0.151,
+  "grade_beats_naive": true
+ },
+ "2024 N=50 demoted": {
+  "n": 76,
+  "grade_r": 0.184,
+  "naive_r": 0.104,
+  "cv_r2_naive": -0.039,
+  "cv_r2_grade": -0.057,
+  "cv_r2_both": -0.073,
+  "grade_beats_naive": true
+ },
+ "2024 N=100 all": {
+  "n": 542,
+  "grade_r": 0.276,
+  "naive_r": 0.33,
+  "cv_r2_naive": 0.106,
+  "cv_r2_grade": 0.068,
+  "cv_r2_both": 0.158,
+  "grade_beats_naive": false
+ },
+ "2024 N=100 debut": {
+  "n": 102,
+  "grade_r": 0.509,
+  "naive_r": 0.24,
+  "cv_r2_naive": 0.007,
+  "cv_r2_grade": 0.219,
+  "cv_r2_both": 0.198,
+  "grade_beats_naive": true
+ },
+ "2024 N=100 demoted": {
+  "n": 60,
+  "grade_r": 0.115,
+  "naive_r": 0.064,
+  "cv_r2_naive": -0.073,
+  "cv_r2_grade": -0.063,
+  "cv_r2_both": -0.115,
+  "grade_beats_naive": true
+ },
+ "2024 N=200 all": {
+  "n": 494,
+  "grade_r": 0.282,
+  "naive_r": 0.397,
+  "cv_r2_naive": 0.15,
+  "cv_r2_grade": 0.074,
+  "cv_r2_both": 0.189,
+  "grade_beats_naive": false
+ },
+ "2024 N=200 debut": {
+  "n": 89,
+  "grade_r": 0.485,
+  "naive_r": 0.125,
+  "cv_r2_naive": -0.036,
+  "cv_r2_grade": 0.148,
+  "cv_r2_both": 0.132,
+  "grade_beats_naive": true
+ },
+ "2024 N=200 demoted": {
+  "n": 53,
+  "grade_r": 0.2,
+  "naive_r": 0.088,
+  "cv_r2_naive": -0.105,
+  "cv_r2_grade": -0.185,
+  "cv_r2_both": -0.195,
+  "grade_beats_naive": true
+ },
+ "2024 N=400 all": {
+  "n": 419,
+  "grade_r": 0.301,
+  "naive_r": 0.497,
+  "cv_r2_naive": 0.243,
+  "cv_r2_grade": 0.079,
+  "cv_r2_both": 0.263,
+  "grade_beats_naive": false
+ },
+ "2024 N=400 debut": {
+  "n": 69,
+  "grade_r": 0.473,
+  "naive_r": 0.256,
+  "cv_r2_naive": -0.0,
+  "cv_r2_grade": 0.11,
+  "cv_r2_both": 0.118,
+  "grade_beats_naive": true
+ },
+ "2024 N=400 demoted": {
+  "n": 54,
+  "grade_r": 0.178,
+  "naive_r": 0.068,
+  "cv_r2_naive": -0.087,
+  "cv_r2_grade": -0.042,
+  "cv_r2_both": -0.072,
+  "grade_beats_naive": true
+ },
+ "2025 N=25 all": {
+  "n": 598,
+  "grade_r": 0.23,
+  "naive_r": 0.182,
+  "cv_r2_naive": 0.021,
+  "cv_r2_grade": 0.044,
+  "cv_r2_both": 0.062,
+  "grade_beats_naive": true
+ },
+ "2025 N=25 debut": {
+  "n": 130,
+  "grade_r": 0.259,
+  "naive_r": 0.232,
+  "cv_r2_naive": 0.024,
+  "cv_r2_grade": -0.005,
+  "cv_r2_both": 0.014,
+  "grade_beats_naive": true
+ },
+ "2025 N=25 demoted": {
+  "n": 77,
+  "grade_r": 0.336,
+  "naive_r": 0.183,
+  "cv_r2_naive": -0.083,
+  "cv_r2_grade": 0.021,
+  "cv_r2_both": 0.012,
+  "grade_beats_naive": true
+ },
+ "2025 N=50 all": {
+  "n": 582,
+  "grade_r": 0.259,
+  "naive_r": 0.287,
+  "cv_r2_naive": 0.077,
+  "cv_r2_grade": 0.063,
+  "cv_r2_both": 0.12,
+  "grade_beats_naive": false
+ },
+ "2025 N=50 debut": {
+  "n": 125,
+  "grade_r": 0.311,
+  "naive_r": 0.299,
+  "cv_r2_naive": 0.044,
+  "cv_r2_grade": 0.069,
+  "cv_r2_both": 0.102,
+  "grade_beats_naive": true
+ },
+ "2025 N=50 demoted": {
+  "n": 74,
+  "grade_r": 0.294,
+  "naive_r": 0.286,
+  "cv_r2_naive": 0.037,
+  "cv_r2_grade": 0.029,
+  "cv_r2_both": 0.065,
+  "grade_beats_naive": true
+ },
+ "2025 N=100 all": {
+  "n": 554,
+  "grade_r": 0.245,
+  "naive_r": 0.362,
+  "cv_r2_naive": 0.125,
+  "cv_r2_grade": 0.05,
+  "cv_r2_both": 0.15,
+  "grade_beats_naive": false
+ },
+ "2025 N=100 debut": {
+  "n": 115,
+  "grade_r": 0.298,
+  "naive_r": 0.416,
+  "cv_r2_naive": 0.162,
+  "cv_r2_grade": 0.081,
+  "cv_r2_both": 0.196,
+  "grade_beats_naive": false
+ },
+ "2025 N=100 demoted": {
+  "n": 65,
+  "grade_r": 0.286,
+  "naive_r": 0.222,
+  "cv_r2_naive": -0.038,
+  "cv_r2_grade": -0.007,
+  "cv_r2_both": -0.002,
+  "grade_beats_naive": true
+ },
+ "2025 N=200 all": {
+  "n": 512,
+  "grade_r": 0.259,
+  "naive_r": 0.455,
+  "cv_r2_naive": 0.203,
+  "cv_r2_grade": 0.06,
+  "cv_r2_both": 0.22,
+  "grade_beats_naive": false
+ },
+ "2025 N=200 debut": {
+  "n": 100,
+  "grade_r": 0.329,
+  "naive_r": 0.465,
+  "cv_r2_naive": 0.155,
+  "cv_r2_grade": 0.048,
+  "cv_r2_both": 0.154,
+  "grade_beats_naive": false
+ },
+ "2025 N=200 demoted": {
+  "n": 64,
+  "grade_r": 0.228,
+  "naive_r": 0.168,
+  "cv_r2_naive": -0.008,
+  "cv_r2_grade": 0.03,
+  "cv_r2_both": 0.037,
+  "grade_beats_naive": true
+ },
+ "2025 N=400 all": {
+  "n": 415,
+  "grade_r": 0.238,
+  "naive_r": 0.507,
+  "cv_r2_naive": 0.251,
+  "cv_r2_grade": 0.043,
+  "cv_r2_both": 0.256,
+  "grade_beats_naive": false
+ },
+ "2025 N=400 debut": {
+  "n": 69,
+  "grade_r": 0.229,
+  "naive_r": 0.388,
+  "cv_r2_naive": 0.062,
+  "cv_r2_grade": 0.015,
+  "cv_r2_both": 0.077,
+  "grade_beats_naive": false
+ },
+ "2025 N=400 demoted": {
+  "n": 58,
+  "grade_r": 0.12,
+  "naive_r": 0.189,
+  "cv_r2_naive": -0.03,
+  "cv_r2_grade": -0.055,
+  "cv_r2_both": -0.054,
+  "grade_beats_naive": false
+ },
+ "2026 N=25 all": {
+  "n": 612,
+  "grade_r": 0.266,
+  "naive_r": 0.184,
+  "cv_r2_naive": 0.027,
+  "cv_r2_grade": 0.062,
+  "cv_r2_both": 0.086,
+  "grade_beats_naive": true
+ },
+ "2026 N=25 debut": {
+  "n": 122,
+  "grade_r": 0.219,
+  "naive_r": 0.164,
+  "cv_r2_naive": -0.01,
+  "cv_r2_grade": 0.008,
+  "cv_r2_both": 0.014,
+  "grade_beats_naive": true
+ },
+ "2026 N=25 demoted": {
+  "n": 101,
+  "grade_r": 0.028,
+  "naive_r": 0.055,
+  "cv_r2_naive": -0.084,
+  "cv_r2_grade": -0.09,
+  "cv_r2_both": -0.11,
+  "grade_beats_naive": false
+ },
+ "2026 N=50 all": {
+  "n": 594,
+  "grade_r": 0.284,
+  "naive_r": 0.242,
+  "cv_r2_naive": 0.053,
+  "cv_r2_grade": 0.071,
+  "cv_r2_both": 0.109,
+  "grade_beats_naive": true
+ },
+ "2026 N=50 debut": {
+  "n": 114,
+  "grade_r": 0.27,
+  "naive_r": 0.12,
+  "cv_r2_naive": -0.017,
+  "cv_r2_grade": 0.044,
+  "cv_r2_both": 0.043,
+  "grade_beats_naive": true
+ },
+ "2026 N=50 demoted": {
+  "n": 94,
+  "grade_r": 0.025,
+  "naive_r": 0.108,
+  "cv_r2_naive": -0.028,
+  "cv_r2_grade": -0.037,
+  "cv_r2_both": -0.038,
+  "grade_beats_naive": false
+ },
+ "2026 N=100 all": {
+  "n": 564,
+  "grade_r": 0.279,
+  "naive_r": 0.334,
+  "cv_r2_naive": 0.109,
+  "cv_r2_grade": 0.065,
+  "cv_r2_both": 0.153,
+  "grade_beats_naive": false
+ },
+ "2026 N=100 debut": {
+  "n": 102,
+  "grade_r": 0.339,
+  "naive_r": 0.249,
+  "cv_r2_naive": 0.043,
+  "cv_r2_grade": 0.088,
+  "cv_r2_both": 0.111,
+  "grade_beats_naive": true
+ },
+ "2026 N=100 demoted": {
+  "n": 80,
+  "grade_r": 0.012,
+  "naive_r": 0.227,
+  "cv_r2_naive": -0.019,
+  "cv_r2_grade": -0.037,
+  "cv_r2_both": -0.046,
+  "grade_beats_naive": false
+ },
+ "2026 N=200 all": {
+  "n": 502,
+  "grade_r": 0.315,
+  "naive_r": 0.357,
+  "cv_r2_naive": 0.123,
+  "cv_r2_grade": 0.09,
+  "cv_r2_both": 0.179,
+  "grade_beats_naive": false
+ },
+ "2026 N=200 debut": {
+  "n": 83,
+  "grade_r": 0.337,
+  "naive_r": 0.288,
+  "cv_r2_naive": 0.019,
+  "cv_r2_grade": 0.021,
+  "cv_r2_both": 0.044,
+  "grade_beats_naive": true
+ },
+ "2026 N=200 demoted": {
+  "n": 67,
+  "grade_r": 0.118,
+  "naive_r": 0.278,
+  "cv_r2_naive": 0.009,
+  "cv_r2_grade": -0.065,
+  "cv_r2_both": -0.021,
+  "grade_beats_naive": false
+ },
+ "2026 N=400 all": {
+  "n": 409,
+  "grade_r": 0.321,
+  "naive_r": 0.423,
+  "cv_r2_naive": 0.17,
+  "cv_r2_grade": 0.09,
+  "cv_r2_both": 0.213,
+  "grade_beats_naive": false
+ },
+ "2026 N=400 debut": {
+  "n": 60,
+  "grade_r": 0.296,
+  "naive_r": 0.272,
+  "cv_r2_naive": -0.006,
+  "cv_r2_grade": 0.04,
+  "cv_r2_both": 0.017,
+  "grade_beats_naive": true
+ },
+ "2026 N=400 demoted": {
+  "n": 63,
+  "grade_r": 0.154,
+  "naive_r": 0.253,
+  "cv_r2_naive": -0.014,
+  "cv_r2_grade": -0.038,
+  "cv_r2_both": -0.067,
+  "grade_beats_naive": false
+ }
+}

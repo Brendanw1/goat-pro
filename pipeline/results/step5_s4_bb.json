@@ -1,0 +1,476 @@
+{
+ "reliability": {
+  "CB": {
+   "25": {
+    "grade": [
+     0.978,
+     1727
+    ],
+    "whiff_swing": [
+     0.417,
+     1032
+    ]
+   },
+   "50": {
+    "grade": [
+     0.989,
+     1242
+    ],
+    "whiff_swing": [
+     0.567,
+     549
+    ]
+   },
+   "100": {
+    "grade": [
+     0.994,
+     708
+    ],
+    "whiff_swing": [
+     0.708,
+     158
+    ]
+   },
+   "200": {
+    "grade": [
+     0.997,
+     204
+    ],
+    "whiff_swing": [
+     null,
+     22
+    ]
+   },
+   "400": {
+    "grade": [
+     null,
+     25
+    ],
+    "whiff_swing": [
+     null,
+     0
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": 100
+   }
+  },
+  "CH": {
+   "25": {
+    "grade": [
+     0.965,
+     2156
+    ],
+    "whiff_swing": [
+     0.416,
+     1476
+    ]
+   },
+   "50": {
+    "grade": [
+     0.983,
+     1503
+    ],
+    "whiff_swing": [
+     0.542,
+     834
+    ]
+   },
+   "100": {
+    "grade": [
+     0.992,
+     852
+    ],
+    "whiff_swing": [
+     0.695,
+     296
+    ]
+   },
+   "200": {
+    "grade": [
+     0.995,
+     265
+    ],
+    "whiff_swing": [
+     0.727,
+     45
+    ]
+   },
+   "400": {
+    "grade": [
+     null,
+     25
+    ],
+    "whiff_swing": [
+     null,
+     1
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": 200
+   }
+  },
+  "CT": {
+   "25": {
+    "grade": [
+     0.923,
+     1324
+    ],
+    "whiff_swing": [
+     0.357,
+     1011
+    ]
+   },
+   "50": {
+    "grade": [
+     0.963,
+     1039
+    ],
+    "whiff_swing": [
+     0.499,
+     608
+    ]
+   },
+   "100": {
+    "grade": [
+     0.984,
+     621
+    ],
+    "whiff_swing": [
+     0.654,
+     247
+    ]
+   },
+   "200": {
+    "grade": [
+     0.988,
+     246
+    ],
+    "whiff_swing": [
+     0.546,
+     34
+    ]
+   },
+   "400": {
+    "grade": [
+     null,
+     23
+    ],
+    "whiff_swing": [
+     null,
+     2
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": null
+   }
+  },
+  "FF": {
+   "25": {
+    "grade": [
+     0.851,
+     3982
+    ],
+    "whiff_swing": [
+     0.307,
+     3209
+    ]
+   },
+   "50": {
+    "grade": [
+     0.912,
+     3309
+    ],
+    "whiff_swing": [
+     0.457,
+     2280
+    ]
+   },
+   "100": {
+    "grade": [
+     0.95,
+     2383
+    ],
+    "whiff_swing": [
+     0.601,
+     1255
+    ]
+   },
+   "200": {
+    "grade": [
+     0.971,
+     1308
+    ],
+    "whiff_swing": [
+     0.741,
+     404
+    ]
+   },
+   "400": {
+    "grade": [
+     0.984,
+     412
+    ],
+    "whiff_swing": [
+     null,
+     19
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": 200
+   }
+  },
+  "FS": {
+   "25": {
+    "grade": [
+     0.953,
+     437
+    ],
+    "whiff_swing": [
+     0.42,
+     316
+    ]
+   },
+   "50": {
+    "grade": [
+     0.978,
+     322
+    ],
+    "whiff_swing": [
+     0.585,
+     203
+    ]
+   },
+   "100": {
+    "grade": [
+     0.988,
+     201
+    ],
+    "whiff_swing": [
+     0.762,
+     84
+    ]
+   },
+   "200": {
+    "grade": [
+     0.993,
+     80
+    ],
+    "whiff_swing": [
+     null,
+     19
+    ]
+   },
+   "400": {
+    "grade": [
+     null,
+     13
+    ],
+    "whiff_swing": [
+     null,
+     0
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": 100
+   }
+  },
+  "SI": {
+   "25": {
+    "grade": [
+     0.925,
+     2428
+    ],
+    "whiff_swing": [
+     0.202,
+     1783
+    ]
+   },
+   "50": {
+    "grade": [
+     0.959,
+     1875
+    ],
+    "whiff_swing": [
+     0.38,
+     1126
+    ]
+   },
+   "100": {
+    "grade": [
+     0.983,
+     1221
+    ],
+    "whiff_swing": [
+     0.584,
+     494
+    ]
+   },
+   "200": {
+    "grade": [
+     0.994,
+     561
+    ],
+    "whiff_swing": [
+     0.694,
+     80
+    ]
+   },
+   "400": {
+    "grade": [
+     0.996,
+     111
+    ],
+    "whiff_swing": [
+     null,
+     1
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": null
+   }
+  },
+  "SL": {
+   "25": {
+    "grade": [
+     0.973,
+     2737
+    ],
+    "whiff_swing": [
+     0.397,
+     2014
+    ]
+   },
+   "50": {
+    "grade": [
+     0.986,
+     2098
+    ],
+    "whiff_swing": [
+     0.591,
+     1211
+    ]
+   },
+   "100": {
+    "grade": [
+     0.993,
+     1258
+    ],
+    "whiff_swing": [
+     0.705,
+     483
+    ]
+   },
+   "200": {
+    "grade": [
+     0.997,
+     488
+    ],
+    "whiff_swing": [
+     0.697,
+     67
+    ]
+   },
+   "400": {
+    "grade": [
+     0.999,
+     68
+    ],
+    "whiff_swing": [
+     null,
+     0
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": 100
+   }
+  },
+  "SW": {
+   "25": {
+    "grade": [
+     0.958,
+     1091
+    ],
+    "whiff_swing": [
+     0.377,
+     765
+    ]
+   },
+   "50": {
+    "grade": [
+     0.976,
+     811
+    ],
+    "whiff_swing": [
+     0.512,
+     437
+    ]
+   },
+   "100": {
+    "grade": [
+     0.988,
+     484
+    ],
+    "whiff_swing": [
+     0.659,
+     136
+    ]
+   },
+   "200": {
+    "grade": [
+     0.994,
+     170
+    ],
+    "whiff_swing": [
+     null,
+     10
+    ]
+   },
+   "400": {
+    "grade": [
+     null,
+     12
+    ],
+    "whiff_swing": [
+     null,
+     0
+    ]
+   },
+   "stable_at": {
+    "grade": 25,
+    "whiff_swing": null
+   }
+  }
+ },
+ "t2": {
+  "cut": 0.75,
+  "pooled_r": 0.358,
+  "group_centred_r": 0.342,
+  "group_switch_rate": 0.176,
+  "groups": {
+   "SL-gyro": {
+    "pitcher_seasons": 1476,
+    "pairs": 412,
+    "mean_pred": 0.338,
+    "mean_wps": 0.356,
+    "r_next_wps": 0.267,
+    "yoy": 0.849
+   },
+   "SL-other": {
+    "pitcher_seasons": 2602,
+    "pairs": 617,
+    "mean_pred": 0.318,
+    "mean_wps": 0.325,
+    "r_next_wps": 0.391,
+    "yoy": 0.877
+   }
+  }
+ }
+}

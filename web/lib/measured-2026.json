@@ -1,0 +1,197 @@
+{
+ "DECISION_DHALF": {
+  "DRV": 145,
+  "IZA": 159,
+  "OZA": 79
+ },
+ "DECISION_PT_DHALF_DEFAULT_IZA": 40,
+ "DECISION_PT_DHALF_DEFAULT_OZA": 53,
+ "DECISION_PT_DHALF_IZA": {
+  "FF": 56,
+  "SI": 56,
+  "SL": 36,
+  "CT": 40,
+  "CB": 34,
+  "CH": 61
+ },
+ "DECISION_PT_DHALF_OZA": {
+  "FF": 55,
+  "SI": 62,
+  "SL": 47,
+  "CT": 57,
+  "CB": 46,
+  "CH": 53
+ },
+ "DISCIPLINE_HALF_HITTER": {
+  "oContactPct": 28,
+  "firstPitchSwingPct": 35,
+  "contactPct": 40,
+  "whiffPct": 40,
+  "zContactPct": 47,
+  "zWhiffPct": 47,
+  "twoStrikeChasePct": 55,
+  "zSwingPct": 60,
+  "chasePct": 68,
+  "swStrPct": 73,
+  "swingPct": 99,
+  "zonePctSeen": 598
+ },
+ "DISCIPLINE_HALF_PITCHER": {
+  "oWhiffPct": 38,
+  "oContactPct": 38,
+  "whiffPct": 64,
+  "zWhiffPct": 93,
+  "zContactPct": 93,
+  "putawayPct": 127,
+  "chasePct": 137,
+  "swStrPct": 139,
+  "firstPitchStrikePct": 149,
+  "swingPct": 162,
+  "zSwingPct": 166,
+  "zonePct": 171,
+  "cswPct": 249,
+  "calledStrikePct": 657
+ },
+ "FRAMING_SPLIT_HALF_DHALF": 250,
+ "FRAMING_STABILIZATION": 60,
+ "HITTER_REGIONS_LEAGUE": {
+  "swing": {
+   "L": [
+    0.459972,
+    0.441421,
+    0.41195,
+    0.52053
+   ],
+   "R": [
+    0.434551,
+    0.494174,
+    0.462612,
+    0.495033
+   ]
+  },
+  "whiff": {
+   "L": [
+    0.255466,
+    0.253383,
+    0.213322,
+    0.148474
+   ],
+   "R": [
+    0.305702,
+    0.211379,
+    0.211834,
+    0.158508
+   ]
+  },
+  "take": {
+   "L": [
+    0.320256,
+    0.235097,
+    0.29497,
+    0.149676
+   ],
+   "R": [
+    0.369115,
+    0.184965,
+    0.250955,
+    0.194965
+   ]
+  }
+ },
+ "HITTER_REGIONS_SHRINK_K": {
+  "swing": {
+   "L": [
+    53.65,
+    37.25,
+    53.93,
+    39.16
+   ],
+   "R": [
+    56.42,
+    40.16,
+    52.96,
+    37.44
+   ]
+  },
+  "whiff": {
+   "L": [
+    30.47,
+    27.33,
+    27.92,
+    28.79
+   ],
+   "R": [
+    28.23,
+    34.52,
+    29.63,
+    33.5
+   ]
+  },
+  "take": {
+   "L": [
+    173.94,
+    171.26,
+    219.5,
+    226.37
+   ],
+   "R": [
+    145.41,
+    118.95,
+    184.51,
+    165.07
+   ]
+  }
+ },
+ "OUTING_SHRINK_K": 6,
+ "PITCH_SHRINK_K": {
+  "RUN_VALUE": 206,
+  "SWING": 30,
+  "WHIFF": 22,
+  "HIT": 174,
+  "XWOBA": 38
+ },
+ "STABILIZE_AT": {
+  "Swing%": 103,
+  "Z-Swing%": 61,
+  "Chase%": 71,
+  "Whiff%": 44,
+  "SwStr%": 80,
+  "CSW%": 269,
+  "RV/100": 732,
+  "GB%": 62,
+  "LD%": null,
+  "FB%": 157,
+  "PU%": 157,
+  "Air%": 122,
+  "Pull%": 62,
+  "Str8%": 62,
+  "Oppo%": 62,
+  "avg EV": 19,
+  "avg LA": 44,
+  "xwOBAcon": 42,
+  "wOBA": 199,
+  "xwOBA": 100
+ },
+ "THROWING_DHALF": 12,
+ "XRV_CELL_PRIOR_BY_FAMILY": {
+  "FF": 62.5,
+  "SI": 83.7,
+  "SL": 67.3,
+  "SW": 155.4,
+  "CT": 119.6,
+  "CB": 130.3,
+  "CH": 78.0,
+  "FS": 95.0
+ },
+ "XRV_FLOOR_BY_FAMILY": {
+  "FF": 15,
+  "SI": 15,
+  "SL": 15,
+  "SW": 15,
+  "CT": 15,
+  "CB": 15,
+  "CH": 15,
+  "FS": 15
+ },
+ "XWOBA_SURFACE_MEAN": 0.3748
+}

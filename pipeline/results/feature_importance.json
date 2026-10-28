@@ -1,0 +1,154 @@
+{
+ "inventory": {
+  "features": [
+   "velo",
+   "ivb",
+   "hb",
+   "spin",
+   "ext",
+   "rel_h",
+   "rel_s",
+   "velo_diff",
+   "ivb_diff",
+   "hb_diff",
+   "hvaa",
+   "spin_eff",
+   "velo_x_ivb"
+  ],
+  "monotone": {
+   "FB": {
+    "velo": 1,
+    "ext": 1,
+    "spin_eff": 1,
+    "velo_x_ivb": 1
+   },
+   "BB": {
+    "velo": 1,
+    "ext": 1,
+    "spin_eff": -1
+   },
+   "CH": {
+    "velo": 1,
+    "ext": 1
+   }
+  },
+  "cells": "one LightGBM per pitch class (FB, BB, CH) x batter side (RHH, LHH)",
+  "target": "csw_norm = CSW / E[CSW | count], E fitted on 2023-24",
+  "lgbm_params": {
+   "n_estimators": 800,
+   "learning_rate": 0.03,
+   "num_leaves": 63,
+   "min_child_samples": 100,
+   "subsample": 0.8,
+   "subsample_freq": 1,
+   "colsample_bytree": 0.8,
+   "verbose": -1
+  }
+ },
+ "importance": {
+  "velo": {
+   "gain": 0.0304,
+   "shap": 0.0545,
+   "perm_seen": 0.0774,
+   "perm_unseen": 0.0111,
+   "memo_index": 0.0663,
+   "pitcher_share": 0.88
+  },
+  "ivb": {
+   "gain": 0.084,
+   "shap": 0.0633,
+   "perm_seen": 0.1542,
+   "perm_unseen": 0.0293,
+   "memo_index": 0.1249,
+   "pitcher_share": 0.789
+  },
+  "hb": {
+   "gain": 0.0958,
+   "shap": 0.0423,
+   "perm_seen": 0.1167,
+   "perm_unseen": 0.01,
+   "memo_index": 0.1067,
+   "pitcher_share": 0.851
+  },
+  "spin": {
+   "gain": 0.1015,
+   "shap": 0.0266,
+   "perm_seen": 0.0923,
+   "perm_unseen": 0.0016,
+   "memo_index": 0.0907,
+   "pitcher_share": 0.874
+  },
+  "ext": {
+   "gain": 0.0198,
+   "shap": 0.0273,
+   "perm_seen": 0.0122,
+   "perm_unseen": 0.0021,
+   "memo_index": 0.0101,
+   "pitcher_share": 0.837
+  },
+  "rel_h": {
+   "gain": 0.1028,
+   "shap": 0.0496,
+   "perm_seen": 0.1634,
+   "perm_unseen": 0.03,
+   "memo_index": 0.1334,
+   "pitcher_share": 0.94
+  },
+  "rel_s": {
+   "gain": 0.0977,
+   "shap": 0.0291,
+   "perm_seen": 0.0995,
+   "perm_unseen": 0.0039,
+   "memo_index": 0.0956,
+   "pitcher_share": 0.986
+  },
+  "velo_diff": {
+   "gain": 0.0955,
+   "shap": 0.0399,
+   "perm_seen": 0.1131,
+   "perm_unseen": 0.0108,
+   "memo_index": 0.1023,
+   "pitcher_share": 0.857
+  },
+  "ivb_diff": {
+   "gain": 0.0951,
+   "shap": 0.0337,
+   "perm_seen": 0.0979,
+   "perm_unseen": 0.011,
+   "memo_index": 0.0869,
+   "pitcher_share": 0.787
+  },
+  "hb_diff": {
+   "gain": 0.0955,
+   "shap": 0.03,
+   "perm_seen": 0.0903,
+   "perm_unseen": 0.0052,
+   "memo_index": 0.0851,
+   "pitcher_share": 0.857
+  },
+  "hvaa": {
+   "gain": 0.108,
+   "shap": 0.0699,
+   "perm_seen": 0.2211,
+   "perm_unseen": 0.0529,
+   "memo_index": 0.1682,
+   "pitcher_share": 0.621
+  },
+  "spin_eff": {
+   "gain": 0.0336,
+   "shap": 0.0327,
+   "perm_seen": 0.0474,
+   "perm_unseen": 0.0048,
+   "memo_index": 0.0426,
+   "pitcher_share": 0.701
+  },
+  "velo_x_ivb": {
+   "gain": 0.0403,
+   "shap": 0.0251,
+   "perm_seen": 0.0534,
+   "perm_unseen": 0.0057,
+   "memo_index": 0.0477,
+   "pitcher_share": 0.801
+  }
+ }
+}

@@ -1,0 +1,18 @@
+{
+ "seen_pitchers_train_seasons": {
+  "2023": 0.3766,
+  "2024": 0.38
+ },
+ "unseen_pitchers_train_seasons": {
+  "2023": 0.055,
+  "2024": 0.06
+ },
+ "test_seasons_all": {
+  "2025": 0.057,
+  "2026": 0.0565
+ },
+ "test_seasons_unseen_half": {
+  "2025": 0.0525,
+  "2026": 0.0531
+ }
+}

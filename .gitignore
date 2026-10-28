@@ -1,0 +1,11 @@
+.env
+node_modules/
+.next/
+__pycache__/
+.DS_Store
+pipeline/cache/
+pipeline/models/*_fold*.txt
+data/export/web/
+data/milb/
+cache/
+*.tsbuildinfo

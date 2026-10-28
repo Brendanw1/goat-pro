@@ -1,0 +1,60 @@
+{
+ "standard_v2": null,
+ "crossfit_v2": {
+  "per_pitch_fit_r": 0.009809334000371591,
+  "location_leak": 0.16055548335870207,
+  "yoy": {
+   "2023->2024": 0.8177880866010659,
+   "2024->2025": 0.8605027028556274,
+   "2025->2026": 0.7945478968243707
+  },
+  "predictiveness_vs_naive": {
+   "2023->2024": {
+    "grade": 0.13425188534368218,
+    "naive": 0.24043016916261953
+   },
+   "2024->2025": {
+    "grade": 0.14835565626442893,
+    "naive": 0.2410180968994231
+   },
+   "2025->2026": {
+    "grade": 0.23776675920342047,
+    "naive": 0.36526881612829565
+   }
+  },
+  "location_leak_x": 0.12511568897736827,
+  "fit_by_season": {
+   "2023": 0.011856378790982636,
+   "2024": 0.00937902994492689,
+   "2025": 0.005170537364132336,
+   "2026": 0.013152658208148944
+  }
+ },
+ "k": 4,
+ "features": [
+  "velo",
+  "ivb",
+  "hb",
+  "spin",
+  "ext",
+  "rel_h",
+  "rel_s",
+  "velo_diff",
+  "ivb_diff",
+  "hb_diff",
+  "hvaa",
+  "spin_eff",
+  "velo_x_ivb"
+ ],
+ "target": "wps",
+ "params": {
+  "n_estimators": 800,
+  "learning_rate": 0.03,
+  "num_leaves": 63,
+  "min_child_samples": 100,
+  "subsample": 0.8,
+  "subsample_freq": 1,
+  "colsample_bytree": 0.8,
+  "verbose": -1
+ }
+}

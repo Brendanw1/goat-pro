@@ -1,0 +1,18 @@
+{
+ "features": [
+  "velo",
+  "ivb",
+  "hb",
+  "spin",
+  "ext",
+  "rel_h",
+  "rel_s",
+  "velo_diff",
+  "ivb_diff",
+  "hb_diff",
+  "hvaa",
+  "spin_eff"
+ ],
+ "fit": 0.19371947894550187,
+ "leak": 0.2685823485846245
+}

@@ -1,0 +1,141 @@
+import Link from "next/link";
+import { DescriptiveChip, DESCRIPTIVE_LINE, MODEL_NAME } from "@/lib/grades";
+import { getMeta } from "@/lib/data";
+
+export const metadata = { title: "Glossary" };
+
+type Entry = { term: string; body: React.ReactNode };
+
+/**
+ * The MVP glossary: what the site ships and what it does not. The forked
+ * glossary's measured-claims file was college data; until MLB re-measures land
+ * (matrix X1), this page states provenance instead of quoting numbers.
+ */
+const SECTIONS: { key: string; label: string; blurb: string; entries: Entry[] }[] = [
+  {
+    key: "grades",
+    label: "Grades",
+    blurb: "100 = MLB average, higher is better; 10 points is one standard deviation.",
+    entries: [
+      { term: "Whiff+", body: <>How well a pitch&apos;s shape (velocity, movement, spin, release, and how it differs from the pitcher&apos;s fastball) misses bats: a model of whiffs per swing, on a 100 = average, 10 = one standard deviation scale. It grades bat-missing, not overall pitch quality: a ground-ball sinker can grade low on Whiff+ and still be an excellent pitch (see Pitching+). Graded by a model that never saw the pitcher. Stable after about 25 pitches of a type.</> },
+      { term: "Gyro slider", body: <>A slider whose spin is mostly &apos;bullet&apos; spin (gyro share of 75% or more): little sweep, late drop, cutter-like out of the hand. A label only; it is graded on the same slider scale.</> },
+      { term: "K+", body: <>Projected strikeout rate for next season on the 100 / 10 scale (100 = the average projection among pitchers with 100+ batters faced, so short-sample relievers average a little below 100; 10 points is about 3.9 K% points). Combines a Marcel-style three-year K% with this season&apos;s K%, swinging-strike rate and Whiff+. Beat Marcel K% on pitchers held out of every modelling decision.</> },
+      { term: "Prevention+", body: <>Projected run prevention for next season (runs saved per pitch) on the 100 / 10 scale (100 = the average projection among pitchers with 100+ batters faced). Built from K+, walk rate, ground-ball rate and Whiff+. Beat K-BB%, FIP and xFIP at forecasting next-season run value on held-out pitchers.</> },
+      { term: "Control+", body: <>Where a pitcher puts the ball, with the pitch&apos;s shape held fixed and umpire/catcher effects removed: mostly strike-throwing and avoiding non-competitive pitches. Descriptive only; it did not prove it forecasts runs beyond strikeouts and walks. Blind spot: strike-throwers with hittable stuff can grade high (it credits the strike, not how hittable it was). Reliable at about 400 pitches.</> },
+      { term: "Pitching+", body: <>All-in value of every pitch (shape, location and count together), umpire- and catcher-neutral, with contact valued by exit velocity and launch angle instead of hits. Shown on the 100 / 10 scale and as runs saved per 100 pitches versus average. Descriptive: it forecasts next-season runs about as well as SIERA, not better.</> },
+      { term: "Attack zones", body: <>Share of pitches by location relative to the batter&apos;s zone (Savant-style): Meatball = inner third, Zone = in the strike zone, Shadow = the edge band in and out of the zone, Chase = just outside, Waste = far outside (non-competitive).</> },
+      {
+        term: "Descriptive vs projection",
+        body: (
+          <>
+            {DESCRIPTIVE_LINE} The descriptive grades did not prove they forecast next season beyond strikeouts and
+            walks; K+ and Prevention+ did, on pitchers held out of every modelling decision.
+          </>
+        ),
+      },
+      {
+        term: "Confidence",
+        body: <>Pitch-count floors on the graded sample: HIGH ≥ 400 pitches, MODERATE ≥ 150, LOW ≥ 50, MINIMAL below that.</>,
+      },
+      {
+        term: "One grade, two rows",
+        body: <>Each pitch type with 50+ pitches gets its own Whiff+, scaled against that type league-wide. A type with fewer pitches falls back to its class grade (fastballs, breaking balls, changeups), and profiles say when two rows carry the same number.</>,
+      },
+    ],
+  },
+  {
+    key: "rates",
+    label: "Rates and raw stats",
+    blurb: "Computed from public Statcast day files; no model involved.",
+    entries: [
+      { term: "K% / BB% / K-BB%", body: <>Strikeouts, walks and their difference as a share of batters faced.</> },
+      { term: "CSW%", body: <>Called strikes plus whiffs, over all pitches.</> },
+      { term: "Whiff%", body: <>Swinging strikes (including foul tips and blocked swings) over swings. Foul tips count as whiffs, matching Baseball Savant.</> },
+      { term: "SwStr%", body: <>Whiffs (as in Whiff%) over all pitches.</> },
+      { term: "Zone% / Chase%", body: <>Pitches in the zone over total; out-of-zone swings over out-of-zone pitches.</> },
+      { term: "RA/9 (era)", body: <>Runs allowed per nine innings — earned and unearned, deliberately, because pitcher responsibility for sequencing is part of what &ldquo;runs&rdquo; means.</> },
+      { term: "FIP", body: <>Fielding-independent pitching: (13·HR + 3·BB − 2·K) / IP + constant. Standard FanGraphs construction.</> },
+      { term: "GB%", body: <>Ground balls over balls in play, per pitch class on profiles.</> },
+      { term: "IVB / HB", body: <>Induced vertical break and horizontal break from Hawk-Eye, inches. HB is signed in Statcast&apos;s convention; the movement plot labels the pitcher&apos;s arm side.</> },
+      { term: "RV/100", body: <>Runs saved per 100 pitches, measured. Statcast prices every pitch&apos;s run-expectancy change and attributes it to the pitcher on the mound; positive is good for the pitcher. A record of what happened, not a forecast — on a small sample it ranks substantially on the bounce of the ball, which is why it never carries a colour or a grade.</> },
+      { term: "Location value", body: <>Runs a pitcher saves (+) or costs (−) this season from where he throws each pitch, against a league-average pitcher throwing the same pitches. Each zone (heart, shadow, chase, waste) is priced at the league&apos;s measured run value for that pitch type there; sliders include sweepers and changeups include splitters. For each pitch, his share in a zone minus the league&apos;s share for the same pitch, times that price, gives the runs on the card&apos;s targets and in &ldquo;Where the runs came from&rdquo;; the best and costliest habits are the largest of those. What remains of the total is pitch mix (throwing more of the pitch types that price well). Per start is the same number per 100 pitches; about 10 runs is one win. The heart can price positive because strikes win counts even when some get hit. Prices are league averages, so a pitcher whose pitch plays up in a zone is credited only at the league rate; execution (his actual runs minus this) is not shown. Gates: 200+ located pitches, 90% in priced cells, 500+ league pitches behind a cell. Year-to-year reliability on MLB is not yet measured, so the percentile describes, it does not grade.</> },
+      { term: "Mix metrics", body: <>Pitches (types at 3%+ usage), effective mix (usage entropy: three even pitches = 3.0), separation (mean distance between type centroids in velo and movement), shape scatter (usage-weighted within-type movement spread; lower = more repeatable) and velo range. A description of the arsenal, not a grade — none of these predicted next season beyond Pitching+ and the prior season.</> },
+      { term: "VAA", body: <>Vertical approach angle at the plate, from the release kinematics. Profiles show it by zone cell (height × arm side).</> },
+      { term: "Arm° / slot bands", body: <>Release angle from the mound: 0° sidearm, 90° over the top, banded (over the top, high ¾, ¾, low ¾, sidearm, submarine).</> },
+      { term: "wOBA (hitters)", body: <>Linear weights on the standard formula, with the per-season event weights DERIVED from this site&apos;s own run-expectancy data rather than quoted — the same self-consistency rule as the FIP constant — and the scale centred so the league average reads .310. Descriptive and sortable; it is not a model.</> },
+      { term: "EV90 / MaxEV / HH% / Brl%", body: <>The 90th-percentile and hardest exit velocities of his balls in play, the share of balls in play at 95 mph+, and the share that are Statcast barrels (the published exit-velocity × launch-angle table). Quality of contact he carries, not results he happened to get.</> },
+      { term: "Hitter discipline", body: <>Swing% over pitches seen; O-Swg% (chase) and Whiff% rank inverted — lower is better for a hitter. Zone seen is descriptive.</> },
+      { term: "Age", body: <>Season age: age on June 30 of that season (the Baseball-Reference convention), shown in whole years, on boards, profiles and the minors pages. Birth dates come from the Chadwick register, with the MLB Stats API minor league lines as a fallback. Filter on it with &ldquo;+ Add filter&rdquo; on the boards, or the Age chips on the minors board.</> },
+      { term: "Spray chart / Pull–Centre–Oppo", body: <>Every ball in play drawn to scale on a generic field (90-ft bases, 330 ft at the lines, 400 to centre), from Statcast hit coordinates (about 2.5 ft per unit), tinted by exit velocity. Pull, centre and oppo split fair territory into thirds (centre = within 15° of straightaway), counted from the side he batted on each ball, so switch hitters are split correctly. The orange line is his average direction, the blue line the league average for his side that season. Balls are drawn where they were fielded or landed, so home runs sit beyond the fence. <em>Season replay</em> flies every ball from home plate in game order, coloured by exit velocity or result; the arc height is a shape from distance and launch angle (about twice the drag-free d·tan(LA)/4), not a tracked trajectory.</> },
+      { term: "Team aggregates (team pages)", body: <>Each club stat is the weighted mean of its players&apos; board rows (ERA and FIP by innings, K% / BB% / GB% by batters faced, CSW% and RV/100 by pitches, Whiff% by swings, hitting rates by PA, contact quality by balls in play), ranked against every club that season. The dot strip shows all clubs with better to the right; green = top third, red = bottom third. A player traded mid-season counts for the club on his board row.</> },
+      { term: "Splits (vs hand, vs family)", body: <>Rate set per handedness of the pitcher faced and per pitch family (fastballs, cutters, breaking, offspeed). Splits under 25 PA are not shown; under 50 PA they are leans, not rates.</> },
+    ],
+  },
+  {
+    key: "savant",
+    label: "Savant reference boards",
+    blurb: "Attributed public data, shipped as-is under the descriptive label.",
+    entries: [
+      { term: "What these are", body: <>Baseball Savant&apos;s published leaderboard tables — bat tracking, expected statistics, swing/take, outs above average, fielding run value, sprint speed, catcher framing/blocking/throwing — re-published here as reference boards with attribution. They are Savant&apos;s numbers, not ours, and they are not our models&apos; validation even where a future model will be checked against them.</> },
+      { term: "Why they are here", body: <>The MVP has no hitter leaderboard yet (it needs the hitter-side views, wave 2) and no catcher grades of our own. Until then, the Savant boards carry those surfaces, clearly labeled.</> },
+    ],
+  },
+  {
+    key: "minors",
+    label: "Minor leagues",
+    blurb: "Box-score lines for every level; full Statcast for AAA.",
+    entries: [
+      { term: "Minor league lines", body: <>Regular-season lines for Rookie, Single-A, High-A, Double-A and Triple-A from the public MLB Stats API, 2021 on. A player who played for two teams at one level shows one combined line. Age is his age on June 30 of that season. There is no pitch tracking below Triple-A, so these pages carry no Whiff%, velocity or model grades.</> },
+      { term: "Minor league FIP and ERA", body: <>ERA is earned runs per nine. FIP uses the standard formula with a constant set for each level and season, so a level&apos;s average FIP equals its average ERA; FIP is comparable within a level, not across levels.</> },
+      { term: "AAA Statcast profiles", body: <>Triple-A has Hawk-Eye tracking in every park from 2023. These profiles are built the same way as the MLB pages from Triple-A pitches, and every percentile ranks a player against Triple-A players that season, not against MLB.</> },
+      { term: "Career by level", body: <>Every season and level a player has a line at, MLB included (MLB rows from 2023). MLB rows open his MLB profile; Triple-A rows from 2023 open his Triple-A Statcast profile.</> },
+    ],
+  },
+  {
+    key: "data",
+    label: "Data and provenance",
+    blurb: "Where every number comes from.",
+    entries: [
+      { term: "Sources", body: <>Baseball Savant Statcast (Hawk-Eye; 12-camera era 2023+), MLB Stats API rosters, the Chadwick register for identity (MLBAM ids), FanGraphs Guts for wOBA constants. College and TrackMan data never enter this site.</> },
+      { term: "Era handling", body: <>The 2026 ABS/plate-tracking convention change is affine re-referenced onto 2023–25 before any model sees a plate column (RESULTS-MLB §10).</> },
+      { term: "Serving", body: <>The site reads baked JSON from Cloudflare R2 only. It never queries a database or a data mart at runtime.</> },
+      { term: "Model card", body: <>{MODEL_NAME} — the fingerprint of the exact frozen models behind every grade; also in <code className="font-data">meta.json</code> in the bucket.</> },
+    ],
+  },
+];
+
+export default async function GlossaryPage() {
+  const meta = await getMeta().catch(() => null);
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <h1 className="text-lg font-bold text-text-primary">Glossary</h1>
+        <p className="mt-1 text-xs text-text-dim">What every number on this site is, and what it is not.</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <DescriptiveChip />
+        {meta?.exportedAt && <span className="text-[11px] text-text-dim">Export {String(meta.exportedAt).slice(0, 10)}</span>}
+      </div>
+      {SECTIONS.map((s) => (
+        <section key={s.key} className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-text-primary">{s.label}</h2>
+            <p className="text-[11px] text-text-dim">{s.blurb}</p>
+          </div>
+          <dl className="glass-panel divide-y divide-white/[0.04]">
+            {s.entries.map((e) => (
+              <div key={e.term} className="px-4 py-3">
+                <dt className="text-xs font-semibold text-text-primary">{e.term}</dt>
+                <dd className="mt-1 text-xs leading-relaxed text-text-secondary">{e.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+      <p className="text-[11px] text-text-dim">
+        Metrics stripped from the college fork (Loc+, xRV, decision and catcher grades, tunnels, projections) are not
+        defined here because they do not ship yet — see <Link href="/pitchers" className="underline hover:text-text-secondary">the leaderboard</Link> for what does.
+      </p>
+    </div>
+  );
+}

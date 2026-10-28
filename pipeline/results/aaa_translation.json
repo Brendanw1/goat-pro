@@ -1,0 +1,34 @@
+{
+ "all mlb_csw_next": {
+  "n": 602,
+  "r_aaa_stuff": 0.15,
+  "r_aaa_result": 0.243,
+  "cv_r2_result": 0.0471,
+  "cv_r2_stuff": 0.0117,
+  "cv_r2_both": 0.0557
+ },
+ "all mlb_k_next": {
+  "n": 602,
+  "r_aaa_stuff": 0.256,
+  "r_aaa_result": 0.224,
+  "cv_r2_result": 0.0343,
+  "cv_r2_stuff": 0.0515,
+  "cv_r2_both": 0.0727
+ },
+ "prospects mlb_csw_next": {
+  "n": 169,
+  "r_aaa_stuff": 0.23,
+  "r_aaa_result": 0.244,
+  "cv_r2_result": 0.041,
+  "cv_r2_stuff": 0.0447,
+  "cv_r2_both": 0.0705
+ },
+ "prospects mlb_k_next": {
+  "n": 169,
+  "r_aaa_stuff": 0.26,
+  "r_aaa_result": 0.179,
+  "cv_r2_result": 0.0103,
+  "cv_r2_stuff": 0.0247,
+  "cv_r2_both": 0.0352
+ }
+}

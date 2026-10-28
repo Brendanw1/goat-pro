@@ -1,0 +1,799 @@
+@import "tailwindcss";
+
+/* ─── Design System Tokens ─────────────────────────────────────────────────── */
+
+@theme {
+  /* Brand palette — OKLCH for perceptual uniformity */
+  --color-usf-green: oklch(0.35 0.08 165);
+  --color-usf-gold: oklch(0.82 0.16 80);
+
+  /* Pitch Type Colors — balanced perceived brightness */
+  --color-pitch-fastball: oklch(0.60 0.20 25);
+  --color-pitch-sinker: oklch(0.65 0.17 45);
+  --color-pitch-changeup: oklch(0.62 0.15 145);
+  --color-pitch-curveball: oklch(0.75 0.12 185);
+  --color-pitch-slider: oklch(0.80 0.16 90);
+  --color-pitch-sweeper: oklch(0.65 0.17 290);
+
+  /* Surface Levels */
+  --color-surface-0: oklch(0.08 0.01 165);
+  --color-surface-1: rgba(10, 14, 13, 0.65);
+  --color-surface-2: rgba(15, 20, 18, 0.55);
+  --color-surface-3: rgba(20, 25, 23, 0.45);
+
+  /* Text Hierarchy — WCAG AA contrast on dark surfaces */
+  --color-text-primary: oklch(0.95 0.005 240);
+  --color-text-secondary: oklch(0.72 0.01 250);
+  --color-text-dim: oklch(0.63 0.01 250);
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+  --color-border-emphasis: rgba(255, 255, 255, 0.15);
+
+  /* Fonts — self-hosted by next/font, which sets the two variables on <html>
+     along with a size-matched fallback. The literal family names stay in the
+     stack so the tokens still resolve if the variables are ever absent. */
+  --font-sans: var(--font-lato), "Lato", system-ui, sans-serif;
+  --font-mono: var(--font-be-vietnam-pro), "Be Vietnam Pro", "JetBrains Mono", monospace;
+
+  /* DISPLAY — the overlay heading, and nothing else.
+
+     Wremena: a serif against a grid of sans data, which is the contrast that
+     makes the heading read as a name rather than as another label. Free for
+     commercial use, and verified watermark-free before wiring — app/fonts/README.md
+     records the check and the candidate that failed it.
+
+     Georgia sits ahead of the generic serif: if the face has not landed yet the
+     fallback should still be A serif, or the heading changes character on swap. */
+  --font-display: var(--font-wremena), Georgia, "Times New Roman", serif;
+
+  /* Spacing (compact analytical density) */
+  --spacing-row: 36px;
+  --spacing-row-compact: 32px;
+
+  /* ─── Type scale ───────────────────────────────────────────────────────
+     Seven steps, and every size in the app resolves to one of them:
+
+       text-[10px]  uppercase labels, table headers, eyebrows, badges
+       text-[11px]  captions, hints, denominators, footnotes
+       text-xs      table cells, dense data            (12px)
+       text-sm      inputs, prose, descriptions        (14px)
+       text-lg      page headings                      (18px)
+       text-2xl     names and big stat values          (24px)
+       text-3xl     the one display moment             (30px)
+
+     A size outside this list is a bug. The app carried fourteen
+     near-identical sizes (8/9/10/11/12/13/14/15/16/18/20/24/26/30) and that
+     spread is what makes a page read as assembled rather than designed:
+     two labels one pixel apart look like a mistake, not a hierarchy.
+
+     Font roles are fixed with the scale: `font-sans` (Lato) for every
+     heading, label and prose; `font-data` (Be Vietnam Pro, tabular) for
+     numbers only; `font-display` (Wremena) for hero names only. */
+
+  /* ─── Motion ───────────────────────────────────────────────────────────
+     Curves and durations from Emil Kowalski's animation rules
+     (github.com/emilkowalski/skills, animations.dev). Tokens rather than
+     literals because the overlay's CSS and its ::backdrop have to agree, and
+     two hand-kept copies of a duration is how a fade and its backdrop drift
+     apart by 40ms and nobody can say why.
+
+     `--ease-out-strong` is deliberately NOT an override of Tailwind's
+     `--ease-out`: 2 components already use that utility and this is a motion
+     addition, not a restyle of the app.
+
+     ONE RULE WORTH STATING because it is counter-intuitive: exits use ease-OUT
+     too, never ease-in. ease-in delays the first movement, which is exactly
+     when the eye is on the element, and it reads as lag rather than as easing. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* The overlay TRAVELS, and travel is the one case the ease-out rule does not
+     cover. A strong ease-out puts 59% of the motion in the first 42ms and then
+     crawls to the stop: measured, it reads as a snap followed by nothing, which
+     is the "too fast" complaint even at 420ms.
+
+     ease-in-out is the documented curve for on-screen movement, and it is the
+     one that gives a gradual build. Note this is NOT the banned ease-in: that
+     accelerates the whole way and lands hard. This accelerates, then decelerates
+     into the stop, which is how a real object crosses a distance.
+
+     0.45 rather than the textbook 0.77, and that is measured. Scale travelled by
+     84ms, which is the ~80ms under which the brain reads an event as
+     simultaneous with the click:
+
+         0.77, 0, 0.175, 1     2%      a click with no visible answer
+         0.65, 0, 0.35,  1     3%
+         0.45, 0, 0.35,  1     7%      moving inside the threshold
+
+     All three build gradually — the strong ease-out this replaced was already at
+     59% by 42ms — so 0.45 buys responsiveness without spending the ramp. */
+  --ease-travel: cubic-bezier(0.45, 0, 0.35, 1);
+
+  /* Modals get 200-500ms; UI generally stays under 300. Exits are faster than
+     entrances — the decision is already made, so the animation is only cleanup. */
+  --duration-overlay-in: 460ms;
+  --duration-overlay-out: 330ms;
+  /* Tab switching is a tens-per-day interaction, so it is near-imperceptible
+     and opacity-only. Movement here would read as delay. */
+  --duration-swap: 120ms;
+
+  /* Border Radius — concentric principle */
+  --radius-panel: 12px;
+  --radius-card: 10px;
+  --radius-inner: 8px;
+  --radius-pill: 9999px;
+  --radius-button: 8px;
+}
+
+/* ─── Base Styles ──────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-surface-0 text-text-primary font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  /* Tabular numbers for data — Be Vietnam Pro */
+  .font-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ─── Glass Panel ──────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* The first column of a table that scrolls sideways inside its card: pinned, on an opaque
+     ground so the columns sliding under it do not show through. */
+  .sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #0a0e0d;
+  }
+
+  .glass-panel {
+    position: relative;
+    /*
+     * Load-bearing, not tidiness. Nearly every panel is a grid or flex item,
+     * and both default to `min-width: auto` — which sizes the item to its
+     * *min-content*, so one wide chart or table inside makes the panel wider
+     * than its track and the whole document scrolls sideways at 320px. This is
+     * the same defect `min-w-0` fixes on `main`; putting it on the shared panel
+     * class fixes every instance instead of the ones someone remembered.
+     */
+    min-width: 0;
+    background: var(--color-surface-1);
+    border: 1px solid var(--color-border-default);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: var(--radius-panel);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.15),
+      0 4px 16px rgba(0, 0, 0, 0.2),
+      0 12px 48px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* Color bleed glow behind glass panels */
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      var(--panel-glow-color, color-mix(in srgb, var(--color-usf-gold) 6%, transparent)) 0%,
+      transparent 70%
+    );
+    opacity: 1;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* Pitch-type color bleed variants */
+  .glass-panel[data-glow="fastball"]::before {
+    --panel-glow-color: rgba(232, 65, 66, 0.07);
+  }
+  .glass-panel[data-glow="sinker"]::before {
+    --panel-glow-color: rgba(232, 112, 72, 0.06);
+  }
+  .glass-panel[data-glow="changeup"]::before {
+    --panel-glow-color: rgba(78, 173, 91, 0.06);
+  }
+  .glass-panel[data-glow="curveball"]::before {
+    --panel-glow-color: rgba(78, 205, 196, 0.06);
+  }
+  .glass-panel[data-glow="slider"]::before {
+    --panel-glow-color: rgba(245, 197, 24, 0.06);
+  }
+  .glass-panel[data-glow="sweeper"]::before {
+    --panel-glow-color: rgba(167, 139, 250, 0.06);
+  }
+  .glass-panel[data-glow="cutter"]::before {
+    --panel-glow-color: rgba(245, 158, 11, 0.06);
+  }
+  .glass-panel[data-glow="green"]::before {
+    --panel-glow-color: color-mix(in srgb, var(--color-usf-green) 8%, transparent);
+  }
+  .glass-panel[data-glow="gold"]::before {
+    --panel-glow-color: color-mix(in srgb, var(--color-usf-gold) 6%, transparent);
+  }
+
+  .glass-nav {
+    background: rgba(10, 14, 13, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Fog background gradients */
+  .fog-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background: var(--color-surface-0);
+  }
+
+  .fog-bg::before,
+  .fog-bg::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(40px);
+  }
+
+  .fog-bg::before {
+    /* Green glow — bottom left */
+    bottom: -10%;
+    left: -5%;
+    width: 50%;
+    height: 50%;
+    background: radial-gradient(
+      ellipse at center,
+      color-mix(in srgb, var(--color-usf-green) 45%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(40px);
+  }
+
+  .fog-bg::after {
+    /* Gold glow — top right */
+    top: -10%;
+    right: -5%;
+    width: 45%;
+    height: 45%;
+    background: radial-gradient(
+      ellipse at center,
+      color-mix(in srgb, var(--color-usf-gold) 20%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(50px);
+  }
+
+  /* Active nav pill */
+  .nav-pill-active {
+    background: color-mix(in srgb, var(--color-usf-green) 30%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-usf-green) 50%, transparent);
+  }
+
+  /* Active filter chip */
+  .filter-chip-active {
+    background: color-mix(in srgb, var(--color-usf-gold) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-usf-gold) 25%, transparent);
+    color: var(--color-usf-gold);
+  }
+
+  /* Table row pattern */
+  .table-row {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 150ms ease;
+  }
+
+  .table-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .table-row-alt {
+    background: rgba(255, 255, 255, 0.015);
+  }
+}
+
+/* ─── Animations ───────────────────────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-from-top {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-in {
+  animation: slide-in-from-top 200ms ease-out forwards;
+  transform-origin: top;
+}
+
+/* Staggered page entrance */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 400ms cubic-bezier(0.2, 0, 0, 1) forwards;
+  opacity: 0;
+}
+
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+
+/* Smooth enter/exit for dropdowns and panels */
+.dropdown-enter {
+  animation: slide-in-from-top 200ms cubic-bezier(0.2, 0, 0, 1) forwards;
+  transform-origin: top;
+}
+
+.dropdown-exit {
+  animation: slide-out-to-top 150ms ease-in forwards;
+  transform-origin: top;
+}
+
+@keyframes slide-out-to-top {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-4px) scale(0.97); }
+}
+
+/* Page content fade — subtle on tab switch */
+.page-content {
+  animation: fade-up 300ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+/* Press scale for interactive elements */
+.press-scale {
+  transition: transform 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+.press-scale:active {
+  transform: scale(0.96);
+}
+
+/* Nav pills: a gold glow that blooms on press and fades as the tab settles in.
+   Short and ease-out so it reads as a response to the click, never as a wait.
+   Only box-shadow, background and opacity animate. Reduced motion keeps the
+   colour change and drops the bloom. */
+.nav-glow {
+  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 200ms cubic-bezier(0.22, 1, 0.36, 1), color 120ms ease-out;
+}
+.nav-glow:active {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-usf-gold) 50%, transparent), 0 0 14px 3px color-mix(in srgb, var(--color-usf-gold) 40%, transparent);
+  background-color: color-mix(in srgb, var(--color-usf-gold) 12%, transparent);
+  transition-duration: 40ms;
+}
+.nav-glow.nav-pill-active {
+  animation: nav-glow-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-usf-gold) 12%, transparent);
+}
+@keyframes nav-glow-in {
+  0%   { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-usf-gold) 60%, transparent), 0 0 16px 4px color-mix(in srgb, var(--color-usf-gold) 42%, transparent); background-color: color-mix(in srgb, var(--color-usf-gold) 16%, transparent); }
+  100% { box-shadow: 0 0 10px color-mix(in srgb, var(--color-usf-gold) 12%, transparent); }
+}
+/* Fall section nav entry: gold is Fall's accent (the role green plays elsewhere). */
+/* Fall nav button (owner 2026-10-05): no idle pulse. Gold text at rest; the glow appears on hover/focus and stays while
+   the Fall section is open. */
+.fall-glow {
+  color: var(--color-usf-gold);
+  transition: box-shadow 160ms ease-out, background-color 160ms ease-out;
+}
+.fall-glow:hover, .fall-glow:focus-visible {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-usf-gold) 55%, transparent),
+              0 0 14px color-mix(in oklch, var(--color-usf-gold) 35%, transparent);
+}
+.fall-glow-on {
+  background: color-mix(in oklch, var(--color-usf-gold) 16%, transparent);
+  box-shadow: 0 0 0 1px var(--color-usf-gold), 0 0 18px color-mix(in oklch, var(--color-usf-gold) 45%, transparent);
+}
+@media (prefers-reduced-motion: reduce) { .fall-glow { transition: none; } }
+/* The live strike zone's newest pitch: one soft ring that settles. */
+.live-zone-pulse { animation: live-zone-pulse 900ms cubic-bezier(0.22, 1, 0.36, 1); transform-box: fill-box; transform-origin: center; }
+@keyframes live-zone-pulse { from { opacity: 0; transform: scale(1.8); } to { opacity: 1; transform: scale(1); } }
+/* The loading placeholder fades in after a beat, so a fast page never flashes it. */
+.page-fade { animation: page-fade-in 180ms ease-out 80ms both; }
+@keyframes page-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .nav-glow.nav-pill-active, .page-fade, .live-zone-pulse { animation: none; }
+  .nav-glow:active { box-shadow: none; }
+}
+
+/* Percentile-scope toggle: the baseball hops over the labels to its new spot (arc up, spin in flight, squash on landing)
+   while its ground shadow shrinks under it. Horizontal travel is the wrapper's `left` transition (same 560ms). */
+.scope-ball-hop { animation: scope-ball-hop 560ms cubic-bezier(0.33, 0, 0.25, 1); }
+@keyframes scope-ball-hop {
+  0%   { transform: translateY(0) rotate(0deg) scale(1, 1); }
+  12%  { transform: translateY(1px) rotate(calc(var(--spin) * 0.05)) scale(1.12, 0.86); }
+  50%  { transform: translateY(-15px) rotate(calc(var(--spin) * 0.55)) scale(0.96, 1.04); }
+  86%  { transform: translateY(0) rotate(var(--spin)) scale(1.14, 0.84); }
+  100% { transform: translateY(0) rotate(var(--spin)) scale(1, 1); }
+}
+.scope-ball-shadow { animation: scope-ball-shadow 560ms cubic-bezier(0.33, 0, 0.25, 1); }
+@keyframes scope-ball-shadow { 0%, 100% { transform: scaleX(1); opacity: 0.45; } 50% { transform: scaleX(0.45); opacity: 0.15; } }
+@media (prefers-reduced-motion: reduce) {
+  .scope-ball-hop, .scope-ball-shadow { animation: none; }
+  .scope-ball-travel { transition-duration: 0ms !important; }
+}
+
+/* ─── Reduced motion ───────────────────────────────────────────────────────── */
+/*
+ * One rule for the whole app rather than a check in each component. Every
+ * animation here is decoration — an entry fade, a press scale — so there is
+ * nothing a reader loses by turning it off, and a per-component
+ * `matchMedia` check is a copy of this that drifts.
+ */
+/* Reduced motion means LESS movement, not none. Opacity carries the state change
+   -- the part that aids comprehension -- and every transform is dropped, along
+   with the blur ramp, which is motion in the depth axis. The card's own FLIP is
+   skipped in JavaScript; expandable-card.tsx checks the same query live, so
+   changing the OS setting takes effect without a reload. */
+@media (prefers-reduced-motion: reduce) {
+  .overlay-region {
+    transform: none;
+    transition-delay: 0ms;
+  }
+
+  @starting-style {
+    .overlay-region {
+      transform: none;
+    }
+  }
+
+  .overlay-card::backdrop,
+  .overlay-card[open]::backdrop {
+    backdrop-filter: none;
+  }
+
+  .press-feedback:active {
+    transform: none;
+  }
+}
+
+/* ─── Scrollbar ────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+
+/* ─── The expand overlay ───────────────────────────────────────────────────
+   The CARD's own motion is driven by the Web Animations API in
+   expandable-card.tsx, because it is a FLIP: the transform depends on where the
+   trigger happens to be on screen, which no stylesheet can know. So there is
+   deliberately NO transition on .overlay-card's transform or opacity here —
+   two owners of one property is how an animation ends up fighting itself.
+
+   The BACKDROP stays in CSS. It does not move, it has no geometry to measure,
+   and `::backdrop` is a pseudo-element WAAPI cannot reach anyway.
+
+   `transition-behavior: allow-discrete` on display and overlay is what lets the
+   backdrop fade out at all: without it the dialog leaves the top layer on the
+   same frame close() is called. Chrome 117+, Safari 17.4+, Firefox 129+. Where
+   unsupported the overlay still opens and closes, just instantly. */
+
+.overlay-card::backdrop {
+  opacity: 0;
+  background: rgba(4, 8, 7, 0.55);
+  /* Blur ramps from nothing, so the page recedes over the same window the card
+     grows rather than snapping out of focus on the first frame. 6px is enough to
+     say "inert" and far under the ~20px where Safari starts paying for it. */
+  backdrop-filter: blur(0px);
+  transition:
+    opacity var(--duration-overlay-in) var(--ease-travel),
+    backdrop-filter var(--duration-overlay-in) var(--ease-travel),
+    display var(--duration-overlay-in) allow-discrete,
+    overlay var(--duration-overlay-in) allow-discrete;
+}
+
+.overlay-card[open]::backdrop {
+  opacity: 1;
+  backdrop-filter: blur(6px);
+}
+
+@starting-style {
+  .overlay-card[open]::backdrop {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+/* The card sets this while its exit animation plays, so the backdrop clears on
+   the same schedule instead of hanging until close(). */
+.overlay-card[data-closing]::backdrop {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+  transition-duration: var(--duration-overlay-out);
+}
+
+/* The two regions inside, once, on open — a staged entrance, so ~100ms apart.
+   NOT the table rows: switching tabs is a frequent action and staggering it would
+   put a cascade in front of a reader who is comparing cells. Capped at two
+   regions, so the whole entrance settles in 360ms and stays inside the 200-500ms
+   a modal is allowed. */
+.overlay-region {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--duration-overlay-in) var(--ease-out-strong),
+    transform var(--duration-overlay-in) var(--ease-out-strong);
+  transition-delay: calc(var(--i, 0) * 100ms);
+}
+
+@starting-style {
+  .overlay-region {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Tab content. Opacity only — see --duration-swap. */
+.overlay-swap {
+  animation: overlay-swap var(--duration-swap) var(--ease-out-strong);
+}
+
+@keyframes overlay-swap {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Press feedback. `scale(0.96)` at 160ms is the whole interaction: a button that
+   does not move under the finger feels broken in a way people notice without
+   being able to name. 0.96 exactly — below 0.95 the press reads as exaggerated,
+   and above it the feedback stops registering.
+
+   Motion is never the ONLY feedback here: the border and text colour change on
+   hover and the focus ring is independent, so a reader who cannot perceive the
+   scale still gets the state. */
+.press-feedback {
+  transition: transform 160ms var(--ease-out-strong);
+}
+
+.press-feedback:active {
+  transform: scale(0.96);
+}
+
+/* Touch taps fire :hover and leave it stuck on, so hover styling is gated to
+   devices that actually have a pointer. */
+@media (hover: hover) and (pointer: fine) {
+  .press-feedback:hover {
+    border-color: var(--color-border-emphasis);
+    color: var(--color-text-primary);
+  }
+}
+
+/* Reduced motion means LESS movement, not none. Opacity carries the state change
+   — which is the part that aids comprehension — and every transform is dropped.
+   Vestibular triggers are spatial, not tonal. */
+@media (prefers-reduced-motion: reduce) {
+  .overlay-card,
+  .overlay-card[open],
+  .overlay-region {
+    transform: none;
+  }
+
+  @starting-style {
+    .overlay-card[open],
+    .overlay-region {
+      transform: none;
+    }
+  }
+
+  .overlay-region {
+    transition-delay: 0ms;
+  }
+
+  .press-feedback:active {
+    transform: none;
+  }
+}
+
+
+/* The overlay heading.
+   Wremena ships Regular only here, so `font-weight: 700` would trigger the
+   browser's synthetic bold — a smeared fake next to properly-weighted Lato
+   elsewhere on the page. Weight stays 400; 26px and the colour carry it.
+
+   Tracking is POSITIVE. The -0.015em that flatters Lato at this size closes a
+   serif's counters up and thickens its joins.
+
+   Its figures are OLD-STYLE by default, which suits a name and would clash with
+   the lining tabular numerals in the tables below. The heading carries no digits
+   today; if one is ever added, `font-feature-settings: "lnum" 1, "tnum" 1` is the
+   fix — both features are in the font. */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.012em;
+}
+
+/* Leaderboard ticker: one slow loop, paused on hover, focus, or while a detail box is open. */
+@keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-track { animation: ticker-scroll 70s linear infinite; }
+.ticker:hover .ticker-track,
+.ticker:focus-within .ticker-track,
+.ticker:has(dialog[open]) .ticker-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .ticker { overflow-x: auto; }
+  .ticker-track { animation: none; }
+}
+
+/* ─── Tooltips ───────────────────────────────────────────────────────────
+   One look for every hover: the global HoverTip (components/ui/hover-tip.tsx,
+   which replaces the browser's title bubble) and the chart tooltips. Glass
+   panel, the pitch-surface tooltip's treatment, with a 120ms rise-in. */
+.tip-panel {
+  max-width: 320px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(20, 22, 21, 0.92);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+  pointer-events: none;
+  animation: tip-in 120ms var(--ease-out-strong);
+}
+.tip-head {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.tip-line { white-space: pre-line; }
+.tip-float {
+  position: fixed;
+  z-index: 1000;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+.tip-float[data-below] { transform: translate(-50%, 8px); }
+@keyframes tip-in { from { opacity: 0; translate: 0 4px; scale: 0.97; } }
+@media (prefers-reduced-motion: reduce) { .tip-panel { animation-duration: 1ms; } }
+
+/* ── Dropdowns (owner 2026-10-04: "smoother, higher quality, intentionally designed") ─────────────────────────────
+   Every <select> on the site, zero JS: a pressable control with a chevron everywhere, and where the browser supports
+   customizable selects (Chrome 135+) a frosted dark picker that springs open with hover/checked states. Elsewhere the
+   OS picker is kept, which is fast and accessible. */
+select {
+  transition: background-color 150ms, border-color 150ms, box-shadow 150ms, transform 100ms;
+  cursor: pointer;
+}
+select:hover { background-color: rgba(255, 255, 255, 0.08); }
+select:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-usf-gold) 55%, transparent); }
+select:active { transform: scale(0.98); }
+@supports (appearance: base-select) {
+  select, ::picker(select) { appearance: base-select; }
+  select { display: inline-flex; align-items: center; gap: 0.4em; }
+  select::picker-icon { content: ""; width: 0.55em; height: 0.55em; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    rotate: 45deg; translate: 0 -0.15em; opacity: 0.6; }
+  ::picker(select) {
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 4px; margin-block: 6px;
+    background: rgba(18, 22, 20, 0.86); backdrop-filter: blur(18px) saturate(1.4); color: var(--color-text-primary);
+    box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    max-height: min(22rem, 60vh); overflow-y: auto; min-width: anchor-size(width); transform-origin: top;
+    /* open animation only: the picker goes display:none -> block, so @starting-style gives it a from-state.
+       (No :popover-open / :open here: the CSS compiler rejects state pseudo-classes after ::picker.) */
+    transition: opacity 140ms ease-out, translate 160ms cubic-bezier(0.2, 0, 0, 1), scale 160ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  @starting-style { ::picker(select) { opacity: 0; translate: 0 -4px; scale: 0.98; } }
+  option { padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--color-text-secondary); transition: background-color 100ms, color 100ms; }
+  option:hover, option:focus-visible { background: rgba(255, 255, 255, 0.08); color: var(--color-text-primary); outline: none; }
+  option:checked { color: var(--color-text-primary); font-weight: 600; background: color-mix(in oklch, var(--color-usf-gold) 16%, transparent); }
+  option::checkmark { content: "✓"; color: var(--color-usf-gold); font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { ::picker(select) { transition: none; } }
+@keyframes player-pop { from { opacity: 0; scale: 0.92; filter: blur(4px); } to { opacity: 1; scale: 1; filter: blur(0); } }
+@media (prefers-reduced-motion: reduce) { [data-testid="player-transition"], [data-testid="player-transition"] * { animation: none !important; } }
+
+/* Pitch rank wheel (components/ui/pitch-rank.tsx): each row tilts back and fades with its distance from the centre
+   band, like a picker drum. Scroll-driven, so it costs no JavaScript; without animation-timeline it is a plain list. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rank-wheel { perspective: 1600px; perspective-origin: 50% 50%; }
+    .rank-wheel .rank-row {
+      animation: rank-drum linear both;
+      /* inset 0: the default (auto) takes the wheel's scroll-padding, which centres the band, and would shrink the
+         timeline to one row */
+      animation-timeline: view(block 0px);
+      transform-origin: center;
+      will-change: transform, opacity;
+    }
+  }
+}
+@keyframes rank-drum {
+  0%   { transform: rotateX(-24deg) scale(0.94); opacity: 0.22; }
+  25%  { opacity: 0.62; }
+  40%  { opacity: 0.9; }
+  50%  { transform: none; opacity: 1; }
+  60%  { opacity: 0.9; }
+  75%  { opacity: 0.62; }
+  100% { transform: rotateX(24deg) scale(0.94); opacity: 0.22; }
+}
+
+/* Snapshot pick mode (components/ui/snapshot.tsx): every pickable panel gets a dashed gold edge, a picked one a solid
+   edge and its order number. Outlines, not borders, so nothing reflows. */
+[data-snap-candidate] { position: relative; outline: 1px dashed color-mix(in srgb, var(--color-usf-gold) 35%, transparent); outline-offset: 3px; cursor: copy; transition: outline-color 150ms; }
+[data-snap-candidate]:hover { outline-color: color-mix(in srgb, var(--color-usf-gold) 80%, transparent); }
+[data-snap-candidate] * { cursor: copy !important; }
+[data-snap-picked] { outline: 2px solid #FDBB30; }
+[data-snap-picked]::after {
+  content: attr(data-snap-picked); position: absolute; top: -10px; right: -10px; z-index: 30;
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 9999px;
+  background: #FDBB30; color: #002E22; font: 700 12px/1 ui-sans-serif, system-ui; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+/* Coach 13-zone maps: the zone's backdrop (white in print, below). */
+.zone13-bg { fill: var(--color-surface-0); }
+/* Faded coach cells (below the floor, n >= FADE_MIN_N): hatch + dashed edge so "small sample" never rests on colour
+   alone (colour-blind, B/W print). SVG maps use the pattern in zone13.tsx with the same classes. */
+.cell-faded {
+  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.22) 0 1px, transparent 1px 5px);
+  outline: 1px dashed rgba(255,255,255,0.6); outline-offset: -1px;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.hatch-line { stroke: rgba(255,255,255,0.22); }
+.faded-edge { stroke: rgba(255,255,255,0.6); }
+
+/* Scouting sheet (player/[id]/sheet): prints on white with the site's colours remapped to ink. */
+@media print {
+  @page { size: letter; margin: 0.4in; }
+  body:has(.scout-sheet) { background: #fff !important; }
+  body:has(.scout-sheet) nav { display: none !important; }
+  .scout-sheet {
+    --color-text-primary: #111;
+    --color-text-secondary: #333;
+    --color-text-dim: #666;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .scout-sheet .glass-panel { background: #fff !important; box-shadow: none !important; border: 1px solid #ddd !important; backdrop-filter: none !important; }
+  .scout-sheet .glass-panel, .scout-sheet table { break-inside: avoid; }
+  /* Game-plan cards (player/[id]/game-plan, fall too): one Letter page. */
+  body:has(.coach-card) .fog-bg { display: none !important; }
+  body:has(.coach-card) main { padding: 0 !important; max-width: none !important; }
+  body:has(.coach-card) [data-export-exclude] { display: none !important; }
+  .coach-card { max-width: none !important; zoom: 0.8; }
+  .coach-card .glass-panel { padding: 8px !important; border-radius: 6px !important; }
+  .coach-card .glass-panel::before { display: none; }
+  .coach-card .space-y-3 > * + *, .coach-card .space-y-2\.5 > * + * { margin-top: 6px !important; }
+  .zone13-bg { fill: #fff; }
+  .cell-faded { background-image: repeating-linear-gradient(135deg, rgba(0,0,0,0.45) 0 1px, transparent 1px 5px); outline-color: #000; }
+  .hatch-line { stroke: rgba(0,0,0,0.45); }
+  .faded-edge { stroke: #000; }
+}

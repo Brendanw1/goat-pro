@@ -1,0 +1,74 @@
+{
+ "CB": {
+  "pairs": 503,
+  "yoy_type_grade": 0.873,
+  "r_next_whiff_type": 0.404,
+  "r_next_whiff_raw": 0.4,
+  "r_next_whiff_class": 0.393,
+  "type_mean": 1.0987,
+  "type_sd": 0.111
+ },
+ "CH": {
+  "pairs": 709,
+  "yoy_type_grade": 0.847,
+  "r_next_whiff_type": 0.29,
+  "r_next_whiff_raw": 0.288,
+  "r_next_whiff_class": 0.292,
+  "type_mean": 0.9262,
+  "type_sd": 0.1493
+ },
+ "CT": {
+  "pairs": 450,
+  "yoy_type_grade": 0.795,
+  "r_next_whiff_type": 0.384,
+  "r_next_whiff_raw": 0.329,
+  "r_next_whiff_class": 0.384,
+  "type_mean": 0.9089,
+  "type_sd": 0.0793
+ },
+ "FF": {
+  "pairs": 1607,
+  "yoy_type_grade": 0.874,
+  "r_next_whiff_type": 0.348,
+  "r_next_whiff_raw": 0.332,
+  "r_next_whiff_class": 0.354,
+  "type_mean": 0.9008,
+  "type_sd": 0.105
+ },
+ "FS": {
+  "pairs": 154,
+  "yoy_type_grade": 0.854,
+  "r_next_whiff_type": 0.233,
+  "r_next_whiff_raw": 0.232,
+  "r_next_whiff_class": 0.238,
+  "type_mean": 1.0041,
+  "type_sd": 0.1701
+ },
+ "SI": {
+  "pairs": 885,
+  "yoy_type_grade": 0.904,
+  "r_next_whiff_type": 0.257,
+  "r_next_whiff_raw": 0.23,
+  "r_next_whiff_class": 0.284,
+  "type_mean": 0.9291,
+  "type_sd": 0.0833
+ },
+ "SL": {
+  "pairs": 932,
+  "yoy_type_grade": 0.838,
+  "r_next_whiff_type": 0.348,
+  "r_next_whiff_raw": 0.341,
+  "r_next_whiff_class": 0.352,
+  "type_mean": 1.1213,
+  "type_sd": 0.1061
+ },
+ "SW": {
+  "pairs": 375,
+  "yoy_type_grade": 0.846,
+  "r_next_whiff_type": 0.102,
+  "r_next_whiff_raw": 0.1,
+  "r_next_whiff_class": 0.102,
+  "type_mean": 1.1022,
+  "type_sd": 0.1028
+ }
+}

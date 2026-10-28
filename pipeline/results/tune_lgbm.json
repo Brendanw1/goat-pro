@@ -1,0 +1,178 @@
+{
+ "grid": [
+  {
+   "num_leaves": 7,
+   "min_child_samples": 100,
+   "val_r": 0.07370771120255254,
+   "best_iters": [
+    391,
+    609,
+    142,
+    82,
+    72,
+    71
+   ],
+   "n_estimators": 112
+  },
+  {
+   "num_leaves": 7,
+   "min_child_samples": 1000,
+   "val_r": 0.07526005366845769,
+   "best_iters": [
+    402,
+    598,
+    98,
+    129,
+    57,
+    58
+   ],
+   "n_estimators": 113
+  },
+  {
+   "num_leaves": 7,
+   "min_child_samples": 5000,
+   "val_r": 0.0758378769670412,
+   "best_iters": [
+    585,
+    575,
+    137,
+    226,
+    49,
+    86
+   ],
+   "n_estimators": 181
+  },
+  {
+   "num_leaves": 15,
+   "min_child_samples": 100,
+   "val_r": 0.07539007494107555,
+   "best_iters": [
+    333,
+    318,
+    120,
+    69,
+    81,
+    56
+   ],
+   "n_estimators": 100
+  },
+  {
+   "num_leaves": 15,
+   "min_child_samples": 1000,
+   "val_r": 0.07711592516059142,
+   "best_iters": [
+    358,
+    260,
+    73,
+    70,
+    35,
+    27
+   ],
+   "n_estimators": 71
+  },
+  {
+   "num_leaves": 15,
+   "min_child_samples": 5000,
+   "val_r": 0.07629842217279745,
+   "best_iters": [
+    328,
+    354,
+    90,
+    89,
+    52,
+    72
+   ],
+   "n_estimators": 89
+  },
+  {
+   "num_leaves": 31,
+   "min_child_samples": 100,
+   "val_r": 0.07596495619960221,
+   "best_iters": [
+    204,
+    195,
+    45,
+    37,
+    28,
+    24
+   ],
+   "n_estimators": 41
+  },
+  {
+   "num_leaves": 31,
+   "min_child_samples": 1000,
+   "val_r": 0.07693213818784453,
+   "best_iters": [
+    154,
+    151,
+    53,
+    44,
+    22,
+    27
+   ],
+   "n_estimators": 48
+  },
+  {
+   "num_leaves": 31,
+   "min_child_samples": 5000,
+   "val_r": 0.07540656881370346,
+   "best_iters": [
+    127,
+    273,
+    91,
+    89,
+    52,
+    72
+   ],
+   "n_estimators": 90
+  },
+  {
+   "num_leaves": 63,
+   "min_child_samples": 100,
+   "val_r": 0.07578187969619739,
+   "best_iters": [
+    94,
+    80,
+    42,
+    37,
+    35,
+    24
+   ],
+   "n_estimators": 39
+  },
+  {
+   "num_leaves": 63,
+   "min_child_samples": 1000,
+   "val_r": 0.0768739879715147,
+   "best_iters": [
+    71,
+    104,
+    50,
+    59,
+    28,
+    27
+   ],
+   "n_estimators": 54
+  },
+  {
+   "num_leaves": 63,
+   "min_child_samples": 5000,
+   "val_r": 0.07589319524645854,
+   "best_iters": [
+    171,
+    273,
+    91,
+    89,
+    52,
+    72
+   ],
+   "n_estimators": 90
+  }
+ ],
+ "tuned": {
+  "num_leaves": 15,
+  "min_child_samples": 1000,
+  "learning_rate": 0.05,
+  "n_estimators": 71
+ }
+}

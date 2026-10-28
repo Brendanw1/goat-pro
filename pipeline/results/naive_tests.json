@@ -1,0 +1,132 @@
+{
+ "pitching": {
+  "2023->2024 rv100": {
+   "grade_r": 0.348,
+   "naive_r": 0.349,
+   "grade_beats": false,
+   "r2_prior": 0.1215,
+   "r2_prior_plus_grade": 0.1509,
+   "delta_r2_lift": 0.0294,
+   "n": 544
+  },
+  "2024->2025 rv100": {
+   "grade_r": 0.319,
+   "naive_r": 0.322,
+   "grade_beats": false,
+   "r2_prior": 0.1036,
+   "r2_prior_plus_grade": 0.1272,
+   "delta_r2_lift": 0.0236,
+   "n": 552
+  },
+  "2025->2026 rv100": {
+   "grade_r": 0.376,
+   "naive_r": 0.323,
+   "grade_beats": true,
+   "r2_prior": 0.1046,
+   "r2_prior_plus_grade": 0.1637,
+   "delta_r2_lift": 0.0591,
+   "n": 527
+  },
+  "2023->2024 k_pct": {
+   "grade_r": 0.356,
+   "naive_r": 0.426,
+   "grade_beats": false,
+   "r2_prior": 0.1811,
+   "r2_prior_plus_grade": 0.2074,
+   "delta_r2_lift": 0.0263,
+   "n": 544
+  },
+  "2024->2025 k_pct": {
+   "grade_r": 0.328,
+   "naive_r": 0.385,
+   "grade_beats": false,
+   "r2_prior": 0.1485,
+   "r2_prior_plus_grade": 0.1683,
+   "delta_r2_lift": 0.0198,
+   "n": 552
+  },
+  "2025->2026 k_pct": {
+   "grade_r": 0.378,
+   "naive_r": 0.445,
+   "grade_beats": false,
+   "r2_prior": 0.1983,
+   "r2_prior_plus_grade": 0.2434,
+   "delta_r2_lift": 0.0451,
+   "n": 527
+  }
+ },
+ "stuff": {
+  "2023->2024 csw_pct": {
+   "grade_r": 0.372,
+   "naive_r": 0.38,
+   "grade_beats": false,
+   "r2_prior": 0.1447,
+   "r2_prior_plus_grade": 0.1861,
+   "delta_r2_lift": 0.0414,
+   "n": 544
+  },
+  "2024->2025 csw_pct": {
+   "grade_r": 0.322,
+   "naive_r": 0.399,
+   "grade_beats": false,
+   "r2_prior": 0.1589,
+   "r2_prior_plus_grade": 0.1813,
+   "delta_r2_lift": 0.0224,
+   "n": 552
+  },
+  "2025->2026 csw_pct": {
+   "grade_r": 0.266,
+   "naive_r": 0.404,
+   "grade_beats": false,
+   "r2_prior": 0.1636,
+   "r2_prior_plus_grade": 0.1819,
+   "delta_r2_lift": 0.0183,
+   "n": 527
+  },
+  "2023->2024 k_pct": {
+   "grade_r": 0.43,
+   "naive_r": 0.426,
+   "grade_beats": true,
+   "r2_prior": 0.1811,
+   "r2_prior_plus_grade": 0.2354,
+   "delta_r2_lift": 0.0543,
+   "n": 544
+  },
+  "2024->2025 k_pct": {
+   "grade_r": 0.399,
+   "naive_r": 0.385,
+   "grade_beats": true,
+   "r2_prior": 0.1485,
+   "r2_prior_plus_grade": 0.2039,
+   "delta_r2_lift": 0.0554,
+   "n": 552
+  },
+  "2025->2026 k_pct": {
+   "grade_r": 0.42,
+   "naive_r": 0.445,
+   "grade_beats": false,
+   "r2_prior": 0.1983,
+   "r2_prior_plus_grade": 0.2656,
+   "delta_r2_lift": 0.0673,
+   "n": 527
+  }
+ },
+ "small_sample": {
+  "thin(<150 prior pitches)": {
+   "n": 65,
+   "grade_r": 0.074,
+   "naive_r": 0.291,
+   "grade_beats_naive": false,
+   "rmse_league_mean": 4.05,
+   "rmse_grade": 7.94
+  },
+  "full(>=150)": {
+   "n": 487,
+   "grade_r": 0.352,
+   "naive_r": 0.415,
+   "grade_beats_naive": false,
+   "rmse_league_mean": 3.31,
+   "rmse_grade": 6.55
+  }
+ }
+}
