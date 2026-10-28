@@ -28,8 +28,6 @@ const POS_SLUGS: [string, string][] = [["of", "OF"], ["rhp", "RHP"], ["lhp", "LH
 const POS_LABEL: Record<string, string> = { of: "OF", rhp: "RHP", lhp: "LHP", ss: "SS", c: "C", "1b": "1B", "2b": "2B", "3b": "3B" };
 const TEAM_ABBR: Record<string, string> = { angels: "LAA", astros: "HOU", athletics: "ATH", bluejays: "TOR", braves: "ATL", brewers: "MIL", cardinals: "STL", cubs: "CHC", dbacks: "AZ", dodgers: "LAD", giants: "SF", guardians: "CLE", mariners: "SEA", marlins: "MIA", mets: "NYM", nationals: "WSH", orioles: "BAL", padres: "SD", phillies: "PHI", pirates: "PIT", rangers: "TEX", rays: "TB", redsox: "BOS", reds: "CIN", rockies: "COL", royals: "KC", tigers: "DET", twins: "MIN", whitesox: "CWS", yankees: "NYY" };
 
-const orgAbbr = (org: string | null) => org ?? "—";
-
 function RowList({ rows, season }: { rows: any[]; season: number }) {
   return (
     <div className="overflow-x-auto"><table className="w-full min-w-max text-xs font-data">
@@ -47,7 +45,7 @@ function RowList({ rows, season }: { rows: any[]; season: number }) {
                 <span className="inline-flex items-center gap-1.5 text-text-secondary">
                   {crest ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={crest} alt="" width={16} height={16} className="rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <img src={crest} alt="" width={16} height={16} className="rounded" />
                   ) : <PixelTeamLogo team={r.org} size={14} />}
                   {r.org ?? "—"}
                 </span>
@@ -86,17 +84,17 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
   };
 
   let title = "Top 100";
+  const team = TEAM_SLUGS.includes(q.team ?? "") ? q.team! : "yankees";
+  const pos = POS_SLUGS.some(([s]) => s === (q.pos ?? "")) ? q.pos! : "of";
   let rows: any[] = data.top100 ?? [];
   if (view === "team") {
-    const slug = TEAM_SLUGS.includes(q.team ?? "") ? q.team! : "yankees";
-    rows = data.teams?.[slug] ?? [];
-    title = `${orgAbbr(rows[0]?.org)} top 30`;
-    title = title.charAt(0).toUpperCase() + title.slice(1);
+    // Rows carry each player's CURRENT org (Pipeline archive quirk), so the title comes from the list's own club.
+    rows = data.teams?.[team] ?? [];
+    title = `${TEAM_ABBR[team]} top 30`;
   }
   if (view === "pos") {
-    const slug = POS_SLUGS.some(([s]) => s === (q.pos ?? "")) ? q.pos! : "of";
-    rows = data.positions?.[slug] ?? [];
-    title = `Top 10 ${POS_LABEL[slug] ?? slug}`;
+    rows = data.positions?.[pos] ?? [];
+    title = `Top 10 ${POS_LABEL[pos]}`;
   }
 
   return (
@@ -121,14 +119,14 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
       {view === "team" && (
         <div className="flex flex-wrap items-center gap-1.5">
           {TEAM_SLUGS.map((t) => (
-            <Link key={t} href={link({ team: t })} className={chip(q.team === t)}>{TEAM_ABBR[t] ?? t}</Link>
+            <Link key={t} href={link({ team: t })} className={chip(team === t)}>{TEAM_ABBR[t] ?? t}</Link>
           ))}
         </div>
       )}
       {view === "pos" && (
         <div className="flex flex-wrap items-center gap-1.5">
           {POS_SLUGS.map(([slug, label]) => (
-            <Link key={slug} href={link({ pos: slug })} className={chip(q.pos === slug)}>{label}</Link>
+            <Link key={slug} href={link({ pos: slug })} className={chip(pos === slug)}>{label}</Link>
           ))}
         </div>
       )}
