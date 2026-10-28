@@ -165,6 +165,16 @@ export async function getSwingProfile(id: string, season: string | number, level
   return fetchGzippedJson<any>(lv(level, `swing/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** Fatigue profile per pitcher-season: TTO / rest / velo-fade (depth item 3). */
+export async function getLoadProfile(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
+  return fetchGzippedJson<any>(lv(level, `load/${id}-${season}.json.gz`)).catch(() => null);
+}
+
+/** League fatigue board rows per season + league TTO baselines. */
+export async function getLoadIndex(): Promise<any | null> {
+  return fetchFromR2<any>("load_index.json", { shared: true }).catch(() => null);
+}
+
 /** League swing-board rows per season (100+ tracked swings). */
 export async function getSwingIndex(): Promise<any | null> {
   return fetchFromR2<any>("swing_index.json", { shared: true }).catch(() => null);

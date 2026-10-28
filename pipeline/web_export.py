@@ -107,10 +107,11 @@ SABR_FLOORS = {"grade": 100, "type": 50, "card": 100, "row": 5}
 VAA_CELL_FLOOR = 15
 LEAGUE_CELL_MIN_PITCHERS = 30
 SWING_MIN_SWINGS = 100  # tracked swings before a swing profile bakes (the probe's floor)
+LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIGH-confidence floor)
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -125,6 +126,7 @@ FAM_NEEDS = {
     "career": {"totals"},   # per-player season list + pitcher mix per season (profile season selector + career arsenal)
     "prospects": set(),     # MLB Pipeline rankings (pipeline/prospects_fetch.py): /prospects page + profile badges
     "swing": set(),         # hitter swing profiles from bat tracking (self-contained, 2023+)
+    "load": set(),          # TTO / rest / velo-fade fatigue surfaces (self-contained; per-pitch columns)
 }
 
 
@@ -4285,6 +4287,236 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             }, sort_keys=True)
             counts["swing_files"] = n_swing
             print(f"swing files: {n_swing}")
+
+    # ------------------------------------------------------------------- load
+    # Fatigue surfaces (depth list item 3): velo and outcomes by times through
+    # the order, by rest days, and velo by pitch number within a start. All
+    # from columns already on every pitch row (n_thruorder_pitcher,
+    # pitcher_days_since_prev_game; the pitch index within a start is a window
+    # count), AAA included. Descriptive; no model grades involved.
+    print(f"[{time.time() - t0:.0f}s] load", flush=True)
+    if "load" not in fams:
+        pass
+    else:
+        # the WHIFF/SWING tuples as SQL literals (foul_tip counts as a whiff,
+        # matching the site convention)
+        ld_whiff = "('swinging_strike', 'swinging_strike_blocked', 'foul_tip')"
+        ld_swing = ("('swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', "
+                    "'foul_bunt', 'missed_bunt', 'bunt_foul_tip', 'hit_into_play')")
+        ld_rest_case = ("CASE WHEN rest <= 3 THEN '0-3' WHEN rest = 4 THEN '4' "
+                        "WHEN rest = 5 THEN '5' WHEN rest = 6 THEN '6' ELSE '7+' END")
+        # one PA row per (game, pitcher, at-bat): the TTO ordinal as of the PA,
+        # and the PA-ending event (events populates only on the final pitch)
+        con.execute(f"""
+            CREATE OR REPLACE TEMP VIEW ld_pa AS
+            SELECT game_pk, pitcher, at_bat_number, season,
+                   max(n_thruorder_pitcher) AS tto, max(events) AS ev
+            FROM pitches_all
+            WHERE game_type = 'R' AND season IN ({season_list})
+              AND pitcher IS NOT NULL AND n_thruorder_pitcher IS NOT NULL
+            GROUP BY 1, 2, 3, 4
+        """)
+        con.execute(f"""
+            CREATE OR REPLACE TEMP VIEW ld_game AS
+            SELECT game_pk, pitcher, season,
+                   min(pitcher_days_since_prev_game) AS rest, count(*) AS np
+            FROM pitches_all
+            WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL
+            GROUP BY 1, 2, 3
+        """)
+        # PA outcomes by TTO ordinal (4 folds into 4+)
+        ld_tto_pa = con.sql(f"""
+            SELECT pitcher, season, CASE WHEN tto >= 4 THEN 4 ELSE tto END AS tto,
+                   count(*) AS pa,
+                   count(*) FILTER (WHERE ev IN ('strikeout', 'strikeout_double_play')) AS k,
+                   count(*) FILTER (WHERE ev IN ('walk', 'intent_walk')) AS bb
+            FROM ld_pa GROUP BY 1, 2, 3
+        """).df()
+        # pitch-level rates by TTO ordinal (joined to the PA's ordinal)
+        ld_tto_p = con.sql(f"""
+            SELECT p.pitcher, p.season, CASE WHEN t.tto >= 4 THEN 4 ELSE t.tto END AS tto,
+                   count(*) AS np, avg(p.release_speed) AS velo,
+                   avg(CASE WHEN p.pitch_type = 'FF' THEN p.release_speed END) AS ffvelo,
+                   count(*) FILTER (WHERE p.description IN {ld_swing}) AS swings,
+                   count(*) FILTER (WHERE p.description IN {ld_whiff}) AS whiffs,
+                   avg(p.launch_speed) AS ev,
+                   sum(p.delta_pitcher_run_exp) AS rv
+            FROM pitches_all p
+            JOIN ld_pa t ON p.game_pk = t.game_pk AND p.pitcher = t.pitcher
+                        AND p.at_bat_number = t.at_bat_number AND p.season = t.season
+            WHERE p.game_type = 'R' AND p.season IN ({season_list})
+            GROUP BY 1, 2, 3
+        """).df()
+        # velo/whiff/runs by rest days (bucketed on the outing's rest)
+        ld_rest = con.sql(f"""
+            SELECT g.pitcher, g.season, {ld_rest_case} AS rb,
+                   count(DISTINCT g.game_pk) AS outings,
+                   avg(p.release_speed) AS velo,
+                   count(*) FILTER (WHERE p.description IN {ld_swing}) AS swings,
+                   count(*) FILTER (WHERE p.description IN {ld_whiff}) AS whiffs,
+                   sum(p.delta_pitcher_run_exp) AS rv, count(*) AS np
+            FROM pitches_all p JOIN ld_game g
+              ON p.game_pk = g.game_pk AND p.pitcher = g.pitcher AND p.season = g.season
+            WHERE p.game_type = 'R' AND p.season IN ({season_list})
+              AND g.rest IS NOT NULL
+            GROUP BY 1, 2, 3
+        """).df()
+        # velo by pitch number within the start (FF carries the fade signal)
+        ld_fade = con.sql(f"""
+            SELECT pitcher, season,
+                   CASE WHEN k <= 15 THEN '01-15' WHEN k <= 30 THEN '16-30'
+                        WHEN k <= 45 THEN '31-45' WHEN k <= 60 THEN '46-60'
+                        WHEN k <= 75 THEN '61-75' WHEN k <= 90 THEN '76-90'
+                        ELSE '91+' END AS bucket,
+                   count(*) AS np, avg(release_speed) AS velo,
+                   count(*) FILTER (WHERE pitch_type = 'FF') AS nff,
+                   avg(CASE WHEN pitch_type = 'FF' THEN release_speed END) AS ffvelo
+            FROM (
+                SELECT pitcher, season, game_pk, at_bat_number, pitch_number,
+                       release_speed, pitch_type,
+                       row_number() OVER (PARTITION BY game_pk, pitcher
+                                          ORDER BY at_bat_number, pitch_number) AS k
+                FROM pitches_all
+                WHERE game_type = 'R' AND season IN ({season_list})
+                  AND release_speed IS NOT NULL
+            ) GROUP BY 1, 2, 3
+        """).df()
+        # league TTO baselines per season (the board's context rows)
+        ld_lg = con.sql(f"""
+            SELECT t.season, CASE WHEN t.tto >= 4 THEN 4 ELSE t.tto END AS tto,
+                   count(*) AS pa,
+                   count(*) FILTER (WHERE t.ev IN ('strikeout', 'strikeout_double_play')) AS k,
+                   count(*) FILTER (WHERE t.ev IN ('walk', 'intent_walk')) AS bb,
+                   avg(p.release_speed) AS velo,
+                   count(*) FILTER (WHERE p.description IN {ld_swing}) AS swings,
+                   count(*) FILTER (WHERE p.description IN {ld_whiff}) AS whiffs,
+                   sum(p.delta_pitcher_run_exp) AS rv, count(*) AS np
+            FROM pitches_all p
+            JOIN ld_pa t ON p.game_pk = t.game_pk AND p.pitcher = t.pitcher
+                        AND p.at_bat_number = t.at_bat_number AND p.season = t.season
+            WHERE p.game_type = 'R' AND p.season IN ({season_list})
+            GROUP BY 1, 2
+        """).df()
+
+        n_games = con.sql("SELECT pitcher, season, count(*) AS games FROM ld_game GROUP BY 1, 2").df().set_index(["pitcher", "season"])["games"]
+        np_total = ld_tto_p.groupby(["pitcher", "season"])["np"].sum()
+
+        def ld_tto_cell(pa_row, p_row):
+            pa = int(pa_row["pa"]) if pa_row is not None else 0
+            np_, swings = (int(p_row["np"]), int(p_row["swings"])) if p_row is not None else (0, 0)
+            cell = {"pa": pa,
+                    "kPct": f(100 * pa_row["k"] / pa, 1) if pa_row is not None and pa else None,
+                    "bbPct": f(100 * pa_row["bb"] / pa, 1) if pa_row is not None and pa else None}
+            if p_row is not None:
+                cell.update({
+                    "velo": f(p_row["velo"], 1),
+                    "fbVelo": f(p_row["ffvelo"], 1) if pd.notna(p_row["ffvelo"]) else None,
+                    "whiffPct": f(100 * p_row["whiffs"] / swings, 1) if swings else None,
+                    "ev": f(p_row["ev"], 1) if pd.notna(p_row["ev"]) else None,
+                    "runsPer100": f(100 * p_row["rv"] / np_, 2) if np_ else None,
+                })
+            return cell
+
+        ld_tto_pa_g = ld_tto_pa.set_index(["pitcher", "season", "tto"])
+        ld_tto_p_g = ld_tto_p.set_index(["pitcher", "season", "tto"])
+        ld_rest_g = ld_rest.set_index(["pitcher", "season", "rb"])
+        ld_fade_g = ld_fade.set_index(["pitcher", "season", "bucket"])
+        TTO_ORDER = [1, 2, 3, 4]
+        FADE_ORDER = ["01-15", "16-30", "31-45", "46-60", "61-75", "76-90", "91+"]
+        league_out: dict = {}
+        lg_g = ld_lg.set_index(["season", "tto"])
+        for s in sorted(ld_lg["season"].unique()):
+            cells = {}
+            for tto in TTO_ORDER:
+                if (s, tto) in lg_g.index:
+                    lw = lg_g.loc[(s, tto)]
+                    cells[str(tto)] = {"pa": int(lw["pa"]),
+                                       "kPct": f(100 * lw["k"] / lw["pa"], 1) if lw["pa"] else None,
+                                       "bbPct": f(100 * lw["bb"] / lw["pa"], 1) if lw["pa"] else None,
+                                       "velo": f(lw["velo"], 1),
+                                       "whiffPct": f(100 * lw["whiffs"] / lw["swings"], 1) if lw["swings"] else None,
+                                       "runsPer100": f(100 * lw["rv"] / lw["np"], 2) if lw["np"] else None}
+            league_out[str(int(s))] = cells
+
+        n_load = 0
+        index_rows: dict = {}
+        for (pid, season), _ in np_total.groupby(level=[0, 1]):
+            if player is not None and int(pid) != player:
+                continue
+            if int(np_total.loc[[(pid, season)]].sum()) < LOAD_MIN_PITCHES:
+                continue
+            tto_doc = {}
+            for tto in TTO_ORDER:
+                pa_row = ld_tto_pa_g.loc[(pid, season, tto)] if (pid, season, tto) in ld_tto_pa_g.index else None
+                p_row = ld_tto_p_g.loc[(pid, season, tto)] if (pid, season, tto) in ld_tto_p_g.index else None
+                if pa_row is None and p_row is None:
+                    continue
+                tto_doc[str(tto)] = ld_tto_cell(pa_row, p_row)
+            rest_doc = {}
+            for rb in ("0-3", "4", "5", "6", "7+"):
+                if (pid, season, rb) in ld_rest_g.index:
+                    rr = ld_rest_g.loc[(pid, season, rb)]
+                    rest_doc[rb] = {"outings": int(rr["outings"]),
+                                    "velo": f(rr["velo"], 1),
+                                    "whiffPct": f(100 * rr["whiffs"] / rr["swings"], 1) if rr["swings"] else None,
+                                    "runsPer100": f(100 * rr["rv"] / rr["np"], 2) if rr["np"] else None}
+            fade_doc = []
+            for bkt in FADE_ORDER:
+                if (pid, season, bkt) in ld_fade_g.index:
+                    fr = ld_fade_g.loc[(pid, season, bkt)]
+                    fade_doc.append({"bucket": bkt, "n": int(fr["np"]), "velo": f(fr["velo"], 1),
+                                     "nFf": int(fr["nff"]),
+                                     "ffVelo": f(fr["ffvelo"], 1) if pd.notna(fr["ffvelo"]) else None})
+
+            def tget(key, field):
+                cell = tto_doc.get(key)
+                return cell.get(field) if cell else None
+
+            def drop(field, min_pa=30):
+                c1, c3 = tto_doc.get("1"), tto_doc.get("3")
+                if not c1 or not c3 or c1.get("pa", 0) < min_pa or c3.get("pa", 0) < min_pa:
+                    return None, None, None
+                a1, a3 = c1.get(field), c3.get(field)
+                if a1 is None or a3 is None:
+                    return a1, a3, None
+                return a1, a3, f(round(a1 - a3, 1), 1)  # positive = a decline by T3
+
+            veloT1, veloT3, veloDrop = drop("velo")
+            whiffT1, whiffT3, whiffDrop = drop("whiffPct")
+            kT1, kT3, kDrop = drop("kPct")
+            ff01 = next((x["ffVelo"] for x in fade_doc if x["bucket"] == "01-15"), None)
+            ff76 = next((x["ffVelo"] for x in fade_doc if x["bucket"] == "76-90"), None)
+            n01 = next((x["nFf"] for x in fade_doc if x["bucket"] == "01-15"), 0)
+            n76 = next((x["nFf"] for x in fade_doc if x["bucket"] == "76-90"), 0)
+            ffFade = f(ff01 - ff76, 1) if (ff01 is not None and ff76 is not None and n01 >= 30 and n76 >= 30) else None
+            doc = {
+                "id": str(pid), "season": int(season),
+                "nPitches": int(np_total.loc[[(pid, season)]].sum()),
+                "nGames": int(n_games.get((pid, season), 0)),
+                "tto": tto_doc, "rest": rest_doc, "fade": fade_doc,
+                "summary": {"veloT1": veloT1, "veloT3": veloT3, "veloDropTto": veloDrop,
+                            "whiffT1": whiffT1, "whiffT3": whiffT3, "whiffDropTto": whiffDrop,
+                            "kT1": kT1, "kT3": kT3, "kDropTto": kDrop, "ffFade75": ffFade},
+            }
+            jwrite_gz(out / "load" / f"{pid}-{season}.json.gz", _clean(doc), sort_keys=True)
+            index_rows.setdefault(str(int(season)), []).append({
+                "id": str(pid), "nPitches": doc["nPitches"], "nGames": doc["nGames"],
+                "veloT1": veloT1, "veloT3": veloT3, "veloDropTto": veloDrop,
+                "whiffT1": whiffT1, "whiffT3": whiffT3, "whiffDropTto": whiffDrop,
+                "kT1": kT1, "kT3": kT3, "kDropTto": kDrop, "ffFade75": ffFade,
+            })
+            n_load += 1
+        jwrite(out / "load_index.json", {
+            "_comment": ("fatigue surfaces per pitcher-season (TTO velo/outcome drops, rest-day splits, "
+                         "FF velo fade by pitch number); league baselines under 'league'. Descriptive — "
+                         "drops need 30+ PA in both the 1st and 3rd time through, fade 30+ FF in both buckets"),
+            "minPitches": LOAD_MIN_PITCHES,
+            "league": league_out,
+            "seasons": {k: sorted(v, key=lambda rw: -(rw.get("veloDropTto") or -99))
+                        for k, v in sorted(index_rows.items())},
+        }, sort_keys=True)
+        counts["load_files"] = n_load
+        print(f"load files: {n_load}")
 
     # ----------------------------------------------------------------- meta
     # The manifest doubles as the sync audit: per-file bytes + sha (16) so a

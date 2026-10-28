@@ -33,6 +33,7 @@ import { logoUrl, teamPixels } from "@/lib/team-pixel";
 import { signedFixed, PctChip } from "@/components/ui/shared-ui";
 import { PitchRvCard } from "@/components/ui/pitch-rv-card";
 import { GameLogPanel } from "@/components/ui/game-log-panel";
+import { FatigueTab } from "@/components/ui/fatigue-tab";
 import { SituationalRunsPanel } from "@/components/ui/situational-runs-panel";
 import { LocationMixPanel } from "@/components/ui/location-mix-panel";
 import { ArsenalOverview } from "@/components/ui/arsenal-overview";
@@ -67,6 +68,8 @@ type ProfileViewProps = {
   careerArsenal?: any[] | null;
   level?: string;
   situational?: any | null;
+  load?: any | null;
+  initialTab?: string | null;
 };
 
 /** A pitch's VAA cells tinted by their same-zone rank: verdict colour, or grey when the row is descriptive. */
@@ -277,10 +280,12 @@ function PlatoonCell({ pitch, h }: { pitch: any; h: "LHH" | "RHH" }) {
   );
 }
 
-export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, backHref = "/pitchers", level }: ProfileViewProps) {
+export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, load, initialTab, backHref = "/pitchers", level }: ProfileViewProps) {
   const [vaaPitchFilter, setVaaPitchFilter] = useState<string>("all");
   const [percentilePitchTab, setPercentilePitchTab] = useState<string | null>(null);
-  const [tab, setTab] = useState<any>("overview");
+  // ?tab= deep link (the fatigue board links here); stale keys fall back to Overview.
+  const [tab, setTab] = useState<any>(
+    initialTab && TABS_FOR.pitcher.some((x) => x.key === initialTab) ? initialTab : "overview");
   const pitches = profile.pitches || [];
   const rows = pitches;
 
@@ -581,6 +586,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
       <ProfileTabPanel role="pitcher" tab={tab}>
       {tab === "visuals" ? (
           <PitcherVisualsTab visuals={visuals ?? null} career={career} />
+        ) : tab === "fatigue" ? (
+          <FatigueTab load={load ?? null} levelLabel={level === "aaa" ? "AAA Statcast" : "MLB"} />
         ) : tab === "gamelog" ? (
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "arsenal" ? (
