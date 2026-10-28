@@ -17,7 +17,7 @@ import { ExpandableCard } from "@/components/ui/expandable-card";
 import { VAAGrid } from "@/components/charts/vaa-grid";
 import { PROFILE_PCT_FLOOR, GRADE_PCT_FLOOR, NEUTRAL_GREY, percentileColor, getPitcherPercentileRank } from "@/lib/percentiles";import { HeaderStat, PercentileGroup, PercentilePanel, ThinSampleBanner, statRow, type PctRow } from "@/components/ui/percentile-row";
 import { AboutThis } from "@/components/ui/discipline-block";
-import { ProfileTabs, ProfileTabPanel } from "@/components/ui/profile-tabs";
+import { ProfileTabs, ProfileTabPanel, TABS_FOR } from "@/components/ui/profile-tabs";
 import { GradePct, gradedN } from "@/components/ui/grade-pct";
 import { DynamicStuffLab } from "@/components/3d/lab-dynamic";
 import { SharedGradeNote, GyroTag } from "@/components/ui/shared-grade-note";
