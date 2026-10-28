@@ -50,7 +50,7 @@ const HITTER_NEUTRAL = new Set(["pullPct", "laSd", "swingLength", "attackAngle",
 const PITCHER_NEUTRAL = new Set(["rvLuck"]);
 
 /** Hitter stats where LOWER values are better — invert the rank */
-const LOWER_IS_BETTER = new Set(["kPct", "kPctProj"]);
+const LOWER_IS_BETTER = new Set(["kPct", "kPctProj", "popTime"]);
 
 /** Pitcher stats where LOWER is better */
 const PITCHER_LOWER_IS_BETTER = new Set([

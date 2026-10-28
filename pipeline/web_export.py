@@ -2367,6 +2367,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 h_dec[(int(decr.mlbam), int(decr.season))] = {
                     "drvPer100": f(decr.drv100, 2), "izaPer100": f(decr.iza, 2), "ozaPer100": f(decr.oza, 2),
                     "decisionPlus": f(decr.decision_plus, 0) if pd.notna(decr.decision_plus) else None}
+        from savant_fielding import fielding  # D-16: Savant baserunning / fielding / catcher runs, descriptive
+        h_fld = fielding(con, seasons) if level == "mlb" else {}
         h_depth = {(int(rr["id"]), int(rr["season"])): {k: f(rr[c], nd) for c, (k, nd) in HD.items() if c in rr}
                    for rr in hd.to_dict("records")}
         hboard = []
@@ -2408,6 +2410,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             row.update(h_depth.get(key, {}))
             row.update(h_proj.get(key, {}))
             row.update(h_dec.get(key, {}))
+            row.update(h_fld.get(key, {}))
             hboard.append(row)
         hj = con.sql(f"""
             SELECT batter AS id, season, mode(stand) AS bats
@@ -2474,7 +2477,9 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         H_METRICS = ["woba", "obp", "slg", "avg", "ops", "iso", "kPct", "bbPct", "ev90", "maxEv",
                      "hardHitPct", "barrelPct", "whiffPct", "contactPct", "swingPct",
                      "oSwingPct", "nBip", *dict.fromkeys(k for k, _ in HD.values()),
-                     "wobaProj", "kPctProj", "bbPctProj", "drvPer100", "izaPer100", "ozaPer100", "decisionPlus"]
+                     "wobaProj", "kPctProj", "bbPctProj", "drvPer100", "izaPer100", "ozaPer100", "decisionPlus",
+                     "bsrRuns", "xbRuns", "sbRuns", "frvRuns", "oaa", "framingRuns", "blockingRuns", "throwingRuns",
+                     "popTime", "catcherArm"]
         h_pcts = {}
         h_dense = {}
         for s in seasons:
@@ -2714,6 +2719,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "trend": h_trend.get((pid, season)),
                 **h_proj.get((pid, season), {}),
                 **h_dec.get((pid, season), {}),
+                **h_fld.get((pid, season), {}),
                 "percentiles": {},
                 **h_shrunk(t, season),
             }
@@ -3382,6 +3388,9 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
               {DETAIL_GATE}
             GROUP BY 1, 2
         """).df()
+        oo_c = official_er(level)  # official outs, as the season rows (event outs miss outs on the bases)
+        car_p["outs"] = [oo_c[k][1] if k in oo_c and oo_c[k][1] > 0 else o
+                         for k, o in zip(zip(car_p["id"].astype(int), car_p["season"].astype(int)), car_p["outs"])]
         mix_p = con.sql(f"""
             SELECT pitcher AS id, season, {site_case_sql()} AS site, COUNT(*) AS n,
                    AVG(release_speed) AS v, AVG(pfx_z) AS ivb, AVG(pfx_x) AS hb
