@@ -1893,3 +1893,11 @@ Between-venue SD of the log ratio (τ), L/R: 1B .03/.06, 2B .10/.09, 3B .38/.28,
 - multiclass log loss against a count-only baseline.
 
 **What it means either way.** A pass ships xRV/100, xRV+ and luck on pitcher rows, docs and percentiles as forecast-gated. A fail ships xRV/100 and luck descriptively under the "descriptive, not a forecast" label, and xRV+ not at all.
+
+**Result (read once, 2026-10-27): NOT CONFIRMED.** Δr (xRV/100 − RV/100, predicting next RV/100) = +.009, 95% CI [−.043, .061]. xRV/100 wins 2 of 6 pairs (2020→21 and 2025→26), n = 1,986 pitcher pairs over 4,518,351 cross-fit pitches.
+- Against judge.py's observed xRV (actual outcomes, balls in play valued by xwOBA): −.084 [−.131, −.034], 0 of 6. The pitch-quality model loses to the luck-adjusted record.
+- Per-pitch r with actual run value: .200. That is not comparable to the college .563, which was scored on a different target.
+- Year-to-year r of xRV/100: .636.
+- Multiclass log loss: .990 against 1.489 for count-only.
+
+**Shipped, under the pre-registered fail rule:** xRV/100 and luck (RV/100 − xRV/100) on MLB pitcher rows and profiles, labelled descriptive, not a forecast. No xRV+.
