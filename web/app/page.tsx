@@ -31,7 +31,7 @@ function LeaderList({ title, rows, metric, fmt, href, note }: {
               <span className="w-4 text-[10px] font-data text-text-dim text-right">{i + 1}</span>
               {crest ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={crest} alt="" width={16} height={16} className="rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                <img src={crest} alt="" width={16} height={16} className="rounded" />
               ) : <PixelTeamLogo team={r.team} size={14} />}
               <Link href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline truncate flex-1">
                 {r.name ?? r.id}
