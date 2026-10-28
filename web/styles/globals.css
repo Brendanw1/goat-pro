@@ -797,3 +797,60 @@ select:active { transform: scale(0.98); }
   .hatch-line { stroke: rgba(0,0,0,0.45); }
   .faded-edge { stroke: #000; }
 }
+
+/* ── Launch intro (components/ui/launch-intro.tsx) ──────────────────────────
+   Shown only while <html data-intro="play">; the inline script decides before first paint.
+   Timeline: blocks assemble 0-~650ms, -PRO slides in 300-700ms, break-away ~980-1500ms,
+   overlay fades 1150-1650ms, unmounted (data-intro="done") at 1750ms. */
+.launch { display: none; }
+html[data-intro="play"] .launch,
+html[data-intro="skip-now"] .launch {
+  display: flex; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 46%, color-mix(in oklch, var(--color-usf-green) 55%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 52% 44%, color-mix(in srgb, var(--color-usf-gold) 10%, transparent), transparent 70%),
+    var(--color-surface-0);
+  animation: launch-fade 500ms cubic-bezier(0.4, 0, 0.2, 1) 1150ms forwards;
+  --px: clamp(9px, 2.5vw, 24px);
+}
+html[data-intro="skip-now"] .launch { animation: launch-fade 220ms ease-out forwards; }
+html[data-intro="play"] body { overflow: hidden; }
+.launch-word { position: relative; display: flex; align-items: flex-end; gap: calc(var(--px) * 0.9); }
+.launch-grid { display: grid; grid-template-rows: repeat(7, var(--px)); gap: calc(var(--px) * 0.12); }
+.launch-block {
+  width: var(--px); height: var(--px); border-radius: calc(var(--px) * 0.12);
+  background: linear-gradient(160deg, oklch(0.97 0.01 90), oklch(0.82 0.03 90));
+  box-shadow: 0 0 calc(var(--px) * 0.6) color-mix(in srgb, var(--color-usf-gold) 25%, transparent);
+  opacity: 0;
+  animation:
+    launch-in 300ms cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--in) forwards,
+    launch-out 600ms cubic-bezier(0.5, 0, 0.75, 0.3) calc(960ms + var(--out)) forwards;
+}
+.launch-pro {
+  font-family: var(--font-sans); font-weight: 900; letter-spacing: 0.04em; line-height: 1;
+  font-size: calc(var(--px) * 2.6); color: var(--color-usf-gold); padding-bottom: calc(var(--px) * 0.05);
+  text-shadow: 0 0 calc(var(--px) * 1.2) color-mix(in srgb, var(--color-usf-gold) 35%, transparent);
+  opacity: 0; transform: translateX(45vw);
+  animation:
+    launch-pro-in 420ms cubic-bezier(0.16, 1, 0.3, 1) 300ms forwards,
+    launch-pro-out 380ms cubic-bezier(0.55, 0, 0.8, 0.4) 1000ms forwards;
+}
+@keyframes launch-in {
+  from { opacity: 0; transform: translateY(calc(var(--px) * -1.5)) scale(0.4); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes launch-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translate(calc(var(--px) * var(--dx)), calc(var(--px) * var(--dy))) rotate(var(--rot)) scale(0.55); }
+}
+@keyframes launch-pro-in { to { opacity: 1; transform: none; } }
+@keyframes launch-pro-out {
+  from { opacity: 1; transform: none; filter: blur(0); }
+  to { opacity: 0; transform: translateX(calc(var(--px) * 3)); filter: blur(6px); }
+}
+@keyframes launch-fade { to { opacity: 0; visibility: hidden; } }
+
+/* Home sections flow in: right after the intro when it played, immediately otherwise. */
+.home-reveal { opacity: 0; animation: fade-up 480ms cubic-bezier(0.2, 0, 0, 1) calc(var(--i, 0) * 55ms) forwards; }
+html[data-intro="play"] .home-reveal { animation-delay: calc(1250ms + var(--i, 0) * 70ms); }
+@media (prefers-reduced-motion: reduce) { .home-reveal { animation: none; opacity: 1; } }

@@ -30,7 +30,7 @@ export function Nav() {
       {/* Logo / Brand */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
         <Link
-          href="/pitchers"
+          href="/"
           className="text-lg font-bold tracking-wide text-text-primary"
         >
           GOAT-Pro
