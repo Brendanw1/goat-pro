@@ -1901,3 +1901,19 @@ Between-venue SD of the log ratio (τ), L/R: 1B .03/.06, 2B .10/.09, 3B .38/.28,
 - Multiclass log loss: .990 against 1.489 for count-only.
 
 **Shipped, under the pre-registered fail rule:** xRV/100 and luck (RV/100 − xRV/100) on MLB pitcher rows and profiles, labelled descriptive, not a forecast. No xRV+.
+
+## §72 Park-adjusted wOBA and FIP (D-04 part 2), pre-registered 2026-10-28 before any read
+
+**Method.** Per plate appearance: each confirmed §70 component (2B, 3B, HR, SO) is divided by its venue factor for the batter's hand, using the factor from the window S−2..S of that season. The venue comes from the Stats API game venue. Singles, walks and HBP are not adjusted, because their factors failed §70. Venues below the §70 floor (2,000 home PA in the window) get factor 1. `park_adjust.py`.
+- **Adjusted wOBA (hitters, Savant scale):** Σ woba_value/PF over Σ woba_denom.
+- **Adjusted FIP (pitchers):** HR/PF_HR and K/PF_SO in the FIP formula, with the same season constant.
+
+**Claim (read once).** Among players who **changed home team** between S and S+1, with ≥ 200 PA (hitters) or ≥ 200 batters faced (pitchers) in both seasons, the year-to-year r of the adjusted stat beats that of the raw stat. Two tests:
+- hitters: r(adj wOBA_S, adj wOBA_S+1) − r(wOBA_S, wOBA_S+1);
+- pitchers: the same for FIP.
+
+Pooled Δr over pairs S = 2022…2025 (the windows need S−2), player-clustered bootstrap, 2,000 draws, seed 13. A test is CONFIRMED if its 95% CI lower bound is > 0. Judged separately.
+
+**Reported, not judged:** the same Δr among players who stayed with one team (expected ≈ 0); the largest raw-to-adjusted moves (sanity: Coors and Petco hitters).
+
+**What it means either way.** A confirmed stat ships on rows, docs and percentiles as `wobaParkAdj` / `fipParkAdj`. An unconfirmed one is not shown.
