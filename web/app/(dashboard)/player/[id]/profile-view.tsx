@@ -719,6 +719,11 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           );
         })()}
 
+        <a href={`/api/card/${playerId}?season=${profile.season}`} target="_blank" rel="noopener"
+          className="inline-block text-[11px] text-text-dim underline-offset-2 hover:text-text-secondary hover:underline">
+          Percentile card (PNG) ↗
+        </a>
+
         <TrendPanel trend={profile.trend} role="pitcher" />
         <LeagueScatter role="pitcher" season={Number(profile.season)} id={String(playerId)} level={level} />
 

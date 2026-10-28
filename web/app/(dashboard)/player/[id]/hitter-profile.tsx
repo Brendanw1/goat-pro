@@ -358,6 +358,11 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
               </div>
             )}
 
+            <a href={`/api/card/${playerId}?season=${profile.season}`} target="_blank" rel="noopener"
+              className="inline-block text-[11px] text-text-dim underline-offset-2 hover:text-text-secondary hover:underline">
+              Percentile card (PNG) ↗
+            </a>
+
             <TrendPanel trend={profile.trend} role="hitter" />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
