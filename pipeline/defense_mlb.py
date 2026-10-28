@@ -4,6 +4,7 @@
     python defense_mlb.py          # fit 2020-26 + the §75/§76 reads once -> results/defense_*.csv + defense_SEALED.json
     python defense_mlb.py --demo   # self-check of the credit split
     python defense_mlb.py --v2     # §80 re-test (isotonic recalibration), writes defense_v2_SEALED.json
+    python defense_mlb.py --v3     # §81 re-test (+ Savant start positions, hang time; range only), *_v3 outputs
     python defense_mlb.py --artifacts  # same fits, writes only cache/defense_chances + framing_pitches parquets
 
 Every model is fit WITHIN a season (2026 changed Statcast's plate/zone conventions) and scored out of fold:
@@ -34,7 +35,10 @@ OUTS = ("field_out", "force_out", "grounded_into_double_play", "double_play", "t
 IF_POS, OF_POS = (3, 4, 5, 6), (7, 8, 9)
 SAVANT_IF, SAVANT_OF = {"1B", "2B", "3B", "SS"}, {"LF", "CF", "RF"}
 FRAMING_MIN = 2000
-V2 = "--v2" in sys.argv  # §80: isotonic recalibration of the range model
+V3 = "--v3" in sys.argv  # §81: + Savant average start positions and physics hang time (implies V2)
+V2 = "--v2" in sys.argv or V3  # §80: isotonic recalibration of the range model
+SFX = "_v3" if V3 else ""
+POSITIONS = PIPE.parent / "cache" / "fielder_positions.parquet"  # fielder_positions.py
 RANGE_SQL = """
 SELECT game_pk, game_date, inning, inning_topbot AS half, batter, stand, events, launch_speed AS ev, launch_angle AS la, hit_distance_sc AS dist,
        degrees(atan((hc_x - 125.42) / (198.27 - hc_y))) AS spray, 2.5 * (hc_x - 125.42) AS fx, 2.5 * (198.27 - hc_y) AS fy, hit_location, if_fielding_alignment AS ifa,
@@ -102,6 +106,59 @@ def sprint(con, s):
         return pd.Series(dtype=float)
 
 
+def hang_time(ev, la, dist, h0=3.0, dt=0.02, iters=20):
+    """§81: flight time of a drag-only trajectory whose drag constant is solved per ball (bisection) so the range
+    matches dist. ev mph, la deg, dist ft. Ignores lift, so it is a monotone proxy, not a measured hang time."""
+    v0, a = np.asarray(ev, float) * 1.4667, np.radians(np.asarray(la, float))
+    lo, hi = np.zeros(len(v0)), np.full(len(v0), 0.01)
+
+    def fly(k):
+        vx, vz, x, z, t = v0 * np.cos(a), v0 * np.sin(a), np.zeros(len(k)), np.full(len(k), h0), np.zeros(len(k))
+        for _ in range(int(12 / dt)):
+            up = z > 0
+            if not up.any():
+                break
+            v = np.hypot(vx, vz)
+            vx, vz = vx - up * k * v * vx * dt, vz - up * (k * v * vz + 32.17) * dt
+            x, z, t = x + up * vx * dt, z + up * vz * dt, t + up * dt
+        return x, t
+
+    for _ in range(iters):
+        k = (lo + hi) / 2
+        far = fly(k)[0] > dist  # still too far -> more drag
+        lo, hi = np.where(far, k, lo), np.where(far, hi, k)
+    return fly((lo + hi) / 2)[1]
+
+
+def start_features(d, s):
+    """§81: each fielder's Savant average start (hand x runner on first x shifted cell; league mean of the cell
+    when the fielder has < 10 plays in it) -> OF distance to the fielded point, IF lateral distance to the path."""
+    P = pd.read_parquet(POSITIONS).query("season == @s")
+    P = P[P["n"] > 0]
+    lg = (P.assign(wx=P["x"] * P["n"], wy=P["y"] * P["n"]).groupby(["pos", "stand", "r1", "shifted"])[["n", "wx", "wy"]]
+          .sum().pipe(lambda g: pd.DataFrame({"lx": g["wx"] / g["n"], "ly": g["wy"] / g["n"]})))
+    me = P[P["n"] >= 10].set_index(["mlbam", "pos", "stand", "r1", "shifted"])[["x", "y"]]
+    cell = pd.DataFrame({"stand": d["stand"].astype(str).to_numpy(), "r1": d["r1"].to_numpy(),
+                         "shifted": (d["ifa"].astype(str) == "Infield shift").astype(int).to_numpy()})
+    out = {}
+    for k in range(3, 10):
+        c = cell.assign(mlbam=d[f"fielder_{k}"].to_numpy(), pos=k)
+        j = c.join(me, on=["mlbam", "pos", "stand", "r1", "shifted"]).join(lg, on=["pos", "stand", "r1", "shifted"])
+        x, y = j["x"].fillna(j["lx"]).to_numpy(), j["y"].fillna(j["ly"]).to_numpy()
+        if k >= 7:
+            out[f"d{k}"] = np.hypot(d["fx"].to_numpy() - x, d["fy"].to_numpy() - y)
+        else:
+            ang = np.radians(np.degrees(np.arctan2(x, y)) - d["spray"].to_numpy())
+            out[f"d{k}"] = np.hypot(x, y) * np.abs(np.sin(ang))
+    f = pd.DataFrame(out, index=d.index)
+    f["d_of"], f["d_if"] = f[["d7", "d8", "d9"]].min(axis=1), f[["d3", "d4", "d5", "d6"]].min(axis=1)
+    air = d["la"].to_numpy() >= 10
+    f["hang"] = np.nan
+    f.loc[air, "hang"] = hang_time(d.loc[air, "ev"], d.loc[air, "la"], d.loc[air, "dist"].fillna(0).clip(lower=1))
+    f["req_speed"] = f["d_of"] / f["hang"]
+    return f
+
+
 def range_season(con, s):
     d = con.sql(RANGE_SQL.format(s=s)).df()
     sp = sprint(con, s)
@@ -109,6 +166,8 @@ def range_season(con, s):
     for c in ("ifa", "ofa", "home_team", "stand"):
         d[c] = d[c].astype("category")
     X = d[["ev", "la", "dist", "spray", "stand", "ifa", "ofa", "outs", "r1", "r2", "r3", "sprint", "home_team"]]
+    if V3:
+        X = pd.concat([X, start_features(d, s)], axis=1)
     y = d["events"].isin(OUTS).to_numpy().astype(int)
     p = oof(X, y, d["game_pk"])
     if V2:
@@ -197,6 +256,8 @@ def demo():
     c = credit(np.array([True, False]), np.array([6.0, np.nan]), p, resp)
     assert np.isclose(c[0, 5], .3) and np.isclose(c[0].sum(), .3), c[0]
     assert np.isclose(c[1, 4], -.2) and np.isclose(c[1, 5], -.2) and np.isclose(c[1].sum(), -.4), c[1]
+    t = hang_time([90.0, 100.0], [30.0, 30.0], [300.0, 380.0])
+    assert 3.0 < t[0] < t[1] < 6.5, t  # MLB fly balls hang ~4-6 s
     print("demo ok")
 
 
@@ -206,20 +267,21 @@ def main(sealed=True):
     rg, fr = [], []
     for s in SEASONS:
         a, ma = range_season(con, s)
-        b, mb = framing_season(con, s)
+        b, mb = (pd.DataFrame(), {}) if V3 else framing_season(con, s)
         rg.append(a)
         fr.append(b)
         res["meta"][s] = {"range": ma, "framing": mb}
     rg, fr = pd.concat(rg, ignore_index=True), pd.concat(fr, ignore_index=True)
     # per-chance / per-pitch detail for the profile views (cache/, not committed: large)
-    rg[rg["chances"] >= 0.05].to_parquet(PIPE.parent / "cache" / "defense_chances.parquet")
-    fr.to_parquet(PIPE.parent / "cache" / "framing_pitches.parquet")
+    rg[rg["chances"] >= 0.05].to_parquet(PIPE.parent / "cache" / f"defense_chances{SFX}.parquet")
+    if not V3:
+        fr.to_parquet(PIPE.parent / "cache" / "framing_pitches.parquet")
     if not sealed:
         return
 
     # range: per fielder-season-position, then player-season (group = most chances)
     fp = rg.groupby(["mlbam", "season", "pos"])[["chances", "oaa", "runs"]].sum().reset_index()
-    fp.round(3).to_csv(RES / "defense_fielders.csv", index=False)
+    fp.round(3).to_csv(RES / f"defense_fielders{SFX}.csv", index=False)
     grp = fp.assign(g=np.where(fp["pos"].isin(IF_POS), "IF", "OF"))
     main_g = grp.sort_values("chances", ascending=False).drop_duplicates(["mlbam", "season"]).set_index(["mlbam", "season"])["g"]
     pl = grp.groupby(["mlbam", "season"])[["chances", "oaa", "runs"]].sum().join(main_g).reset_index()
@@ -245,7 +307,12 @@ def main(sealed=True):
         pl.loc[pl["g"] == g, "k"] = kk["k"]
     pl["oaa_shrunk"] = pl["oaa"] * pl["chances"] / (pl["chances"] + pl["k"])
     pl["runs_shrunk"] = pl["runs"] * pl["chances"] / (pl["chances"] + pl["k"])
-    pl.round(3).to_csv(RES / "defense_players.csv", index=False)
+    pl.round(3).to_csv(RES / f"defense_players{SFX}.csv", index=False)
+
+    if V3:
+        print(json.dumps({k: v for k, v in res.items() if k != "meta"}, indent=1))
+        (RES / "defense_v3_SEALED.json").write_text(json.dumps(res, indent=1, default=str))
+        return
 
     # framing
     cg = fr.assign(n=1).groupby(["mlbam", "season", "game_pk"])[["n", "runs"]].sum().reset_index()

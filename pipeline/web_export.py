@@ -172,7 +172,7 @@ def p_depth(level: str, seasons: tuple, con) -> tuple[dict, dict]:
     d = pitcher_depth(con, seasons, level=level)
     depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in PD.items() if c in r}
              for r in d.to_dict("records")}
-    xf = ROOT / "pipeline" / "results" / "xrv_pitchers.csv"  # §71 (D-03) xRV/100 + luck: descriptive, MLB only
+    xf = ROOT / "pipeline" / "results" / "xrv_v2_pitchers.csv"  # §71/§78 (D-03) xRV/100 + luck, v2 (+ season term): descriptive, MLB only
     if level == "mlb" and xf.exists():
         for r in pd.read_csv(xf).itertuples():
             depth.setdefault((int(r.mlbam), int(r.season)), {}).update(
@@ -1675,7 +1675,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         RV_HIDE = 50  # matches the type-grade floor: under this the cell hides
         rv_written: set[int] = set()
         xrv_type: dict = {}  # §71 (D-03): xRV/100 per site code, descriptive, MLB only
-        xtf = ROOT / "pipeline" / "results" / "xrv_pitch_types.csv"
+        xtf = ROOT / "pipeline" / "results" / "xrv_v2_pitch_types.csv"
         if level == "mlb" and xtf.exists():
             xt = pd.read_csv(xtf).assign(site=lambda d: d["pitch_type"].map(lambda t: SC_TO_SITE.get(t, t)))
             xt["w"] = xt["xrv100"] * xt["n"]
