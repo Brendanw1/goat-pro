@@ -25,6 +25,7 @@ import { SprayPanel } from "@/components/ui/spray-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
 import { TrendPanel } from "@/components/ui/trend-panel";
+import { RollingPanel } from "@/components/ui/rolling-panel";
 import { LeagueScatter, RvFamilyBars, ProjectionBand } from "@/components/ui/league-views";
 
 const pct1 = (v: number) => v.toFixed(1);
@@ -394,6 +395,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
             </a>
 
             <TrendPanel trend={profile.trend} role="hitter" />
+            <RollingPanel trend={profile.trend} role="hitter" />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <LeagueScatter role="hitter" season={Number(profile.season)} id={String(playerId)} level={level} />

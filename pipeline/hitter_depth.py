@@ -158,27 +158,105 @@ SELECT {who} AS id, season, substr(CAST(game_date AS VARCHAR), 6, 5) AS d,
        coalesce(sum(woba_value) FILTER (WHERE woba_denom > 0), 0) AS wn,
        coalesce(sum(CASE WHEN description = 'hit_into_play' AND estimated_woba_using_speedangle IS NOT NULL
                     THEN estimated_woba_using_speedangle ELSE woba_value END) FILTER (WHERE woba_denom > 0), 0) AS xn,
-       coalesce(sum(woba_denom), 0) AS den, coalesce(sum(delta_run_exp), 0) AS rv
-FROM {tbl} WHERE game_type = 'R' AND season IN ({seasons}) AND {who} IS NOT NULL
+       coalesce(sum(woba_denom), 0) AS den, coalesce(sum(delta_run_exp), 0) AS rv,
+       count(*) AS np, count(*) FILTER (WHERE sw) AS sw, count(*) FILTER (WHERE wh) AS wh,
+       count(*) FILTER (WHERE zone > 10) AS oz, count(*) FILTER (WHERE zone > 10 AND sw) AS ch,
+       count(*) FILTER (WHERE zone BETWEEN 1 AND 9) AS iz, count(*) FILTER (WHERE zone BETWEEN 1 AND 9 AND sw) AS izs,
+       count(*) FILTER (WHERE zone BETWEEN 1 AND 9 AND sw AND NOT wh) AS izc,
+       count(*) FILTER (WHERE description = 'called_strike') AS cs,
+       count(*) FILTER (WHERE events IN ('strikeout', 'strikeout_double_play')) AS k,
+       count(*) FILTER (WHERE events IN ('walk', 'intent_walk')) AS bb,
+       count(*) FILTER (WHERE bbe) AS bbe, count(*) FILTER (WHERE bbe AND launch_speed >= 95) AS hh,
+       count(*) FILTER (WHERE bbe AND launch_speed_angle = 6) AS brl,
+       count(*) FILTER (WHERE bbe AND launch_angle BETWEEN 8 AND 32) AS ss,
+       coalesce(sum(launch_speed) FILTER (WHERE bbe), 0) AS evs,
+       list(round(launch_speed, 1)) FILTER (WHERE bbe) AS evl,
+       coalesce(sum(bat_speed) FILTER (WHERE sw AND bat_speed IS NOT NULL), 0) AS bs,
+       count(*) FILTER (WHERE sw AND bat_speed IS NOT NULL) AS bsn,
+       coalesce(sum(release_speed) FILTER (WHERE pitch_type IN ('FF', 'SI')), 0) AS fbv,
+       count(*) FILTER (WHERE pitch_type IN ('FF', 'SI') AND release_speed IS NOT NULL) AS fbn
+FROM (SELECT *, description IN ('swinging_strike', 'swinging_strike_blocked', 'foul_tip', 'foul', 'foul_bunt',
+                                'hit_into_play', 'missed_bunt', 'bunt_foul_tip') AS sw,
+             description IN ('swinging_strike', 'swinging_strike_blocked', 'foul_tip') AS wh,
+             type = 'X' AND launch_speed IS NOT NULL AS bbe
+      FROM {tbl} WHERE game_type = 'R' AND season IN ({seasons}) AND {who} IS NOT NULL)
 GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
 """
+# counts per game date after the first six (wOBA trend) columns; whiff/chase per Savant (whiff counts foul tips)
+ROLL_COLS = ["np", "sw", "wh", "oz", "ch", "iz", "izs", "izc", "cs", "k", "bb", "bbe", "hh", "brl", "ss", "evs",
+             "bs", "bsn", "fbv", "fbn"]
+CACHE = Path(__file__).resolve().parent.parent / "cache"
+
+
+def whiff_z(con, seasons) -> pd.DataFrame:
+    """Per pitcher x game date: sum and count of per-pitch Whiff+ z (cache/pred_s4_bb.parquet, the cross-fit
+    behind the site's Whiff+). That cache has no game key, but its rows are train_mlb.FEATURE_SQL's rows in
+    order (checked: identical pitcher/season/type/stand/whiff/swing on all 4.5M rows); asserted again here.
+    z = (pred - mean) / sd of TRAIN pitcher means by class x batter hand (frozen_scale); 100 + 10 x mean z
+    reproduces the season grades at r .994."""
+    import train_mlb as tm
+    p = pd.read_parquet(CACHE / "pred_s4_bb.parquet")
+    q = con.sql(f"SELECT CAST(game_date AS VARCHAR) AS gd, pitcher, season, pitch_type, stand, whiff, swing "
+                f"FROM ({tm.FEATURE_SQL.format(lo=int(p.season.min()), hi=2026)})").df()
+    q = q[q["pitch_type"].map(tm.CLASS_OF).notna()].reset_index(drop=True)
+    assert len(q) == len(p) and all((q[c].to_numpy() == p[c].to_numpy()).all()
+                                    for c in ("pitcher", "season", "pitch_type", "stand", "whiff", "swing")), "pred cache drifted"
+    p["pclass"], p["d"] = p["pitch_type"].map(tm.CLASS_OF), q["gd"].str[5:10]
+    tr = p[p["season"].isin(tm.TRAIN_SEASONS) & (p["swing"] == 1)]
+    pm = tr.groupby(["pclass", "stand", "pitcher"])["pred"].agg(["mean", "count"])
+    ref = pm[pm["count"] >= 10].groupby(["pclass", "stand"])["mean"].agg(["mean", "std"])
+    r = p.join(ref, on=["pclass", "stand"])
+    p["z"] = (p["pred"] - r["mean"]) / r["std"]
+    p = p[p["season"].isin(seasons)]
+    return p.groupby(["pitcher", "season", "d"])["z"].agg(wz="sum", wzn="count").reset_index().rename(columns={"pitcher": "id"})
+
+
+def decision_drv(seasons) -> pd.DataFrame:
+    """Per batter x game date: sum and count of per-pitch decision value (decision_model.py --artifacts)."""
+    p = pd.read_parquet(CACHE / "decision_pitches.parquet")
+    p = p[p["season"].isin(seasons)]
+    return p.groupby(["batter", "season", "d"])["drv"].agg(dv="sum", dvn="count").reset_index().rename(columns={"batter": "id"})
 
 
 def trends(con=None, seasons=(2023, 2024, 2025, 2026), who: str = "batter", level: str = "mlb") -> dict:
     """{(id, season): {"cols", "rows", "lg"}}: one row per game date, [mm-dd, PA, wOBA numerator, xwOBA
-    numerator, wOBA denominator, run value], RV signed good-for-him (batter-positive for hitters,
-    pitcher-positive for pitchers); "lg" is that season's league wOBA and xwOBA for the reference line."""
+    numerator, wOBA denominator, run value, *ROLL_COLS, EV list, model sums], RV signed good-for-him
+    (batter-positive for hitters, pitcher-positive for pitchers). Model sums (MLB only, else 0): pitchers
+    Whiff+ z sum/count, hitters dRV sum/count. "lg": that season's league wOBA, xwOBA, the column sums
+    (rates for the reference line) and EV90, plus Decision+'s season mean/SD of dRV/100."""
     con = con or mart.connect()
     tbl = "pitches_aaa" if level == "aaa" else "pitches_all"
     g = con.sql(TREND_SQL.format(tbl=tbl, who=who, seasons=",".join(map(str, seasons)))).df()
     sign = 1 if who == "batter" else -1
-    lg = {int(s): {"woba": round(float(x.wn.sum() / x.den.sum()), 3), "xwoba": round(float(x.xn.sum() / x.den.sum()), 3)}
-          for s, x in g.groupby("season") if x.den.sum() > 0}
+    mk, mn = ("wz", "wzn") if who == "pitcher" else ("dv", "dvn")
+    try:
+        m = (whiff_z(con, seasons) if who == "pitcher" else decision_drv(seasons)) if level == "mlb" else None
+    except FileNotFoundError:
+        m = None
+    g = g.merge(m, on=["id", "season", "d"], how="left") if m is not None else g.assign(**{mk: 0.0, mn: 0})
+    g[[mk, mn]] = g[[mk, mn]].fillna(0)
+    cols = ["d", "pa", "wn", "xn", "den", "rv", *ROLL_COLS, "evl", mk, mn]
+    dec = {}
+    if who == "batter" and level == "mlb" and (Path(__file__).resolve().parent / "results" / "decisions_hitters.csv").exists():
+        dh = pd.read_csv(Path(__file__).resolve().parent / "results" / "decisions_hitters.csv")
+        dh = dh[dh["pa"] >= 100]
+        dec = {int(s): {"mu": round(float(x.drv100.mean()), 4), "sd": round(float(x.drv100.std()), 4)}
+               for s, x in dh.groupby("season")}
+    lg = {}
+    for s, x in g.groupby("season"):
+        if x.den.sum() <= 0:
+            continue
+        evs = pd.Series([v for l in x["evl"] if hasattr(l, "__len__") for v in l])
+        lg[int(s)] = {"woba": round(float(x.wn.sum() / x.den.sum()), 3), "xwoba": round(float(x.xn.sum() / x.den.sum()), 3),
+                      "sums": {c: round(float(x[c].sum()), 1) for c in ["pa", "den", "xn", "wn", *ROLL_COLS, mk, mn]},
+                      "ev90": round(float(evs.quantile(.9)), 1) if len(evs) else None, "dec": dec.get(int(s))}
     out = {}
     for (i, s), x in g.groupby(["id", "season"]):
         out[(int(i), int(s))] = {
-            "cols": ["d", "pa", "wn", "xn", "den", "rv"], "lg": lg.get(int(s)),
-            "rows": [[r.d, int(r.pa), round(float(r.wn), 2), round(float(r.xn), 3), int(r.den), round(sign * float(r.rv), 3)]
+            "cols": cols, "lg": lg.get(int(s)),
+            "rows": [[r.d, int(r.pa), round(float(r.wn), 2), round(float(r.xn), 3), int(r.den), round(sign * float(r.rv), 3),
+                      *[round(float(getattr(r, c)), 1) if c in ("evs", "bs", "fbv") else int(getattr(r, c)) for c in ROLL_COLS],
+                      [float(v) for v in r.evl] if hasattr(r.evl, "__len__") else [], round(float(getattr(r, mk)), 3), int(getattr(r, mn))]
                      for r in x.itertuples()]}
     return out
 

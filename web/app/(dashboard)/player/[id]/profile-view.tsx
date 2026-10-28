@@ -37,6 +37,7 @@ import { LocationMixPanel } from "@/components/ui/location-mix-panel";
 import { ArsenalOverview } from "@/components/ui/arsenal-overview";
 import { RV100_TIP } from "@/lib/rv-cells";
 import { TrendPanel } from "@/components/ui/trend-panel";
+import { RollingPanel } from "@/components/ui/rolling-panel";
 import { ProjectionBand, LeagueScatter } from "@/components/ui/league-views";
 
 const int0 = (v: number) => Math.round(v).toString();
@@ -786,6 +787,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
         </a>
 
         <TrendPanel trend={profile.trend} role="pitcher" />
+        <RollingPanel trend={profile.trend} role="pitcher" />
         <LeagueScatter role="pitcher" season={Number(profile.season)} id={String(playerId)} level={level} />
 
         {/* Raw plate discipline (P4): rates + descriptive season ranks. The EB
