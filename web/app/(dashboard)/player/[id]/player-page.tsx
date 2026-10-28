@@ -9,8 +9,8 @@ import { HitterProfileView } from "./hitter-profile";
 import Link from "next/link";
 
 /** The profile page body for one level: MLB at /player/[id], AAA Statcast at /minors/player/[id]. */
-export async function PlayerPage({ id, season, level = "mlb", extra }: {
-  id: string; season?: string; level?: Level; extra?: React.ReactNode;
+export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
+  id: string; season?: string; tab?: string; level?: Level; extra?: React.ReactNode;
 }) {
   let profile = await getPlayerProfile(id, season, level);
   let hitter: any = null;

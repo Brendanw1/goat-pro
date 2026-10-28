@@ -15,6 +15,7 @@ export const TRAD_COLUMNS = [
   { key: "name", label: "Name", w: "flex-[2.5] min-w-[150px]", align: "left" },
   { key: "team", label: "Team", w: "w-[56px]", align: "left" },
   { key: "season", label: "Yr", w: "w-[44px]", align: "right" },
+  { key: "role", label: "Role", w: "w-[40px]", align: "left" },
   { key: "age", label: "Age", w: "w-[40px]", align: "right" },
   { key: "ip", label: "IP", w: "w-[40px]", align: "right" },
   { key: "fip", label: "FIP", w: "w-[44px]", align: "right" },
@@ -74,7 +75,7 @@ export const DISCIPLINE_SHRUNK_KEYS = DISCIPLINE_COLUMNS.map((c) => `${c.key}Shr
 export const shrunkSortKey = (key: string): string | null =>
   (DISCIPLINE_SHRUNK_KEYS as readonly string[]).includes(`${key}Shrunk`) ? `${key}Shrunk` : null;
 
-export const PITCHER_FILTER_DEFAULTS = { team: "", minIP: 0, throws: "", season: "", minVelo: 0, minKPct: 0, minStuff: 0, minPitching: 0 };
+export const PITCHER_FILTER_DEFAULTS = { team: "", minIP: 0, throws: "", role: "", season: "", minVelo: 0, minKPct: 0, minStuff: 0, minPitching: 0 };
 
 export const PITCHER_DEFAULTS: BoardState = {
   search: "", filters: PITCHER_FILTER_DEFAULTS, colFilters: [], sortBy: "stuffPlus", sortDir: "desc", page: 1,
@@ -122,6 +123,7 @@ export function filterPitchers(data: PitcherRowAny[], s: BoardState): PitcherRow
   if (filters.season) rows = rows.filter((r) => String(r.season) === String(filters.season));
   if (filters.minIP > 0) rows = rows.filter((r) => r.ip >= filters.minIP);
   if (filters.throws) rows = rows.filter((r) => r.throws === filters.throws);
+  if (filters.role) rows = rows.filter((r) => r.role === filters.role); // SP: GS >= half of G (official lines)
   if (filters.minVelo > 0) rows = rows.filter((r) => (r.velo || 0) >= filters.minVelo);
   if (filters.minKPct > 0) rows = rows.filter((r) => (r.kPct || 0) >= filters.minKPct);
   if (filters.minStuff > 0) rows = rows.filter((r) => (r.stuffPlus || 0) >= filters.minStuff);

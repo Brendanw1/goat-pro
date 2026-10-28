@@ -31,7 +31,7 @@ const PLUS_KEYS = new Set(["stuffPlus", "pitchingPlus", "kPlus", "preventionPlus
 
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
-  if (key === "name" || key === "team" || key === "throws" || key === "season" || key === "confidence") return String(value);
+  if (key === "name" || key === "team" || key === "throws" || key === "role" || key === "season" || key === "confidence") return String(value);
   if (typeof value !== "number" || isNaN(value)) return "—";
   if (key === "age") return String(Math.floor(value)); // season age (June 30), shown as whole years
   if (key === "rvPer100") return (value > 0 ? "+" : "") + value.toFixed(2);
@@ -82,6 +82,7 @@ export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { met
     { key: "season", label: "Season", type: "select" as const, options: seasons.map(String) },
     { key: "minIP", label: "Min IP", type: "range" as const, min: 0, max: 200, step: 10 },
     { key: "throws", label: "Throws", type: "toggle" as const, options: ["R", "L"] },
+    { key: "role", label: "Role", type: "toggle" as const, options: ["SP", "RP"] },
     { key: "minVelo", label: "Min Velo", type: "range" as const, min: 0, max: 100, step: 2 },
     { key: "minKPct", label: "Min K%", type: "range" as const, min: 0, max: 50, step: 5 },
     { key: "minStuff", label: "Min Whiff+", type: "range" as const, min: 0, max: 130, step: 5 },

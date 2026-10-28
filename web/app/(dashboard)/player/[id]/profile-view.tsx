@@ -8,6 +8,7 @@
  * NEEDS-MODEL and deleted, not stubbed. Every grade renders under the
  * descriptive label (model card gate_status `descriptive-only`).
  */
+import { WhiffBreakdown } from "@/components/ui/whiff-breakdown";
 import { useState } from "react";
 import Link from "next/link";
 import { PITCH_CONFIG } from "@/lib/constants";
@@ -121,7 +122,7 @@ function PitchTypePercentiles({ rows, perTypeBp, active, onPick }: {
             statRow("pitcher", "spin", "Spin", pitch.spin, int0, ptBp.spin, thin),
           ]} />
           <PercentileGroup title="Grades and results" rows={[
-            statRow("pitcher", "stuffPlus", "Stuff+", pitch.stuffPlus, int0, ptBp.stuffPlus, thin),
+            statRow("pitcher", "stuffPlus", "Whiff+", pitch.stuffPlus, int0, ptBp.stuffPlus, thin),
             statRow("pitcher", "whiffPct", "Whiff%", pitch.whiffPct, pct1, ptBp.whiffPct, thin),
             statRow("pitcher", "cswPct", "CSW%", pitch.cswPct, pct1, ptBp.cswPct, thin),
             statRow("pitcher", "zonePct", "Zone%", pitch.zonePct, pct1, ptBp.zonePct, thin),
@@ -190,6 +191,9 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
     <div className="glass-panel overflow-hidden">
       <div className="px-4 py-2.5 border-b border-border-subtle flex flex-wrap items-center gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Arm-slot file</span>
+        {!sameSeason && slot?.season && (
+          <span className="text-[10px] font-semibold text-usf-gold">{slot.season} season (no {season} file baked)</span>
+        )}
         <span className="text-[10px] text-text-dim">Descriptive: arm angle, release, shape. Chips rank him — arm° vs the league's arm angles for the type, velo/shape vs this season's same-type pitchers, Δ vs his own slot band. Not a grade.</span>
       </div>
       {standouts.length > 0 && (
@@ -680,6 +684,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
             release={release}
             season={profile.season}
           />
+          {level !== "aaa" && <WhiffBreakdown playerId={String(playerId)} season={profile.season} />}
         </div>
       ) : (
       <div className="space-y-5">
@@ -849,7 +854,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                 <div><span className="text-text-dim">Side:</span> <span className="font-data text-text-primary">{Number(release.relSide).toFixed(2)} ft</span> <span className="text-text-dim text-[10px]">(±{Number(release.relSideSD).toFixed(2)})</span></div>
                 <div><span className="text-text-dim">Extension:</span> <span className="font-data text-text-primary">{Number(release.extension).toFixed(2)} ft</span></div>
               </div>
-              <p className="mt-2 text-[10px] text-text-dim">Season means; the ± is the SD across his pitches. Per-pitch release plots land in a later wave.</p>
+              <p className="mt-2 text-[10px] text-text-dim">Season means; the ± is the SD across his pitches. Per-pitch release plots are on the Visuals tab.</p>
             </div>
           )}
 

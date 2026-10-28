@@ -69,13 +69,8 @@ function GradedStuff({ pitches, confidence, season }: { pitches: PitchProfileRow
                 →{Math.round(pitch.stuffPlusShrunk)}
               </span>
             )}
-            {typeof pitch.abStuffPlus === "number" && !isNaN(pitch.abStuffPlus) && (
-              <span className="font-data text-[11px]" title="ABStuff+: the pooled-scale Stuff+ grade (withdrawn from the site; the lab predates that)">
-                <span className="text-text-dim">AB </span>
-                <span className="font-semibold" style={{ color: gradeColor(pitch.abStuffPlus) }}>{Math.round(pitch.abStuffPlus)}</span><GradePct metric="abStuffPlus" value={pitch.abStuffPlus} n={gradedN(pitch)} code={pitch.pitchType} season={season} />
-                
-              </span>
-            )}
+            {/* No per-row ABStuff+: the model grades it per pitcher only
+                (train_mlb.py abs_grade), so a per-type chip repeated one number. */}
             <span className="flex-1 text-right font-data text-[11px] text-text-dim">
               {hasCI && <>[{pitch.stuffPlusCI_lo}–{pitch.stuffPlusCI_hi}] </>}
               {typeof pitch.nStuffSwings === "number" ? `${pitch.nStuffSwings} sw` : "—"}
@@ -115,7 +110,7 @@ export default function StuffLab({
   return (
     <div className="space-y-5 animate-fade-up">
       <div>
-        <h2 className="text-[11px] uppercase tracking-[0.2em] text-usf-gold">Stuff+</h2>
+        <h2 className="text-[11px] uppercase tracking-[0.2em] text-usf-gold">Whiff+</h2>
         <p className="mt-1 max-w-2xl text-sm text-text-secondary">
           What he throws, graded. Descriptive, not a forecast.
         </p>
@@ -130,7 +125,7 @@ export default function StuffLab({
         </div>
         <div className="glass-panel flex flex-wrap items-start gap-2 p-4 text-xs text-text-dim">
           <span className="rounded-full border border-border-subtle px-2.5 py-1">
-            Stuff+: 6 LightGBM models (pitch class x batter side), 13 features each
+            Whiff+: 6 LightGBM models (pitch class x batter side), 13 features each
           </span>
           <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-amber-300">
             Descriptive — not a forecast

@@ -317,6 +317,9 @@ def main() -> None:
     fold = df["pitcher"].map(lambda p: zlib.crc32(str(p).encode()) % K)
     full_train = df["train_season"].copy()
     pred = pd.Series(np.nan, index=df.index)
+    # --shap: TreeSHAP of each held-out pitch from the same fold booster that predicts it (never the
+    # pitcher's own fold, so the explanation carries no memorization); columns = features + bias
+    shap = np.full((len(df), len(stuff_v2.FEATURES) + 1), np.nan, dtype=np.float32) if "--shap" in sys.argv else None
     for k in range(K):
         print(f"fold {k}: training on the other {K - 1} pitcher folds...", flush=True)
         df["train_season"] = full_train & (fold != k)
@@ -325,6 +328,8 @@ def main() -> None:
             pclass, side = key.split("_vs_")
             m = (fold == k) & (df["pclass"] == pclass) & (df["stand"] == ("L" if side == "LHH" else "R"))
             pred[m] = b.predict(df.loc[m, stuff_v2.FEATURES])
+            if shap is not None and m.any():
+                shap[m.to_numpy()] = b.predict(df.loc[m, stuff_v2.FEATURES], pred_contrib=True)
     df["train_season"] = full_train
     cf, cf_rows = evaluate(df, {f"{c}_vs_{h}": Lookup(pred)
                                 for c in tm.CLASSES for h in ("RHH", "LHH")})
@@ -350,6 +355,10 @@ def main() -> None:
         n=("pred", "size"), pred=("pred", "mean"), wps=("wps_real", "mean"), n_sw=("wps_real", "count"),
         csw=("csw_real", "mean"), n_tk=("csw_real", "count")).reset_index().to_csv(
         RESULTS / f"crossfit_v2{tag}_pt.csv", index=False)
+    if shap is not None:  # per-pitch TreeSHAP (whiff_shap.py scales it to Whiff+ points), untracked cache
+        sd = pd.DataFrame(shap, columns=[*stuff_v2.FEATURES, "bias"], index=df.index)
+        sd[["pitcher", "season", "pitch_type", "stand", "swing"]] = df[["pitcher", "season", "pitch_type", "stand", "swing"]]
+        sd.assign(pred=pred).to_parquet(RESULTS.parent.parent / "cache" / f"shap{tag}.parquet")
     if "--save-pred" in sys.argv:  # per-pitch out-of-fold predictions (step5.py), untracked cache
         df.assign(pred=pred)[["pitcher", "season", "pitch_type", "stand", "pred", "spin_eff",
                               "whiff", "swing"]].to_parquet(RESULTS.parent.parent / "cache" / f"pred{tag}.parquet")

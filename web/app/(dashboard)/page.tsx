@@ -90,7 +90,7 @@ function pulse(rows: Row[]) {
     xwoba: w("xwobaAg", "battersFaced"), velo: w("velo", "pitches"), chase: w("chasePct", "nOozPitches") };
 }
 
-function Pulse({ cur, prev, season }: { cur: ReturnType<typeof pulse>; prev: ReturnType<typeof pulse> | null; season: number }) {
+function Pulse({ cur, prev, season, who }: { cur: ReturnType<typeof pulse>; prev: ReturnType<typeof pulse> | null; season: number; who: string }) {
   const items: { label: string; v: number | null; p: number | null; fmt: (v: number) => string; d: number }[] = [
     { label: "K%", v: cur.k, p: prev?.k ?? null, fmt: (v) => v.toFixed(1) + "%", d: 1 },
     { label: "BB%", v: cur.bb, p: prev?.bb ?? null, fmt: (v) => v.toFixed(1) + "%", d: 1 },
@@ -101,7 +101,7 @@ function Pulse({ cur, prev, season }: { cur: ReturnType<typeof pulse>; prev: Ret
   ];
   return (
     <div className="glass-panel p-4 home-reveal" style={reveal(1)}>
-      <SectionTitle note={prev ? `change vs ${season - 1}` : undefined}>League pulse · {season}</SectionTitle>
+      <SectionTitle note={prev ? `change vs ${season - 1}` : `first season on the site`}>League pulse · {season} · {who}</SectionTitle>
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {items.map((it) => {
           const delta = it.v != null && it.p != null ? it.v - it.p : null;
@@ -124,8 +124,23 @@ function Pulse({ cur, prev, season }: { cur: ReturnType<typeof pulse>; prev: Ret
   );
 }
 
+/** Greedy label placement: right of the dot, else left, else nudged down/up; ~5.3 px per character at 9.5 px. */
+function placeLabels(ls: { id: string; x: number; y: number; t: string }[]) {
+  const boxes: [number, number, number, number][] = [];
+  const hit = (b: [number, number, number, number]) => boxes.some((o) => b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3]);
+  return [...ls].sort((a, b) => a.y - b.y).map((l) => {
+    const w = l.t.length * 5.3;
+    for (const [dx, dy, anchor] of [[6, 3, "start"], [-6, 3, "end"], [6, 13, "start"], [6, -7, "start"], [-6, 13, "end"]] as const) {
+      const x0 = anchor === "start" ? l.x + dx : l.x + dx - w;
+      const b: [number, number, number, number] = [x0, l.y + dy - 9, x0 + w, l.y + dy + 2];
+      if (!hit(b)) { boxes.push(b); return { ...l, lx: l.x + dx, ly: l.y + dy, anchor }; }
+    }
+    return { ...l, lx: l.x + 6, ly: l.y + 3, anchor: "start" as const };
+  });
+}
+
 /** Whiff+ (shape → bat-missing) vs Prevention+ (next-season run prevention) for qualified pitchers. */
-function StuffMap({ rows, season }: { rows: Row[]; season: number }) {
+function StuffMap({ rows, season, minIP }: { rows: Row[]; season: number; minIP: number }) {
   const W = 640, H = 340, L = 40, R = 14, T = 14, B = 30;
   const pts = rows.filter((r) => typeof r.stuffPlus === "number" && typeof r.preventionPlus === "number");
   if (pts.length < 20) return null;
@@ -141,7 +156,7 @@ function StuffMap({ rows, season }: { rows: Row[]; season: number }) {
   const grid = [70, 80, 90, 100, 110, 120, 130, 140];
   return (
     <div className="glass-panel p-4 home-reveal lg:col-span-2" data-glow="gold" style={reveal(5)}>
-      <SectionTitle note={`${pts.length} pitchers, 40+ IP · r ${rr.toFixed(2)}`}>Stuff vs run prevention</SectionTitle>
+      <SectionTitle note={`${pts.length} pitchers, ${minIP}+ IP · r ${rr.toFixed(2)}`}>Stuff vs run prevention</SectionTitle>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img"
         aria-label={`Whiff+ against Prevention+ for ${pts.length} qualified pitchers in ${season}`}>
         <defs>
@@ -175,9 +190,10 @@ function StuffMap({ rows, season }: { rows: Row[]; season: number }) {
             </circle>
           </a>
         ))}
-        {pts.filter((r) => label.has(r.id)).map((r) => (
-          <text key={`l${r.id}`} x={x(r.stuffPlus) + 6} y={y(r.preventionPlus) + 3} fontSize="9.5" fill="var(--color-text-primary)"
-            paintOrder="stroke" stroke="#000a" strokeWidth="3">{String(r.name ?? "").split(" ").slice(-1)[0]}</text>
+        {placeLabels(pts.filter((r) => label.has(r.id)).map((r) => ({
+          id: r.id, x: x(r.stuffPlus), y: y(r.preventionPlus), t: String(r.name ?? "").split(" ").slice(-1)[0] }))).map((l) => (
+          <text key={`l${l.id}`} x={l.lx} y={l.ly} textAnchor={l.anchor} fontSize="9.5" fill="var(--color-text-primary)"
+            paintOrder="stroke" stroke="#000a" strokeWidth="3">{l.t}</text>
         ))}
       </svg>
       <p className="text-[10px] text-text-dim mt-1 leading-[1.5]">
@@ -189,7 +205,7 @@ function StuffMap({ rows, season }: { rows: Row[]; season: number }) {
   );
 }
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ season?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ season?: string; role?: string }> }) {
   const sp = await searchParams;
   const [pitchers, hitters, ticker, recent, ...types] = await Promise.all([
     getPitchers(), getHitters(), getTicker(), getRecentGames(), ...PITCH_TYPES.map((t) => getArsenalPitchType(t.code)),
@@ -197,22 +213,29 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
   const seasons = [...new Set((pitchers ?? []).map((r: Row) => r.season as number))].sort((a, b) => b - a);
   const season = seasons.includes(Number(sp.season)) ? Number(sp.season) : seasons[0] ?? new Date().getFullYear();
   const latest = season === seasons[0];
+  // Pitcher sections split by season role (SP = GS at least half of G, official lines); the IP floor follows the role.
+  const role = sp.role === "RP" ? "RP" : "SP";
+  const minIP = role === "SP" ? 40 : 20;
+  const roleName = role === "SP" ? "starters" : "relievers";
+  const qs = (s: number, r: string) => { const q = [s !== seasons[0] && `season=${s}`, r !== "SP" && `role=${r}`].filter(Boolean).join("&"); return q ? `/?${q}` : "/"; };
   const hname = new Map((hitters ?? []).map((r: Row) => [String(r.id), r.name]));
   if (ticker?.hitting) ticker.hitting = ticker.hitting.map((h: Row) => ({ ...h, n: h.n ?? hname.get(String(h.id)) }));
 
-  const P = (pitchers ?? []).filter((r: Row) => r.season === season);
-  const Pprev = (pitchers ?? []).filter((r: Row) => r.season === season - 1);
+  const Pall = (pitchers ?? []).filter((r: Row) => r.season === season);
+  const P = Pall.filter((r: Row) => r.role === role);
+  const Pprev = (pitchers ?? []).filter((r: Row) => r.season === season - 1 && r.role === role);
+  const roleIds = new Set(P.map((r: Row) => String(r.id)));
   const H = (hitters ?? []).filter((r: Row) => r.season === season);
   const qual = (r: Row) => r.confidence === "HIGH" || r.confidence === "MODERATE";
   const whiffRows = P.filter(qual);
-  const ip40 = P.filter((r: Row) => (r.ip ?? 0) >= 40);
+  const ip40 = P.filter((r: Row) => (r.ip ?? 0) >= minIP);
   const prev = new Map(Pprev.filter(qual).map((r: Row) => [r.id, r]));
   const risers = whiffRows.filter((r: Row) => typeof r.stuffPlus === "number" && typeof prev.get(r.id)?.stuffPlus === "number")
     .map((r: Row) => ({ ...r, dWhiff: r.stuffPlus - prev.get(r.id)!.stuffPlus, wasWhiff: prev.get(r.id)!.stuffPlus }));
   const hq = H.filter((r: Row) => (r.pa ?? 0) >= 200);
   const games = (recent?.games ?? []).slice(0, 8);
   const byType = PITCH_TYPES.map((t, k) => ({
-    ...t, rows: top(((types[k] as Row[]) ?? []).filter((r) => r.season === season && qual(r)), "stuffPlus", 3),
+    ...t, rows: top(((types[k] as Row[]) ?? []).filter((r) => r.season === season && qual(r) && roleIds.has(String(r.id))), "stuffPlus", 3),
   })).filter((t) => t.rows.length);
 
   return (
@@ -228,7 +251,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
         </div>
         <nav aria-label="Season" className="flex flex-wrap gap-1">
           {seasons.map((s) => (
-            <Link key={s} href={s === seasons[0] ? "/" : `/?season=${s}`} scroll={false} aria-current={s === season ? "page" : undefined}
+            <Link key={s} href={qs(s, role)} scroll={false} aria-current={s === season ? "page" : undefined}
               className={`rounded-md px-2.5 py-1 font-data text-xs transition-colors ${s === season
                 ? "bg-usf-gold/15 text-usf-gold border border-usf-gold/40"
                 : "border border-border-subtle text-text-dim hover:text-text-secondary hover:bg-white/[0.04]"}`}>
@@ -237,26 +260,48 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
           ))}
         </nav>
       </header>
+      <nav aria-label="Pitcher role" className="home-reveal flex items-center gap-1" style={reveal(1)}>
+        <span className="mr-1 text-[10px] uppercase tracking-wider text-text-dim">Pitchers</span>
+        {(["SP", "RP"] as const).map((r) => (
+          <Link key={r} href={qs(season, r)} scroll={false} aria-current={r === role ? "page" : undefined}
+            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${r === role
+              ? "bg-usf-green/20 text-text-primary border border-usf-green/50"
+              : "border border-border-subtle text-text-dim hover:text-text-secondary hover:bg-white/[0.04]"}`}>
+            {r === "SP" ? "Starters" : "Relievers"}
+          </Link>
+        ))}
+      </nav>
 
       {latest && <div className="home-reveal" style={reveal(1)}><TickerStrip ticker={ticker} /></div>}
 
-      <Pulse cur={pulse(P)} prev={Pprev.length ? pulse(Pprev) : null} season={season} />
+      <Pulse cur={pulse(P)} prev={Pprev.length ? pulse(Pprev) : null} season={season} who={roleName} />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Leaders i={2} season={season} title="Whiff+ leaders" rows={top(whiffRows, "stuffPlus")} metric="stuffPlus" fmt={int}
-          href={`/pitchers?season=${season}`} note="Shape → bat-missing. HIGH/MODERATE confidence only. Validated (RESULTS-MLB §45-49, §82)." />
-        <Leaders i={3} season={season} title="Prevention+ leaders" rows={top(ip40, "preventionPlus")} metric="preventionPlus" fmt={int}
-          href={`/pitchers?season=${season}&sort=preventionPlus`} note="Next season's run prevention, projected from this one. 40+ IP. Confirmed (§52)." />
-        <Leaders i={4} season={season} title="K+ leaders" rows={top(ip40, "kPlus")} metric="kPlus" fmt={int}
-          href={`/pitchers?season=${season}&sort=kPlus`} sub={(r) => (typeof r.kProj === "number" ? `proj K% ${(100 * r.kProj).toFixed(1)}` : null)}
-          note="Next season's strikeout rate, projected. 40+ IP. Confirmed (§50)." />
+        <Leaders i={2} season={season} title={`Whiff+ leaders, ${roleName}`} rows={top(whiffRows, "stuffPlus")} metric="stuffPlus" fmt={int}
+          href={`/pitchers?season=${season}&role=${role}`} note="Shape → bat-missing. HIGH/MODERATE confidence only. Validated (RESULTS-MLB §45-49, §82)." />
+        <Leaders i={3} season={season} title={`Prevention+ leaders, ${roleName}`} rows={top(ip40, "preventionPlus")} metric="preventionPlus" fmt={int}
+          href={`/pitchers?season=${season}&role=${role}&sort=preventionPlus`} note={`Next season's run prevention, projected from this one. ${minIP}+ IP. Confirmed (§52).`} />
+        <Leaders i={4} season={season} title={`K+ leaders, ${roleName}`} rows={top(ip40, "kPlus")} metric="kPlus" fmt={int}
+          href={`/pitchers?season=${season}&role=${role}&sort=kPlus`} sub={(r) => (typeof r.kProj === "number" ? `proj K% ${(100 * r.kProj).toFixed(1)}` : null)}
+          note={`Next season's strikeout rate, projected. ${minIP}+ IP. Confirmed (§50).`} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <StuffMap rows={ip40.filter(qual)} season={season} />
-        <Leaders i={6} season={season} title={`Whiff+ risers vs ${season - 1}`} rows={top(risers, "dWhiff")} metric="dWhiff"
-          fmt={(v) => `+${Math.round(v)}`} href={`/pitchers?season=${season}`} sub={(r) => `${Math.round(r.wasWhiff)} → ${Math.round(r.stuffPlus)}`}
-          note="Biggest Whiff+ gains on last season, both seasons HIGH/MODERATE confidence. New pitches, shape changes and role changes all land here." />
+        <StuffMap rows={ip40.filter(qual)} season={season} minIP={minIP} />
+        <div className="space-y-4">
+          {risers.length ? (<>
+            <Leaders i={6} season={season} title={`Whiff+ risers vs ${season - 1}, ${roleName}`} rows={top(risers, "dWhiff", 5)} metric="dWhiff"
+              fmt={(v) => `+${Math.round(v)}`} href={`/pitchers?season=${season}&role=${role}`} sub={(r) => `${Math.round(r.wasWhiff)} → ${Math.round(r.stuffPlus)}`}
+              note="Biggest Whiff+ gains on last season, both seasons HIGH/MODERATE confidence. New pitches, shape changes and role changes all land here." />
+            <Leaders i={7} season={season} title={`Whiff+ fallers vs ${season - 1}, ${roleName}`} rows={top(risers.map((r: Row) => ({ ...r, dDrop: -r.dWhiff })), "dDrop", 5)} metric="dDrop"
+              fmt={(v) => `−${Math.round(v)}`} href={`/pitchers?season=${season}&role=${role}`} sub={(r) => `${Math.round(r.wasWhiff)} → ${Math.round(r.stuffPlus)}`}
+              note="Biggest Whiff+ drops on last season, same rules. Descriptive model change, not a forecast." />
+          </>) : (
+            <div className="glass-panel p-4 home-reveal text-[11px] text-text-dim" style={reveal(6)}>
+              Season movers need the season before; the site&apos;s grades start in {seasons[seasons.length - 1]}.
+            </div>
+          )}
+        </div>
       </div>
 
       {byType.length > 0 && (

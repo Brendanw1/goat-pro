@@ -439,7 +439,7 @@ def discipline_fields(d: dict, t, season: int | None = None, totals=None) -> Non
 def overlay_p7(grades: pd.DataFrame) -> pd.DataFrame:
     """Owner 2026-10-27: the P7 family replaces the v2 grades on the site. Stuff+ becomes Whiff+ (same
     `stuffPlus` keys, overall / class / type), Pitching+ becomes the P7 all-in value; K+, Prevention+,
-    Control+ are added. ABStuff+ stays the v2 pooled scale. A row the P7 export lacks shows nothing,
+    Control+ are added. ABStuff+ is not shown on the site (owner). A row the P7 export lacks shows nothing,
     never the old number."""
     m = pd.DataFrame(json.loads(MODELS_FILE.read_text())["pitchers"])
     m["stuff_by_type"] = [[{"type": t, "n": e["n"], "grade": e["grade"], "gyro": bool(e.get("sl_gyro"))}
@@ -485,6 +485,22 @@ def official_er(level: str) -> dict[tuple[int, int], tuple[int, int]]:
     d = pd.read_parquet(path, columns=["mlbam_id", "season", "level", "ER", "OUTS"])
     d = d[d["level"] == ("MLB" if level == "mlb" else "AAA")].groupby(["mlbam_id", "season"])[["ER", "OUTS"]].sum()
     return {(int(m), int(s)): (int(r.ER), int(r.OUTS)) for (m, s), r in d.iterrows()}
+
+
+@functools.lru_cache(maxsize=2)
+def official_gs(level: str) -> dict[tuple[int, int], tuple[int, int]]:
+    """(mlbam, season) -> (G, GS) from the same Stats API lines as official_er; empty if missing."""
+    path = MILB / ("mlb_pitchers.parquet" if level == "mlb" else "pitchers.parquet")
+    if not path.exists():
+        return {}
+    d = pd.read_parquet(path, columns=["mlbam_id", "season", "level", "G", "GS"])
+    d = d[d["level"] == ("MLB" if level == "mlb" else "AAA")].groupby(["mlbam_id", "season"])[["G", "GS"]].sum()
+    return {(int(m), int(s)): (int(r.G), int(r.GS)) for (m, s), r in d.iterrows()}
+
+
+def role_of(g: int | None, gs: int | None) -> str | None:
+    """Season role: SP when at least half his games were starts (openers count, as in the official GS)."""
+    return None if not g else ("SP" if 2 * (gs or 0) >= g else "RP")
 
 
 def era_of(pid: int, season: int, level: str, runs: float, ip: float) -> float | None:
@@ -776,6 +792,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     # One pitcher-season per row, per the FEATURE_SQL pitch gates so the raw
     # rates describe the same pitches the grades do.
     totals = team_map = tot_n = tot_team = tot_indexed = None
+    gs_map: dict = {}
     hitter_pct_out = None
     pitcher_shrunk_out = None
     if "totals" in wanted:
@@ -860,6 +877,20 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             GROUP BY 1, 2
         """).df().sort_values(["id", "season"])
         team_map = {(int(row.id), int(row.season)): row.team for row in team_mode.itertuples()}
+        # G/GS: official lines first; Statcast fallback = games pitched, and games where he threw his
+        # side's first pitch (first PA of the 1st inning, his half).
+        gs_sc = con.sql(f"""
+            WITH st AS (SELECT game_pk, inning_topbot, arg_min(pitcher, at_bat_number) AS p
+                        FROM pitches_all WHERE game_type = 'R' AND season IN ({season_list}) AND inning = 1
+                        GROUP BY 1, 2)
+            SELECT x.pitcher AS id, x.season, COUNT(DISTINCT x.game_pk) AS g,
+                   COUNT(DISTINCT x.game_pk) FILTER (WHERE st.p = x.pitcher) AS gs
+            FROM pitches_all x LEFT JOIN st USING (game_pk, inning_topbot)
+            WHERE x.game_type = 'R' AND x.season IN ({season_list}) AND x.pitcher IS NOT NULL
+            GROUP BY 1, 2""").df()
+        og = official_gs(level)
+        gs_map = {(int(r.id), int(r.season)): og.get((int(r.id), int(r.season))) or (int(r.g), int(r.gs))
+                  for r in gs_sc.itertuples()}
         tot_n = {(int(row.id), int(row.season)): int(row.n_pitches) for row in totals.itertuples()}
         tot_team = dict(team_map)
         tot_indexed = totals.set_index(["id", "season"])
@@ -981,7 +1012,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    SUM(CASE WHEN bb_type = 'ground_ball' THEN 1 ELSE 0 END) AS gb,
                    SUM(CASE WHEN bb_type = 'fly_ball' THEN 1 ELSE 0 END) AS fb,
                    SUM(CASE WHEN bb_type = 'line_drive' THEN 1 ELSE 0 END) AS ld,
-                   SUM(CASE WHEN bb_type = 'pop_up' THEN 1 ELSE 0 END) AS pu,
+                   SUM(CASE WHEN bb_type = 'popup' THEN 1 ELSE 0 END) AS pu,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS n_bip,
                    SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS n_hard,
                    -- measured per-type run value (pitcher-positive) + PA reach, for the
@@ -1118,11 +1149,13 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "hits": int(t["h"]), "walks": int(t["bb"]),
                 "kPct": f(100 * t["k"] / t["pa"], 1), "bbPct": f(100 * t["bb"] / t["pa"], 1),
                 "kBbPct": f(100 * (t["k"] - t["bb"]) / t["pa"], 1),
+                "g": (gs_map.get(key) or (None, None))[0], "gs": (gs_map.get(key) or (None, None))[1],
+                "role": role_of(*(gs_map.get(key) or (None, None))),
                 "cswPct": f(100 * t["csw"] / t["n_pitches"], 1),
                 "rvPer100": f(100 * t["rv"] / t["n_pitches"], 2) if t["n_pitches"] else None,
                 "whiffPct": f(100 * t["whiff"] / t["swings"], 1) if t["swings"] else None,
                 "velo": f(t["velo"], 1), "ivb": f(t["ivb"], 1), "gbPct": f(100 * t["gb"] / t["bip"], 1) if t["bip"] else None,
-                "stuffPlus": f(gr["grade"], 1), "abStuffPlus": f(gr["stuff_plus_abs"], 1),
+                "stuffPlus": f(gr["grade"], 1),
                 "pitchingPlus": f(gr["pitching_plus"], 1),
                 **{k: f(gr[c], 3 if c == "k_proj" else 1) for c, k in P7_FIELDS.items()},
                 "confidence": gr["confidence"],
@@ -1141,7 +1174,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         # four-year soup — plus a pooled section for anything undated. Percentile
         # colors/ranks read the season section on every surface.
         SEASON_METRICS = ["velo", "ivb", "kPct", "bbPct", "kBbPct", "cswPct", "whiffPct",
-                          "era", "fip", "gbPct", "rvPer100", "stuffPlus", "abStuffPlus", "pitchingPlus",
+                          "era", "fip", "gbPct", "rvPer100", "stuffPlus", "pitchingPlus",
                           "kPlus", "preventionPlus", "controlPlus", "kProj", "pitchingRunsPer100",
                           "zonePct", "chasePct", "zSwingPct", "zWhiffPct", "oWhiffPct", "zContactPct",
                           "oContactPct", "swStrPct", "calledStrikePct", "firstPitchStrikePct",
@@ -1181,7 +1214,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             for site, sub in tgx.groupby("site"):
                 block = {}
                 for metric, col in [("velo", "velo"), ("ivb", "ivb"), ("hb", "hb"), ("spin", "spin"),
-                                    ("stuffPlus", "type_grade"), ("abStuffPlus", "stuff_plus_abs"),
+                                    ("stuffPlus", "type_grade"),
                                     ("rv100", None),
                                     ("whiffPct", None), ("cswPct", None), ("zonePct", None)]:
                     if metric == "whiffPct":
@@ -1199,14 +1232,14 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                         block[metric] = p
                 per_type[site] = block
             dense = {"pitchers": {}, "per_type": {}}
-            for metric in ["stuffPlus", "abStuffPlus", "pitchingPlus", "kPlus", "preventionPlus", "controlPlus",
+            for metric in ["stuffPlus", "pitchingPlus", "kPlus", "preventionPlus", "controlPlus",
                            "kProj", "pitchingRunsPer100"]:
                 q = dense_q(gx[metric])
                 if q:
                     dense["pitchers"][metric] = {"q": q, "n": int(len(gx))}
             for site, sub in tgx.groupby("site"):
                 block = {}
-                for metric, col in [("stuffPlus", "type_grade"), ("abStuffPlus", "stuff_plus_abs"), ("pitchingPlus", "pitching_plus")]:
+                for metric, col in [("stuffPlus", "type_grade"), ("pitchingPlus", "pitching_plus")]:
                     q = dense_q(sub[col])
                     if q is not None:
                         block[metric] = {"q": q, "n": int(len(sub))}
@@ -1275,7 +1308,6 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "rv100": f(100 * t["rv"] / t["n"], 2),
                 "stuffPlus": f(sg, 1) if sg is not None else None,
                 "nStuffPitches": int(sn), "stuffGradeFrom": None,
-                "abStuffPlus": f(gr["stuff_plus_abs"], 1),
                 "pitchingPlus": f(pg, 1) if pg is not None else None,
                 "confidence": gr["confidence"],
             }
@@ -1558,7 +1590,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "gyro": site == "SL" and (pid, season, "SL") in type_gyro or None,
                     "twin": twin_of(pid, site, b["velo"], b["ivb"], b["hb"]),
                     "pitchingPlus": f(pg, 1) if pg is not None else None,
-                    "abStuffPlus": f(gr_row["stuff_plus_abs"], 1),
+                    # no per-type ABStuff+: train_mlb grades it per pitcher only (abs_grade)
                     **platoon.get((pid, season, site), {}),
                 })
             bb_rows = []
@@ -1593,12 +1625,14 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "hits": int(t["h"]), "walks": int(t["bb"]),
                 "kPct": f(100 * t["k"] / t["pa"], 1), "bbPct": f(100 * t["bb"] / t["pa"], 1),
                 "kBbPct": f(100 * (t["k"] - t["bb"]) / t["pa"], 1),
+                "g": (gs_map.get(key) or (None, None))[0], "gs": (gs_map.get(key) or (None, None))[1],
+                "role": role_of(*(gs_map.get(key) or (None, None))),
                 "cswPct": f(100 * t["csw"] / t["n_pitches"], 1),
                 "rvPer100": f(100 * t["rv"] / t["n_pitches"], 2) if t["n_pitches"] else None,
                 "whiffPct": f(100 * t["whiff"] / t["swings"], 1) if t["swings"] else None,
                 "gbPct": f(100 * t["gb"] / t["bip"], 1) if t["bip"] else None,
                 "velo": f(t["velo"], 1), "ivb": f(t["ivb"], 1),
-                "stuffPlus": f(gr_row["grade"], 1), "abStuffPlus": f(gr_row["stuff_plus_abs"], 1),
+                "stuffPlus": f(gr_row["grade"], 1),
                 "pitchingPlus": f(gr_row["pitching_plus"], 1),
                 **{k: f(gr_row[c], 3 if c == "k_proj" else 1) for c, k in P7_FIELDS.items()},
                 "confidence": gr_row["confidence"],
@@ -1943,6 +1977,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         slot_mean_g = pm.set_index(["id", "season", "pitch_type"])
         n_slot_files = 0
         slot_written: set[int] = set()
+        slot_pairs: set[tuple[int, int]] = set()
         for pid, season in season_iter:
             if (pid, season) not in pid_band:
                 continue
@@ -1979,18 +2014,25 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 })
             if not rows_out:
                 continue
-            jwrite(out / "slot" / f"{pid}.json", {
+            slot_doc = {
                 "season": season, "throws": tot_indexed.loc[(pid, season)]["throws"], "band": band,
                 "minPitches": 10, "types": rows_out,
-            }, sort_keys=True)
+            }
+            # {pid}-{season}.json per season; bare {pid}.json = latest (season_iter is sorted)
+            jwrite(out / "slot" / f"{pid}-{season}.json", slot_doc, sort_keys=True)
+            jwrite(out / "slot" / f"{pid}.json", slot_doc, sort_keys=True)
             slot_written.add(pid)
+            slot_pairs.add((pid, season))
             n_slot_files += 1
         counts["slot_files"] = n_slot_files
         print(f"slot files: {n_slot_files}")
         if player is None and latest_ok:
             pruned = 0
             for p in (out / "slot").glob("*.json"):
-                if int(p.stem) not in slot_written:
+                pid_s, _, s_ = p.stem.partition("-")
+                stale = (((int(pid_s), int(s_)) not in slot_pairs and int(s_) in seasons) if s_
+                         else int(pid_s) not in slot_written)
+                if stale:
                     p.unlink()
                     pruned += 1
             print(f"pruned stale slot files: {pruned}")
@@ -2075,7 +2117,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             for lr in lev.itertuples():
                 if lr.n < 200 or (int(lr.id), s) not in pitcher_pop:
                     continue
-                jwrite(out / "situational" / f"{lr.id}.json", {
+                sit_doc = {
                     "id": str(lr.id), "season": s, "pitches": int(lr.n),
                     "leverageFaced": f(lr.mean_li, 2) if lr.mean_li is not None else None,
                     "leveragePct": lev_pct.get(int(lr.id)),
@@ -2089,7 +2131,10 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "meta": {"hiCut": f(hi_cut, 2), "loCut": f(lo_cut, 2),
                              "note": ("leverage = the base-out state's run expectancy over the league average, "
                                       "measured this season; situations are handed to a pitcher — never graded")},
-                }, sort_keys=True)
+                }
+                # {id}-{season}.json per season; bare {id}.json = latest (seasons ascend)
+                jwrite(out / "situational" / f"{lr.id}-{s}.json", sit_doc, sort_keys=True)
+                jwrite(out / "situational" / f"{lr.id}.json", sit_doc, sort_keys=True)
                 n_pub += 1
             counts[f"situational_{s}"] = n_pub
             print(f"situational {s}: {n_pub} pitchers published (states {len(li)}, cuts {hi_cut:.2f}/{lo_cut:.2f})")
@@ -2328,7 +2373,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    SUM(CASE WHEN bb_type = 'ground_ball' THEN 1 ELSE 0 END) AS gb,
                    SUM(CASE WHEN bb_type = 'fly_ball' THEN 1 ELSE 0 END) AS fb,
                    SUM(CASE WHEN bb_type = 'line_drive' THEN 1 ELSE 0 END) AS ld,
-                   SUM(CASE WHEN bb_type = 'pop_up' THEN 1 ELSE 0 END) AS pu,
+                   SUM(CASE WHEN bb_type = 'popup' THEN 1 ELSE 0 END) AS pu,
                    SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS n_hard,
                    SUM({BARREL_SQL}) AS n_barrel,
                    AVG(launch_speed) AS avg_ev,
@@ -3636,10 +3681,26 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         # call, never a rebuilt sequence — the PAs that took (b,s) -> (b+1,s) are
         # exactly the balls thrown at (b,s). Terminals are the PA-ending pitches.
         BALLS = ("ball", "intent_ball", "automatic_ball", "pitchout", "blocked_ball")
+        # Fouls move the count below two strikes (a two-strike foul is a self-loop, not drawn).
+        # Split by batter side for the RHH/LHH chips; "pa" = distinct PAs with a pitch at the
+        # count, so a PA a reliever inherits mid-count counts where he joined it.
         STRIKES = ("called_strike", "swinging_strike", "swinging_strike_blocked",
-                   "foul_tip", "bunt_foul_tip", "missed_bunt")
+                   "foul_tip", "bunt_foul_tip", "missed_bunt", "foul", "foul_bunt")
+        pa_n = con.sql(f"""
+            SELECT pitcher AS id, season, stand, balls, strikes,
+                   COUNT(DISTINCT (game_pk, at_bat_number)) AS pa
+            FROM pitches_all
+            WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL
+              {DETAIL_GATE} AND balls BETWEEN 0 AND 3 AND strikes BETWEEN 0 AND 2
+            GROUP BY GROUPING SETS ((pitcher, season, stand, balls, strikes), (pitcher, season, balls, strikes),
+                           (pitcher, season, stand), (pitcher, season))
+        """).df()
+        pa_by = {(int(t.id), int(t.season), t.stand if isinstance(t.stand, str) else "all",
+                  None if pd.isna(t.balls) else f"{int(t.balls)}-{int(t.strikes)}"): int(t.pa)
+                 for t in pa_n.itertuples()}
+        del pa_n
         cn = con.sql(f"""
-            SELECT pitcher AS id, season, balls, strikes, {site_case_sql()} AS site,
+            SELECT pitcher AS id, season, stand, balls, strikes, {site_case_sql()} AS site,
                    COUNT(*) AS n,
                    SUM(CASE WHEN description IN {BALLS} THEN 1 ELSE 0 END) AS nb,
                    SUM(CASE WHEN description IN {STRIKES} THEN 1 ELSE 0 END) AS ns,
@@ -3649,12 +3710,13 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL
               {DETAIL_GATE} AND balls BETWEEN 0 AND 3 AND strikes BETWEEN 0 AND 2
-            GROUP BY 1, 2, 3, 4, 5
+            GROUP BY 1, 2, 3, 4, 5, 6
         """).df()
         counts_by: dict = {}
         for t in cn.itertuples():
             key = (int(t.id), int(t.season))
-            counts_by.setdefault(key, {}).setdefault((int(t.balls), int(t.strikes)), []).append(t)
+            for side in ("all", t.stand):
+                counts_by.setdefault(key, {}).setdefault(side, {}).setdefault((int(t.balls), int(t.strikes)), []).append(t)
         del cn
 
         # Usage vs batter hand (back-to-back bars)
@@ -3694,22 +3756,26 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 continue
             # -- count lattice nodes (cheap: pre-aggregated rows)
             lat = {}
-            for (bb, ss), rows in counts_by.get((pid, season), {}).items():
-                mix = {}
-                n_node = nb = ns = nk = nbb = nhbp = 0
-                for t in rows:
-                    mix[t.site] = mix.get(t.site, 0) + int(t.n)
-                    n_node += int(t.n)
-                    nb += int(t.nb)
-                    ns += int(t.ns)
-                    nk += int(t.nk)
-                    nbb += int(t.nbb)
-                    nhbp += int(t.nhbp)
-                lat[f"{bb}-{ss}"] = {
-                    "n": n_node, "m": sorted(mix.items(), key=lambda kv: -kv[1]),
-                    "b": nb, "s": ns,
-                    "k": nk, "bb": nbb, "hbp": nhbp,
-                }
+            for side, by_count in counts_by.get((pid, season), {}).items():
+                lat[side] = {"pa": pa_by.get((pid, season, side, None), 0), "c": {}}
+                for (bb, ss), rows in by_count.items():
+                    mix = {}
+                    n_node = nb = ns = nk = nbb = nhbp = 0
+                    for t in rows:
+                        mix[t.site] = mix.get(t.site, 0) + int(t.n)
+                        n_node += int(t.n)
+                        nb += int(t.nb)
+                        ns += int(t.ns)
+                        nk += int(t.nk)
+                        nbb += int(t.nbb)
+                        nhbp += int(t.nhbp)
+                    cnt = f"{bb}-{ss}"
+                    lat[side]["c"][cnt] = {  # b / s = PAs leaving on a ball / strike (0 at the 3-ball / 2-strike walls)
+                        "n": n_node, "pa": pa_by.get((pid, season, side, cnt), 0),
+                        "m": sorted(mix.items(), key=lambda kv: (-kv[1], kv[0])),
+                        "b": nb if bb < 3 else 0, "s": ns if ss < 2 else 0,
+                        "k": nk, "bb": nbb, "hbp": nhbp,
+                    }
             seq = sorted((seqs.get((pid, season)) or {}).items(), key=lambda kv: -kv[1])[:40]
             hand_rows = []
             hrows = hand_by.get((pid, season), [])

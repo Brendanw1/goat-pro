@@ -6,6 +6,7 @@
  */
 import { useMemo, useState } from "react";
 import { GOOD, BAD } from "@/components/ui/shared-ui";
+import { useSvgScale } from "@/components/ui/use-svg-scale";
 
 type Trend = { cols: string[]; rows: (string | number | number[])[][]; lg: Lg | null };
 type Lg = { sums?: Record<string, number>; ev90?: number | null; dec?: { mu: number; sd: number } | null } | null;
@@ -86,6 +87,7 @@ export function RollingPanel({ trend, role }: { trend: Trend | null | undefined;
   const m = metrics.find((x) => x.key === key) ?? metrics[0];
   const [winIdx, setWinIdx] = useState(1);
   const [hover, setHover] = useState<number | null>(null);
+  const [svgRef, sk] = useSvgScale(W);
 
   // one object of counts per game row (evl kept as a list)
   const rows = useMemo(() => (trend?.rows ?? []).map((row) => {
@@ -126,7 +128,8 @@ export function RollingPanel({ trend, role }: { trend: Trend | null | undefined;
   const lo = Math.min(...vals) - span * 0.08, hi = Math.max(...vals) + span * 0.08;
   const y = (v: number) => PAD_T + (1 - (v - lo) / (hi - lo)) * (H - PAD_T - PAD_B);
   const path = pts.reduce((s, v, i) => (v == null ? s : s + (s ? " L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1)), "");
-  const ticks = dates.map((d, i) => ({ i, m: Number(d.slice(0, 2)) })).filter((t, k, a) => k === 0 || t.m !== a[k - 1].m);
+  const ticks = dates.map((d, i) => ({ i, m: Number(d.slice(0, 2)) })).filter((t, j, a) => j === 0 || t.m !== a[j - 1].m)
+    .filter((t, j, a) => j === a.length - 1 || x(a[j + 1].i) - x(t.i) >= 30 * sk); // drop a month label that would sit on the next
   const hi_ = hover ?? n - 1;
   const cur = pts[hi_];
   const better = cur != null && lgv != null ? (cur - lgv) * m.good > 0 : null;
@@ -162,17 +165,17 @@ export function RollingPanel({ trend, role }: { trend: Trend | null | undefined;
         </span>
         {lgv != null && <span className="text-text-dim">League {show(lgv, m.fmt)}</span>}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" onMouseMove={onMove} onMouseLeave={() => setHover(null)}
         role="img" aria-label={`Rolling ${eff} ${m.unit} ${m.label} across the season`}>
         {[lo + (hi - lo) * 0.1, (lo + hi) / 2, hi - (hi - lo) * 0.1].map((v) => (
           <g key={v}>
             <line x1={PAD_L} x2={W - PAD_R} y1={y(v)} y2={y(v)} stroke="#ffffff10" />
-            <text x={PAD_L - 4} y={y(v) + 3} fontSize="9" textAnchor="end" fill="var(--text-dim, #8a93a3)">{show(v, m.fmt)}</text>
+            <text x={PAD_L - 4} y={y(v) + 3} fontSize={10 * sk} textAnchor="end" fill="var(--text-dim, #8a93a3)">{show(v, m.fmt)}</text>
           </g>
         ))}
         {lgv != null && <line x1={PAD_L} x2={W - PAD_R} y1={y(lgv)} y2={y(lgv)} stroke={LG} strokeDasharray="4 3" />}
         <path d={path} fill="none" stroke={LINE} strokeWidth="1.8" />
-        {ticks.map((t) => <text key={t.i} x={x(t.i)} y={H - 4} fontSize="9" fill="var(--text-dim, #8a93a3)">{MONTHS[t.m]}</text>)}
+        {ticks.map((t) => <text key={t.i} x={x(t.i)} y={H - 4} fontSize={10 * sk} fill="var(--text-dim, #8a93a3)">{MONTHS[t.m]}</text>)}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={PAD_T} y2={H - PAD_B} stroke="#ffffff33" />}
       </svg>
       <p className="mt-1 text-[10px] text-text-dim">

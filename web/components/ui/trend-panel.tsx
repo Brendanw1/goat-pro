@@ -6,6 +6,7 @@
  */
 import { useMemo, useState } from "react";
 import { GOOD, BAD, signedFixed } from "@/components/ui/shared-ui";
+import { useSvgScale } from "@/components/ui/use-svg-scale";
 
 type Row = [string, number, number, number, number, number];
 export type Trend = { cols: string[]; rows: Row[]; lg: { woba: number; xwoba: number } | null };
@@ -38,6 +39,7 @@ function rolling(rows: Row[], win: number) {
 export function TrendPanel({ trend, role }: { trend: Trend | null | undefined; role: "hitter" | "pitcher" }) {
   const [win, setWin] = useState(100);
   const [hover, setHover] = useState<number | null>(null);
+  const [svgRef, k] = useSvgScale(W);
   const rows = trend?.rows ?? [];
   const { pts, eff } = useMemo(() => rolling(rows, win), [rows, win]);
   if (rows.length < 5) return null;
@@ -63,7 +65,8 @@ export function TrendPanel({ trend, role }: { trend: Trend | null | undefined; r
   };
 
   const ticks = rows.map((r, i) => ({ i, m: Number(r[0].slice(0, 2)) }))
-    .filter((t, k, a) => k === 0 || t.m !== a[k - 1].m);
+    .filter((t, j, a) => j === 0 || t.m !== a[j - 1].m)
+    .filter((t, j, a) => j === a.length - 1 || x(a[j + 1].i) - x(t.i) >= 30 * k); // drop a month label that would sit on the next
   const yTicks = [lo, (lo + hi) / 2, hi];
   const hp = hover != null ? pts[hover] : pts[pts.length - 1];
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -76,7 +79,7 @@ export function TrendPanel({ trend, role }: { trend: Trend | null | undefined; r
   const axisX = (
     <>
       {ticks.map((t) => (
-        <text key={t.i} x={x(t.i)} y={H - 4} fontSize="9" fill="var(--text-dim, #8a93a3)">{MONTHS[t.m]}</text>
+        <text key={t.i} x={x(t.i)} y={H - 4} fontSize={10 * k} fill="var(--text-dim, #8a93a3)">{MONTHS[t.m]}</text>
       ))}
       {hover != null && <line x1={x(hover)} x2={x(hover)} y1={PAD_T} y2={H - PAD_B} stroke="#ffffff33" />}
     </>
@@ -102,12 +105,12 @@ export function TrendPanel({ trend, role }: { trend: Trend | null | undefined; r
         <span><span style={{ color: C_XWOBA }}>xwOBA{against}</span> {hp.xwoba != null ? dec3(hp.xwoba) : "—"}</span>
         <span>Run value <span style={{ color: hp.rv > 0 ? GOOD : hp.rv < 0 ? BAD : undefined }}>{signedFixed(hp.rv, 1)}</span></span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" onMouseMove={onMove} onMouseLeave={() => setHover(null)}
         role="img" aria-label={`Rolling ${eff}-${unit} wOBA and xwOBA${against} across the season`}>
         {yTicks.map((v) => (
           <g key={v}>
             <line x1={PAD_L} x2={W - PAD_R} y1={y1(v)} y2={y1(v)} stroke="#ffffff10" />
-            <text x={PAD_L - 4} y={y1(v) + 3} fontSize="9" textAnchor="end" fill="var(--text-dim, #8a93a3)">{dec3(v)}</text>
+            <text x={PAD_L - 4} y={y1(v) + 3} fontSize={10 * k} textAnchor="end" fill="var(--text-dim, #8a93a3)">{dec3(v)}</text>
           </g>
         ))}
         {trend?.lg && <line x1={PAD_L} x2={W - PAD_R} y1={y1(trend.lg.woba)} y2={y1(trend.lg.woba)} stroke={C_LG} strokeDasharray="4 3" />}
@@ -123,7 +126,7 @@ export function TrendPanel({ trend, role }: { trend: Trend | null | undefined; r
         role="img" aria-label="Cumulative run value across the season">
         <line x1={PAD_L} x2={W - PAD_R} y1={y2(0)} y2={y2(0)} stroke="#ffffff30" />
         {[rlo, rhi].filter((v) => v !== 0).map((v) => (
-          <text key={v} x={PAD_L - 4} y={y2(v) + 3} fontSize="9" textAnchor="end" fill="var(--text-dim, #8a93a3)">{signedFixed(v, 0)}</text>
+          <text key={v} x={PAD_L - 4} y={y2(v) + 3} fontSize={10 * k} textAnchor="end" fill="var(--text-dim, #8a93a3)">{signedFixed(v, 0)}</text>
         ))}
         <path d={area(1)} fill={GOOD} fillOpacity="0.35" />
         <path d={area(-1)} fill={BAD} fillOpacity="0.35" />

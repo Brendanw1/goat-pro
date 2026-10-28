@@ -165,13 +165,13 @@ function TransitionMatrix({ seq }: { seq: [string, number][] | null }) {
   );
 }
 
-/** D-10: how his shapes moved across the seasons he has at this level. */
+/** D-10: how his shapes moved across the seasons he has at this level. Career mix carries break in feet; the plot is inches. */
 function MovementBySeason({ career }: { career: any | null }) {
   const seasons = (career?.seasons ?? []).filter((s: any) => (s.mix ?? []).some((m: any) => m[2] != null));
   if (seasons.length < 1) return null;
   const types: string[] = [...new Set<string>(seasons.flatMap((s: any) => s.mix.filter((m: any) => m[2] != null).map((m: any) => m[0] as string)))];
   const W = 420, H = 340, PAD = 34;
-  const pts: any[] = seasons.flatMap((s: any, si: number) => s.mix.filter((m: any) => m[2] != null).map((m: any) => ({ s: s.s, si, t: m[0], v: m[2], ivb: m[3], hb: m[4] })));
+  const pts: any[] = seasons.flatMap((s: any, si: number) => s.mix.filter((m: any) => m[2] != null).map((m: any) => ({ s: s.s, si, t: m[0], v: m[2], ivb: m[3] * 12, hb: m[4] * 12 })));
   const ivbLo = Math.min(-25, ...pts.map((p) => p.ivb)) - 2, ivbHi = Math.max(25, ...pts.map((p) => p.ivb)) + 2;
   const hbLo = Math.min(-25, ...pts.map((p) => p.hb)) - 2, hbHi = Math.max(25, ...pts.map((p) => p.hb)) + 2;
   const sx = (v: number) => PAD + ((v - hbLo) / (hbHi - hbLo)) * (W - 2 * PAD);
@@ -185,7 +185,7 @@ function MovementBySeason({ career }: { career: any | null }) {
         {types.map((t) => {
           const path = seasons.map((s: any) => {
             const m = (s.mix ?? []).find((x: any) => x[0] === t && x[2] != null);
-            return m ? { s: s.s, x: sx(m[4]), y: sy(m[3]), v: m[2], ivb: m[3], hb: m[4] } : null;
+            return m ? { s: s.s, x: sx(m[4] * 12), y: sy(m[3] * 12), v: m[2], ivb: +(m[3] * 12).toFixed(1), hb: +(m[4] * 12).toFixed(1) } : null;
           }).filter(Boolean) as any[];
           if (path.length < 1) return null;
           return (
@@ -241,7 +241,7 @@ export function PitcherVisualsTab({ visuals, career }: { visuals: any | null; ca
         </Panel>
       </div>
       <Panel title="The count lattice" note="what each count gets">
-        <CountLattice counts={visuals.counts ?? null} colorOf={colorOf} />
+        <CountLattice counts={visuals.counts ?? null} />
       </Panel>
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Release tells" note="how far apart his types leave the hand">

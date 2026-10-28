@@ -34,7 +34,7 @@ function placeLabels(labels: { key: string; x: number; y: number; text: string; 
   for (const label of labels) {
     let { x, y } = label;
     for (const other of placed) {
-      if (Math.abs(other.x - x) < MIN_GAP && Math.abs(other.y - y) < 16) y = other.y - 16;
+      if (Math.abs(other.x - x) < MIN_GAP && Math.abs(other.y - y) < 20) y = other.y - 20;
     }
     placed.push({ ...label, x, y: Math.max(y, 12) });
   }

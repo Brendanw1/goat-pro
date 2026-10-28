@@ -33,7 +33,8 @@ function rampColor(v: number): string {
       const [p0, c0] = RAMP[i - 1], [p1, c1] = RAMP[i];
       const u = (t - p0) / (p1 - p0);
       const mix = c0.map((c, k) => Math.round(c + (c1[k] - c) * u));
-      return `rgb(${mix[0]},${mix[1]},${mix[2]})`;
+      // Low density fades to transparent so the pale end never floods a dark panel.
+      return `rgba(${mix[0]},${mix[1]},${mix[2]},${Math.min(1, t / 0.2).toFixed(2)})`;
     }
   }
   return "rgb(64,60,160)";
@@ -104,7 +105,7 @@ export function LocationSurfaces({ loc, zone, stand, colorOf }: {
                 {cells.map((row, j) =>
                   row.map((val, i) => (
                     <rect key={`${i}-${j}`} x={(i / n) * PW} y={PH - ((j + 1) / n) * PH}
-                      width={PW / n + 0.5} height={PH / n + 0.5}
+                      width={PW / n} height={PH / n} shapeRendering="crispEdges"
                       fill={val > 0.003 ? rampColor(val) : "rgba(255,255,255,0.015)"}
                       stroke={cursor && cursor.i === i && cursor.j === j ? "#fff" : "none"} strokeWidth={1}
                       onMouseEnter={() => setCursor({ i, j })}>

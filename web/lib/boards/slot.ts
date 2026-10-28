@@ -53,7 +53,6 @@ export const SLOT_COLS = [
   { key: "cswPct", label: "CSW%", w: "w-[52px]", align: "right" },
   { key: "stuffPlus", label: "Whiff+", w: "w-[76px]", align: "right", model: true },
   { key: "stuffPlusSlotPct", label: "Slot pct", w: "w-[52px]", align: "right", model: true, tip: "Whiff+ percentile among MLB pitchers in his slot band throwing this pitch" },
-  { key: "abStuffPlusSlotPct", label: "Slot pct", w: "w-[52px]", align: "right", model: true, tip: "ABStuff+ percentile among MLB pitchers in his slot band throwing this pitch" },
   { key: "pitchingPlus", label: "Pitching+", w: "w-[84px]", align: "right", model: true },
   { key: "pitchingPlusSlotPct", label: "Slot pct", w: "w-[52px]", align: "right", model: true, tip: "Pitching+ percentile among MLB pitchers in his slot band throwing this pitch" },
 ] as const;

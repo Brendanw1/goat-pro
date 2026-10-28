@@ -53,8 +53,20 @@ export async function getVaaZonePct(level: Level = "mlb"): Promise<VaaZoneFileAn
 type VaaZoneFileAny = Record<string, any>;
 
 /** Arm slot, release and per-type slot rows (PP13), for the profile's arm-slot file. */
-export async function getArmSlot(id: string, level: Level = "mlb"): Promise<any | null> {
-  return fetchFromR2<any>(lv(level, `slot/${id}.json`)).catch(() => null);
+export async function getArmSlot(id: string, season?: string | number, level: Level = "mlb"): Promise<any | null> {
+  return perSeasonFile("slot", id, season, level);
+}
+
+/**
+ * A per-pitcher family baked as {id}-{season}.json plus a bare {id}.json
+ * (latest season). The bare file is the fallback for older bakes; its own
+ * `season` field says which season it holds, and panels label it.
+ */
+async function perSeasonFile(dir: string, id: string, season: string | number | undefined, level: Level): Promise<any | null> {
+  const bySeason = season !== undefined && season !== ""
+    ? await fetchFromR2<any>(lv(level, `${dir}/${id}-${season}.json`)).catch(() => null)
+    : null;
+  return bySeason ?? fetchFromR2<any>(lv(level, `${dir}/${id}.json`)).catch(() => null);
 }
 
 /** The slot board file (A3/A4): release + grades per pitcher, joined with arsenal rows at query time. */
@@ -106,6 +118,11 @@ export async function getGameLog(id: string, season: string | number, level: Lev
 /** D-12/D-13 site defense file (pipeline/defense_export.py): position cards with chance lists, catcher framing. MLB only. */
 export async function getDefense(id: string, season: string | number): Promise<any | null> {
   return fetchGzippedJson<any>(`defense/${id}-${season}.json.gz`).catch(() => null);
+}
+
+/** Whiff+ explained (pipeline/whiff_shap.py): TreeSHAP of the cross-fit boosters in Whiff+ points, overall + per type. MLB only. */
+export async function getWhiffShap(id: string, season: string | number): Promise<any | null> {
+  return fetchGzippedJson<any>(`whiff_shap/${id}-${season}.json.gz`).catch(() => null);
 }
 
 /** Per-PA pitch sequences (wave 6, gzipped): every pitch under every PA, joined from the gamelog rows' `g`. */
@@ -174,8 +191,8 @@ export async function getSprayRefs(level: Level = "mlb"): Promise<any | null> {
 }
 
 /** Run value in context (PP19, wave 4): leverage splits per pitcher-season. */
-export async function getSituational(id: string, level: Level = "mlb"): Promise<any | null> {
-  return fetchFromR2<any>(lv(level, `situational/${id}.json`)).catch(() => null);
+export async function getSituational(id: string, season?: string | number, level: Level = "mlb"): Promise<any | null> {
+  return perSeasonFile("situational", id, season, level);
 }
 
 /** Hitter scouting card (wave 3, gzipped): zone cells, count rows, skill grades. */
@@ -263,7 +280,7 @@ export async function getPlayerProfile(id: string, season?: string | number, lev
       if (match) {
         for (const key of ["kPct", "bbPct", "kBbPct", "cswPct", "whiffPct", "gbPct", "velo", "ivb",
           "era", "fip", "whip", "ip", "battersFaced", "pitches", "hits", "walks",
-          "stuffPlus", "abStuffPlus", "pitchingPlus", "confidence"]) {
+          "stuffPlus", "pitchingPlus", "confidence"]) {
           if (profile[key] === undefined && match[key] !== undefined) profile[key] = match[key];
         }
       }
