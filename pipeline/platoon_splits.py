@@ -1,6 +1,7 @@
 """RESULTS-MLB §73 (D-07): Whiff+ by pitch type vs each batter hand, with a shrunk grade, a CI and usage.
 
     python platoon_splits.py          # the §73 read once -> results/platoon_splits.csv + platoon_SEALED.json
+    python platoon_splits.py --v2     # §79 re-test (needs cache/xrv_v2_pitches.parquet from xrv_model.py --v2)
     python platoon_splits.py --demo   # self-check of the scale, shrink and usage
 
 Per pitcher x season x site type x stand, from the cross-fit per-pitch predictions (separate models per hand):
@@ -23,18 +24,24 @@ RES = PIPE / "results"
 PRED = PIPE.parent / "cache" / "pred_s4_bb.parquet"
 MIN_SW = 50     # §73: swings from each hand, both seasons
 DISPLAY_N = 10  # p7_export.DISPLAY_N
+V2 = "--v2" in sys.argv  # §79: location-aware expected whiff/swing from the §78 outcome model
+TAG = "platoon_v2" if V2 else "platoon"
 
 
-def splits(pr: pd.DataFrame, type_pred: pd.Series, ref: pd.DataFrame) -> pd.DataFrame:
+def splits(pr: pd.DataFrame, type_pred: pd.Series, ref: pd.DataFrame | None) -> pd.DataFrame:
     """pr: per pitch (pitcher, season, pitch_type, stand, pred, whiff, swing); type_pred indexed by
-    (pitcher, season, site); ref: per-site mean/std of the type scale."""
+    (pitcher, season, site); ref: per-site mean/std of the type scale, or None for a plain percentage (§79)."""
     side_n = pr.groupby(["pitcher", "season", "stand"]).size().rename("side_n")
     pr = pr[pr["pitch_type"].isin(SITE)].assign(site=lambda x: x["pitch_type"].map(SITE))
     g = (pr.groupby(["pitcher", "season", "site", "stand"])
          .agg(n=("pred", "size"), m=("pred", "mean"), sd=("pred", "std"), sw=("swing", "sum"), wh=("whiff", "sum"))
          .reset_index().join(side_n, on=["pitcher", "season", "stand"])
-         .join(type_pred.rename("type_pred"), on=["pitcher", "season", "site"]).join(ref, on="site"))
-    sc = lambda v: 100 + 10 * (v - g["mean"]) / g["std"]  # noqa: E731
+         .join(type_pred.rename("type_pred"), on=["pitcher", "season", "site"]))
+    if ref is None:
+        sc = lambda v: 100 * v  # noqa: E731
+    else:
+        g = g.join(ref, on="site")
+        sc = lambda v: 100 + 10 * (v - g["mean"]) / g["std"]  # noqa: E731
     half = 1.96 * g["sd"].fillna(0) / np.sqrt(g["n"])
     return g.assign(usage=100 * g["n"] / g["side_n"], grade=sc(g["m"]), lo=sc(g["m"] - half), hi=sc(g["m"] + half),
                     grade_shrunk=sc((g["n"] * g["m"] + K_SHRINK * g["type_pred"]) / (g["n"] + K_SHRINK)))
@@ -53,12 +60,23 @@ def demo():
     print("demo ok")
 
 
+def v2_pitches() -> pd.DataFrame:
+    x = pd.read_parquet(PIPE.parent / "cache" / "xrv_v2_pitches.parquet")
+    sw = x["p_whiff"] + x["p_foul"] + x["p_bip"]
+    return x.assign(pred=x["p_whiff"] / sw, whiff=(x["y"] == 2).astype(int), swing=x["y"].isin([2, 3, 5]).astype(int))
+
+
 def main():
-    t, ref = type_table(str(RES / "crossfit_v2_s4_bb_pt.csv"), 1)
-    g = splits(pd.read_parquet(PRED, columns=["pitcher", "season", "pitch_type", "stand", "pred", "whiff", "swing"]),
-               t.set_index(["pitcher", "season", "site"])["type_pred"], ref)
+    if V2:
+        pr = v2_pitches()
+        tp = pr.assign(site=pr["pitch_type"].map(SITE)).groupby(["pitcher", "season", "site"])["pred"].mean()
+        g = splits(pr, tp, None)
+    else:
+        t, ref = type_table(str(RES / "crossfit_v2_s4_bb_pt.csv"), 1)
+        g = splits(pd.read_parquet(PRED, columns=["pitcher", "season", "pitch_type", "stand", "pred", "whiff", "swing"]),
+                   t.set_index(["pitcher", "season", "site"])["type_pred"], ref)
     out = g[g["n"] >= DISPLAY_N][["pitcher", "season", "site", "stand", "n", "usage", "grade", "grade_shrunk", "lo", "hi"]]
-    out.round(2).to_csv(RES / "platoon_splits.csv", index=False)
+    out.round(2).to_csv(RES / f"{TAG}_splits.csv", index=False)
 
     w = g.pivot_table(index=["pitcher", "season", "site"], columns="stand", values=["grade", "grade_shrunk", "sw", "wh"])
     w.columns = [f"{a}_{b}" for a, b in w.columns]
@@ -75,7 +93,7 @@ def main():
            "reported": {"raw_gap": stack.pooled_dr(d, "obs_gap", "raw_gap", "obs_gap_next"),
                         "yoy_pred_gap": round(float(d["pred_gap"].corr(d["pred_gap_next"])), 4)}}
     print(json.dumps(res, indent=1))
-    (RES / "platoon_SEALED.json").write_text(json.dumps(res, indent=1))
+    (RES / f"{TAG}_SEALED.json").write_text(json.dumps(res, indent=1))
 
 
 if __name__ == "__main__":

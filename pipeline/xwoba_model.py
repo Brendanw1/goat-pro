@@ -1,6 +1,7 @@
 """RESULTS-MLB §68 (D-01): our own xwOBA, cross-fit by batter, judged against Savant's xwOBA.
 
     nice -n 10 python xwoba_model.py          # fit (5 batter-grouped folds), the §68 read once, write results
+    nice -n 10 python xwoba_model.py --v2     # §77 re-test: ground-ball spray removed -> results/xwoba_v2_*
     python xwoba_model.py --demo              # self-check of the roll-up on a hand-worked frame
 
 Per ball in play: LightGBM multiclass {out, 1B, 2B, 3B, HR} on EV, LA, spray angle (+ = pulled), sprint speed
@@ -36,6 +37,8 @@ FROM pitches_all WHERE game_type = 'R' AND woba_denom > 0
 PARAMS = dict(objective="multiclass", num_class=5, learning_rate=0.05, num_leaves=63, min_data_in_leaf=200,
               feature_fraction=0.9, bagging_fraction=0.8, bagging_freq=1, num_threads=6, verbose=-1, seed=13)
 ROUNDS = 400
+V2 = "--v2" in sys.argv  # §77: no spray on ground balls (hc_x/hc_y is where they were fielded)
+TAG = "xwoba_v2" if V2 else "xwoba_own"
 
 
 def load(con) -> pd.DataFrame:
@@ -45,6 +48,8 @@ def load(con) -> pd.DataFrame:
     d["sprint"] = d["sprint_speed"].fillna(d.groupby("season")["sprint_speed"].transform("median"))
     d["lefty"] = (d["stand"] == "L").astype(int)
     d["y"] = d["events"].map(CLS).fillna(0).astype(int)
+    if V2:
+        d.loc[d["la"] < 10, "spray"] = np.nan
     return d
 
 
@@ -102,20 +107,29 @@ def main():
     res = {"bip_logloss_crossfit": round(ll, 4), "n_pa": int(len(d))}
     for who, label in (("batter", "hitters"), ("pitcher", "pitchers")):
         r = rollup(d, who)
-        r.round(4).to_csv(PIPE / "results" / f"xwoba_own_{label}.csv", index=False)
+        r.round(4).to_csv(PIPE / "results" / f"{TAG}_{label}.csv", index=False)
+        if V2:  # §77 diagnosis test: v2 against v1 on the same pairs
+            v1 = pd.read_csv(PIPE / "results" / f"xwoba_own_{label}.csv")[["mlbam", "season", "xw_own"]]
+            r = r.merge(v1.rename(columns={"xw_own": "xw_v1"}), on=["mlbam", "season"], how="left")
         p = pairs(r)
         dr = pooled_dr(p, "xw_sv", "xw_own", "woba_next")
         won = sum(v["r_xw_own"] > v["r_xw_sv"] for v in dr["pairs"].values())
         same = r[r["pa"] >= 100]
         dr.update(pairs_won=won, n=int(len(p)), same_season_r={
             "own": round(float(same["xw_own"].corr(same["woba"])), 4), "savant": round(float(same["xw_sv"].corr(same["woba"])), 4)})
-        if label == "hitters":
+        if V2:
+            dg = pooled_dr(p.dropna(subset=["xw_v1"]).reset_index(drop=True), "xw_v1", "xw_own", "woba_next")
+            dr["diagnosis_v2_minus_v1"] = dict(dg, verdict="CONFIRMED" if dg["ci"][0] > 0 else "NOT CONFIRMED")
+        if label == "hitters" and V2:
+            dr["verdict"] = ("HEADLINE" if dr["ci"][0] > 0 and won >= len(dr["pairs"]) - 1
+                             else "NON-INFERIOR" if dr["ci"][0] > -0.010 else "NOT SHIPPED")
+        elif label == "hitters":
             dr["verdict"] = "CONFIRMED" if dr["ci"][0] > 0 and won >= len(dr["pairs"]) - 1 else "NOT CONFIRMED"
         else:
             dr["verdict"] = "reported, not judged"
         res[label] = dr
     print(json.dumps(res, indent=1, default=str))
-    (PIPE / "results" / "xwoba_own_SEALED.json").write_text(json.dumps(res, indent=1, default=str))
+    (PIPE / "results" / f"{TAG}_SEALED.json").write_text(json.dumps(res, indent=1, default=str))
 
 
 if __name__ == "__main__":

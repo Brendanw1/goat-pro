@@ -1,6 +1,7 @@
 """RESULTS-MLB §71 (D-03): expected run value per pitch, cross-fit by pitcher. Pitcher-positive throughout.
 
     nice -n 10 python xrv_model.py        # fit, the §71 read once, write results
+    nice -n 10 python xrv_model.py --v2   # §78 re-test: + season term; writes results/xrv_v2_* and cache/xrv_v2_pitches
     python xrv_model.py --demo            # self-check of the combine and the roll-up
 
 Outcome leg: LightGBM multiclass {ball, called strike, whiff, foul, HBP, in play}. Contact leg: LightGBM regression
@@ -27,8 +28,12 @@ PIPE = Path(__file__).resolve().parent
 CLASSES = ["ball", "cs", "whiff", "foul", "hbp", "bip"]
 BIP = CLASSES.index("bip")
 FEATS = ["velo", "ivb", "hb_arm", "spin", "ext", "rel_z", "rel_x_arm", "x_in", "z_norm", "balls", "strikes", "same"]
+V2 = "--v2" in sys.argv  # §78: season term (2026 ABS zone: sz_top 3.44 -> 3.22 ft)
+if V2:
+    FEATS = FEATS + ["season"]
+TAG = "xrv_v2" if V2 else "xrv"
 SQL = """
-SELECT pitcher, season, pitch_type, balls, strikes, -delta_run_exp AS rv,
+SELECT pitcher, season, pitch_type, stand, balls, strikes, -delta_run_exp AS rv,
        estimated_woba_using_speedangle AS xwoba,
        CASE WHEN description IN ('ball','blocked_ball') THEN 0 WHEN description = 'called_strike' THEN 1
             WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 2
@@ -126,6 +131,10 @@ def main():
     print(f"{len(d):,} pitches", flush=True)
     p, contact, rv_tab, base_p = crossfit(d)
     d["xrv"] = combine(p, rv_tab, contact)
+    if V2:  # per-pitch class probabilities for §79 (location-aware platoon whiff)
+        pd.DataFrame({"pitcher": d["pitcher"], "season": d["season"], "pitch_type": d["pitch_type"].astype(str),
+                      "stand": d["stand"], "y": d["y"], "p_whiff": p[:, 2], "p_foul": p[:, 3], "p_bip": p[:, BIP]}
+                     ).to_parquet(PIPE.parent / "cache" / "xrv_v2_pitches.parquet")
     d["obs_xrv"] = np.where(d["y"] == BIP, d["bip_v"], d["rv"])  # judge.py's observed xRV (actual outcomes)
     yy = d["y"].to_numpy()
     ll = lambda q: float(-np.log(np.clip(q[np.arange(len(q)), yy], 1e-12, 1)).mean())  # noqa: E731
@@ -140,8 +149,8 @@ def main():
     mu, sd = q.groupby("season")["xrv100"].transform("mean"), q.groupby("season")["xrv100"].transform("std")
     r.loc[q.index, "xrv_plus"] = 100 + 10 * (q["xrv100"] - mu) / sd
     r["luck"] = r["rv100"] - r["xrv100"]
-    r.round(4).to_csv(PIPE / "results" / "xrv_pitchers.csv", index=False)
-    rollup(d, ["pitcher", "season", "pitch_type"]).round(4).to_csv(PIPE / "results" / "xrv_pitch_types.csv", index=False)
+    r.round(4).to_csv(PIPE / "results" / f"{TAG}_pitchers.csv", index=False)
+    rollup(d, ["pitcher", "season", "pitch_type"]).round(4).to_csv(PIPE / "results" / f"{TAG}_pitch_types.csv", index=False)
 
     nxt = r[["mlbam", "season", "bf", "rv100", "xrv100"]].assign(season=r["season"] - 1).rename(
         columns={"bf": "bf_next", "rv100": "rv_next", "xrv100": "xrv_next"})
@@ -155,9 +164,13 @@ def main():
     o = pooled_dr(pr, "obs_xrv100", "xrv100", "rv_next")
     o["pairs_won"] = sum(v["r_xrv100"] > v["r_obs_xrv100"] for v in o["pairs"].values())
     res["vs_observed_xrv"] = o
+    if V2:  # reported: v2 against v1 on the same pairs, and 2025->26 alone
+        v1 = pd.read_csv(PIPE / "results" / "xrv_pitchers.csv")[["mlbam", "season", "xrv100"]].rename(columns={"xrv100": "xrv_v1"})
+        pv = pr.merge(v1, on=["mlbam", "season"]).sort_values(["season", "mlbam"]).reset_index(drop=True)
+        res["v2_minus_v1"] = pooled_dr(pv, "xrv_v1", "xrv100", "rv_next")
     res["year_to_year_r_xrv100"] = round(float(pr["xrv100"].corr(pr["xrv_next"])), 3)
     print(json.dumps(res, indent=1, default=str))
-    (PIPE / "results" / "xrv_SEALED.json").write_text(json.dumps(res, indent=1, default=str))
+    (PIPE / "results" / f"{TAG}_SEALED.json").write_text(json.dumps(res, indent=1, default=str))
 
 
 if __name__ == "__main__":
