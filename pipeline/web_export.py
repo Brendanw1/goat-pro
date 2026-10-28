@@ -3324,8 +3324,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         car_p = con.sql(f"""
             SELECT pitcher AS id, season,
                    SUM(CASE WHEN events IN {OUT_EVENTS_1} THEN 1 ELSE 0 END
-                        + CASE WHEN events IN {OUT_EVENTS_2} THEN 1 ELSE 0 END
-                        + CASE WHEN events IN {OUT_EVENTS_3} THEN 1 ELSE 0 END) AS outs,
+                        + CASE WHEN events IN {OUT_EVENTS_2} THEN 2 ELSE 0 END
+                        + CASE WHEN events IN {OUT_EVENTS_3} THEN 3 ELSE 0 END) AS outs,
                    COUNT(DISTINCT (game_pk, at_bat_number)) AS bf,
                    COUNT(*) AS np
             FROM pitches_all
