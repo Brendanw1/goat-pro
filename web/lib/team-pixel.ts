@@ -35,6 +35,7 @@ const RAW: Record<string, [string, string]> = {
   SEA: ["#0C2C56", "#005C5C"],
   SF: ["#27251F", "#FD5A1E"],
   STL: ["#C41E3A", "#FED141"],
+  TB: ["#092C5C", "#8FBCE6"],
   TEX: ["#003278", "#C0111F"],
   TOR: ["#134A8E", "#1D2D5C"],
   WSH: ["#AB0003", "#14225A"],
