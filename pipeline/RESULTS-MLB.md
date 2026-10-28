@@ -2234,3 +2234,19 @@ Calibration passes every season (decile gaps ≤ .0043). AUC is .956–.957.
 - Scale against Savant 2025: slope IF .51, OF .61; SD IF 5.6 vs 6.9, OF 6.1 vs 7.4. Elite CFs remain compressed (Crow-Armstrong 2025: 5.3 vs Savant 24).
 - **Could this be our error?** Partly. The hang-time proxy is drag-only, so it runs about 1 s short on deep flies. The average start also hides per-play depth. Both understate the hardest catches, which are exactly the elite ones. A measured hang time is not public.
 - **Shipped:** IF and OF range from v3 (`defense_chances_v3.parquet`, `defense_v3_SEALED.json`). Framing is unchanged (§76).
+
+## §82 Whiff+ hand-matched grading (bug fix), pre-registered 2026-10-28 before any read
+
+**The bug.** `train_mlb.season_grades` scores each pitch class against the frozen league reference for the batter hand of that class's *first* pitch of the season (`side = c["stand"].iloc[0]`). Every other pitch in the class uses that hand's reference too, whatever hand it was thrown to. The references differ by hand (BB: L .294 / sd .076 vs R .309 / sd .070), so the published grade carries a first-batter accident. Skubal 2025: published 114.0, quirk replica 114.6, hand-matched 110.6.
+
+**The fix** (`whiff_hand.py`): each pitch is scored against its own (class, batter hand) reference, using the same frozen references (TRAIN 2023–24 pitcher means over swings, ≥ 10 swings) and the same cross-fit predictions (`cache/pred_s4_bb.parquet`). Grade = clip(100 + 10 × mean z, 50, 175), with ≥ 5 pitches. A quirk replica uses the identical code with the first-pitch hand. It reproduces the published grades at r .99987 (max gap 1.6), so A vs B isolates the fix.
+
+**Judged (read once):** `judge.py` (GOAT_LO=2020, --skip 2023, as §47), A = quirk replica, B = hand-matched. Non-inferiority: composite Δr CI lower bound > −.010.
+
+**Reported, not judged:** the per-outcome Δr. K+ (§50) and Prevention+ (§52) are re-scored with the fixed Whiff+ as input, as a robustness re-run in the §44-fix pattern: same ridges and sealed split, no choice changes. They must stay above 0 to ship the cascade.
+
+**Shipping:**
+- **If non-inferior:** `crossfit_v2_s4_bb_grades.csv` becomes the hand-matched grades (the old file is kept as `_quirk`), `p7_export` is re-run, and the pitcher families are rebaked.
+- **If it fails:** the correct grade still ships, because the old one is a bug. The failure is diagnosed in the §82 result.
+
+**Expected:** a near-tie (r between versions ≈ .97), with a small gain for pitchers whose first batter of a class was atypical.
