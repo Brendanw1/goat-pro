@@ -1785,3 +1785,26 @@ Every estimate is cross-fit: 5 folds grouped by **batter**, so no hitter's own b
 - the pitcher-side version (xwOBA-against in S vs S+1 wOBA-against, ≥ 100 BF). Pitchers control contact quality weakly, so this side is descriptive only.
 
 **What it means either way.** A pass means spray angle and sprint speed add forecast signal beyond Savant's EV/LA estimate. The site would then show our xwOBA as the headline, with Savant's beside it. A fail means the site keeps Savant's (attributed) and ours is not shipped. Spray-aware expected stats are known to help on pulled fly balls, so a pass is plausible but not given: Savant's estimate is strong, and the S+1 target is noisy.
+
+## §69 Swing decisions: Decision+ / IZA / OZA / dRV per 100 (D-02), pre-registered 2026-10-27 before any read
+
+**Model.** Two LightGBM regressions on `delta_run_exp` (batter-positive): one fit on swings, one on takes. Bunts, pitchouts, intentional balls and HBP are excluded.
+- **Features:** plate_x mirrored so + is inside to him; plate_z normalized to his strike zone, (z − sz_bot)/(sz_top − sz_bot); balls; strikes; pitch family (FB/CT/BR/OS); release speed; pfx_x (mirrored); pfx_z.
+- **Cross-fit:** 5 folds grouped by **batter**. Every pitch gets E_swing and E_take from models that never saw that batter.
+- **Decision value per pitch:** dRV = E[chosen] − E[other]. That is (E_swing − E_take) if he swung, (E_take − E_swing) if he took. It prices the choice at league-average execution, so contact quality is left out by design.
+
+**Per hitter-season:**
+- dRV/100 over all pitches.
+- IZA: dRV/100 on in-zone pitches (Statcast zones 1–9).
+- OZA: the same on out-of-zone pitches.
+- Decision+ = 100 + 10 z of dRV/100, over MLB hitter-seasons with ≥ 100 PA. `decision_model.py`.
+
+**Claim (read once).** Decision+ in S beats **−Chase% in S** (O-Swing%, the simple decision stat) at predicting **(BB% − K%) in S+1**. Pooled Δr over pairs S = 2020…2025 with ≥ 100 PA in both seasons. Hitter-clustered bootstrap, 2,000 draws, seed 13. CONFIRMED if the 95% CI lower bound is > 0 **and** Decision+ wins in ≥ 5 of 6 pairs.
+
+**Reported, not judged:**
+- split-half reliability (odd/even pitches) of dRV/100, IZA and OZA at the median sample;
+- year-to-year r of dRV/100;
+- validity against Savant's swing/take run value (`lb_swing_take_*`, 2024+): r with their total runs, which mix decision and execution;
+- the swing and take models' cross-fit RMSE against a count-only baseline.
+
+**What it means either way.** A pass ships Decision+, IZA and OZA as forecast-gated hitter stats. A fail ships dRV/100 descriptively only, under the "descriptive, not a forecast" label, or not at all if the split-half reliability is below .3.
