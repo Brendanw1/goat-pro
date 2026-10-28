@@ -2007,3 +2007,61 @@ The model's gap is a very stable property of shape, but some platoon skill sits 
 - **Reconstruction at release:** median 0.03 in for 2020–25. In 2026 it was 0.24 in horizontal and 0.94 in vertical, which is under the 2 in gate; the 2026 `release_pos` values appear to be measured differently.
 
 **Shipped:** `tunnelPlus` on pitcher rows/docs and a `tunnelPairs` table on profiles, labelled descriptive (it does not forecast chase head-on), with the added-information finding stated in the glossary. Artifacts: `results/tunnel_pitchers.csv`, `tunnel_pairs.csv`, `tunnel_SEALED.json`.
+
+## §75 Fielding range, outs and runs above average (D-12), pre-registered 2026-10-28 before any read
+
+**Method.** A port of the college framework (`baseballDefense/DEFENSE_METHODS.md` §3): method only, refit on Statcast. Script: `defense_mlb.py`.
+- **Chances:** regular-season balls in play with EV, LA and spray, excluding home runs and bunts.
+- **Difficulty:** P(out) by an average defense. LightGBM on:
+  - EV, LA, spray angle, `hit_distance_sc` and batter hand;
+  - IF/OF alignment;
+  - outs, and runners on (force);
+  - the batter's Savant sprint speed that season (league median if missing);
+  - home park.
+
+  Fit **within each season** (the 2026 coordinate change, kb-session ledger), out-of-fold by 5 game-grouped folds. Out = an out made on the play (field_out, force_out, double/triple plays, fielder's choice out, sac fly). Errors are not converted.
+- **Responsibility:** a multiclass model P(position 1–9 | the same ball features), fit on outs (`hit_location`), applied to every chance.
+- **Credit:**
+  - an out goes to its `hit_location` fielder: +(1 − p);
+  - a non-out debits each position k by −p × resp_k.
+
+  Fielders are identified from `fielder_k` on that pitch.
+- **Runs:** credit × (mean `delta_run_exp` of non-outs − of outs), per season × ground ball vs air.
+- **Reliability:** odd/even game split-half, Spearman-Brown. k = mean chances × (1 − rel)/rel, then shrunk = raw × n/(n + k).
+
+Positions 3–9 are graded; the pitcher and catcher take responsibility mass but are not graded.
+
+**Gates (each judged, read once).** Two groups: IF (3–6) and OF (7–9).
+1. **Calibration:** out-of-fold decile gap ≤ .03 in every season.
+2. **External validity:** player-season OAA (Σ credit) vs Savant `outs_above_average`, among players on Savant's board in their Savant primary group, seasons 2020–2026. Pass if the 95% CI lower bound of r is > .50, player-clustered bootstrap, 2,000 draws, seed 13.
+
+**Reported, not judged:**
+- AUC;
+- k;
+- YoY r of ours vs Savant OAA's YoY on the same players (≥ Savant qualifier both seasons);
+- r with Savant `fielding_runs_prevented`.
+
+**Ships** for a group passing both gates: `oaaOurs`, `fieldRunsOurs` (raw and shrunk) and position breakdowns on MLB hitter rows/docs, labelled as a site model beside Savant's. A failing group does not ship.
+
+## §76 Framing runs and Framing+ (D-13), pre-registered 2026-10-28 before any read
+
+**Method.**
+- **Population:** taken pitches (`called_strike` / `ball` / `blocked_ball`) with location.
+- **P(called strike):** LightGBM on:
+  - plate_x and plate_z normalized to the batter's zone;
+  - balls, strikes, batter and pitcher hand;
+  - pitch type, velo and movement (pfx_x, pfx_z).
+
+  No catcher, umpire or park. Fit within each season, out-of-fold by 5 catcher-grouped folds (no catcher in its own fit).
+- **Runs per pitch:** (strike − p) × (mean `delta_run_exp` of a ball − of a called strike in that count, that season), flipped to fielding-positive. Credited to `fielder_2`.
+- **Framing+:** 100 + 10 × z of shrunk runs per 100 taken pitches, among catchers with ≥ 2,000 taken pitches that season. Shrinkage k is measured by odd/even game split-half, as in §75.
+- The umpire random effect waits for D-15.
+
+**Gate (judged, read once).** Catcher-season framing runs vs Savant `rv_tot`, catchers on Savant's board, 2020–2026. Pass if the 95% CI lower bound of r is > .80, catcher-clustered bootstrap, 2,000 draws, seed 13.
+
+**Reported, not judged:**
+- AUC and calibration;
+- k;
+- YoY r of ours vs Savant's on the same catchers.
+
+**Ships if it passes:** `framingRunsOurs`, `framingPlus` and reliability on MLB hitter rows/docs, beside Savant's.
