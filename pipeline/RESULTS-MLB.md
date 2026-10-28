@@ -1775,7 +1775,7 @@ Tiny samples can sit on the grade scale's 50 floor (3 MLB, 16 AAA added rows). `
 
 The expected wOBA of a ball is Σ p(class) × that season's Savant wOBA weight for the class, with out = 0. Errors and fielder's choices count as outs, as in Savant's wOBA.
 
-Every estimate is cross-fit: 5 folds grouped by **batter**, so no hitter's own balls train the model that scores him (the Stuff+ memorization lesson, RESULTS-MLB §5x and memory: pitcher/batter-grouped gates required). Seasons 2020–2026 are pooled, with a season indicator as a feature so the run environment can shift. Hitter xwOBA = (Σ BIP estimate + Σ woba_value on non-BIP PA) / Σ woba_denom, the same roll-up as Savant's. `xwoba_model.py`.
+Every estimate is cross-fit: 5 folds grouped by **batter**, so no hitter's own balls train the model that scores him (the Stuff+ memorization lesson, section 17). Seasons 2020–2026 are pooled, with a season indicator as a feature so the run environment can shift. Hitter xwOBA = (Σ BIP estimate + Σ woba_value on non-BIP PA) / Σ woba_denom, the same roll-up as Savant's. `xwoba_model.py`.
 
 **Claim (read once):** our hitter xwOBA in S beats **Savant's** xwOBA in S at predicting wOBA in S+1. The metric is pooled Δr over pairs S → S+1, S = 2020…2025, with ≥ 100 PA in both seasons. The bootstrap is hitter-clustered, 2,000 draws, seed 13. CONFIRMED if the 95% CI lower bound is > 0 **and** ours wins in at least 5 of 6 pairs.
 
