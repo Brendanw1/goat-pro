@@ -29,7 +29,7 @@ async function loadPlaywright() {
   const candidates = [
     process.env.PLAYWRIGHT_PATH,
     "playwright",
-    "/Users/brendanwaterval/.npm/_npx/9833c18b2d85bc59/node_modules/playwright/index.mjs",
+    `${process.env.HOME}/.npm/_npx/9833c18b2d85bc59/node_modules/playwright/index.mjs`,
   ].filter(Boolean);
   for (const c of candidates) {
     try { return await import(c); } catch { /* try the next one */ }

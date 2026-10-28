@@ -17,13 +17,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "/Users/brendanwaterval/Projects/vt_baseball/savant_mart")
+from paths import MART_DIR  # noqa: E402
+sys.path.insert(0, str(MART_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mart  # noqa: E402
 from train_mlb import load_features  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-TJ = Path("/Users/brendanwaterval/Projects/vt_baseball")
+from paths import VT_ROOT as TJ  # noqa: E402
 PAIRS = ((2023, 2024), (2024, 2025), (2025, 2026))
 TYPES = "'FF','SI','FC','SL','CU','KC','SW','SV','ST','CH','FS','FO','EP'"
 MODEL = json.load(open(TJ / "tjstuff_lgbm_model.json"))

@@ -137,7 +137,6 @@ def validate(df):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, "/Users/brendanwaterval/Projects/goat-pro/pipeline")
     import train_mlb as tm
     df = tm.load_features()
     df = add_physics(df)

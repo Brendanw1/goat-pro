@@ -15,7 +15,8 @@ import sys
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "/Users/brendanwaterval/Projects/vt_baseball")
+from paths import VT_ROOT  # noqa: E402
+sys.path.insert(0, str(VT_ROOT))
 from savant_mart import mart  # noqa: E402
 
 FAMILY = """CASE WHEN pitch_type IN ('SL','ST','SV') THEN 'SL' WHEN pitch_type IN ('CU','KC','CS') THEN 'CU'

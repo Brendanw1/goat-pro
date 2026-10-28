@@ -34,11 +34,12 @@ python pipeline/web_export.py --only pitchers   # bake one family to data/export
 cd web && USE_LOCAL_DATA=true npm run dev       # site against the local bake
 ```
 
-The bake reads a local Statcast mart (DuckDB over Parquet). Paths in
-`pipeline/` point to the author's machine; set them to your own mart.
+The bake reads a local Statcast mart (DuckDB over Parquet). `pipeline/paths.py`
+finds it at `~/Projects/vt_baseball/savant_mart` by default; set `SAVANT_MART`
+(or `VT_ROOT`) to point at your own.
 
 ## License
 
-The code is © Brendan Waterval and all rights are reserved until a license is
-added. The Statcast and MLB data remain subject to MLB Advanced Media's terms.
+Code: MIT (see `LICENSE`). The Statcast and MLB data remain subject to MLB
+Advanced Media's terms.
 Team logos are trademarks of their clubs.

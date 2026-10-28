@@ -53,7 +53,8 @@ import duckdb  # noqa: F401  (mart imports it)
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "/Users/brendanwaterval/Projects/vt_baseball/savant_mart")
+from paths import MART_DIR  # noqa: E402
+sys.path.insert(0, str(MART_DIR))
 import mart  # noqa: E402
 
 PIPE = Path(__file__).resolve().parent

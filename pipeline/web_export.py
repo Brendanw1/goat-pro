@@ -56,8 +56,7 @@ GRADES_FILE = ROOT / "data" / "export" / "mlb_pitcher_grades.json"
 MODELS_FILE = ROOT / "data" / "export" / "mlb_pitcher_models.json"  # P7 family (pipeline/p7_export.py)
 P7_FIELDS = {"k_plus": "kPlus", "k_proj": "kProj", "prevention_plus": "preventionPlus",
              "control_plus": "controlPlus", "pitching_runs_per100": "pitchingRunsPer100"}
-MART_DIR = Path("/Users/brendanwaterval/Projects/vt_baseball/savant_mart")
-
+from paths import MART_DIR  # noqa: E402
 sys.path.insert(0, str(MART_DIR))
 import mart  # noqa: E402
 
@@ -623,9 +622,9 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     # snapshot covers (retired/traded arms) are kept, except a season under
     # 2 IP, which is a mop-up appearance by whoever it was. Rules recorded in
     # meta.json; the grades artifact itself is untouched.
-    pos_df = con.sql("""
+    pos_df = con.sql(f"""
         SELECT person_id, arg_max(position_abbrev, date) AS pos
-        FROM read_parquet('/Users/brendanwaterval/Projects/vt_baseball/savant_mart/data/daily/rosters_*.parquet')
+        FROM read_parquet('{MART_DIR}/data/daily/rosters_*.parquet')
         GROUP BY 1
     """).df()
     non_pitchers = {int(row.person_id) for row in pos_df.itertuples() if row.pos not in ("P", "TWP")}
@@ -1908,7 +1907,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     # denominators.
     if "hitters" in fams:
         from pathlib import Path as _P
-        ROSTERS = "/Users/brendanwaterval/Projects/vt_baseball/savant_mart/data/daily/rosters_*.parquet"
+        ROSTERS = f"{MART_DIR}/data/daily/rosters_*.parquet"
         names_df = con.sql(f"""
             SELECT person_id, arg_max(full_name, date) AS name
             FROM read_parquet('{ROSTERS}') GROUP BY 1
@@ -2749,7 +2748,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         else:
             rq = con.sql(f"""
                 SELECT DISTINCT person_id AS id, full_name AS name
-                FROM read_parquet('/Users/brendanwaterval/Projects/vt_baseball/savant_mart/data/daily/rosters_*.parquet')
+                FROM read_parquet('{MART_DIR}/data/daily/rosters_*.parquet')
                 WHERE full_name IS NOT NULL
             """).df()
             h_names = {int(t.id): t.name for t in rq.itertuples()}

@@ -13,7 +13,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import linprog, minimize
 
-sys.path.insert(0, "/Users/brendanwaterval/Projects/vt_baseball")
+from paths import VT_ROOT  # noqa: E402
+sys.path.insert(0, str(VT_ROOT))
 from savant_mart import mart  # noqa: E402
 
 FAM = """CASE WHEN pitch_type IN ('FF') THEN 'FF' WHEN pitch_type = 'SI' THEN 'SI' WHEN pitch_type = 'FC' THEN 'FC'

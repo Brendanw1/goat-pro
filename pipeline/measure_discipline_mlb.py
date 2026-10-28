@@ -24,7 +24,7 @@ from pathlib import Path
 from statistics import NormalDist
 
 ROOT = Path(__file__).resolve().parents[1]
-MART_DIR = Path("/Users/brendanwaterval/Projects/vt_baseball/savant_mart")
+from paths import MART_DIR  # noqa: E402
 
 import sys  # noqa: E402
 sys.path.insert(0, str(MART_DIR))
