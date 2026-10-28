@@ -1099,7 +1099,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             b, tgx, gx = season_population(season)
             pcts = {}
             for metric in SEASON_METRICS:
-                p = pct5(b[metric])
+                p = pct5(b[metric]) if metric in b.columns else None  # MLB-only fields (xRV) are absent at AAA
                 if p:
                     pcts[metric] = p
             per_type = {}
