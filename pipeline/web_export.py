@@ -26,13 +26,16 @@ whole mart (data fixes need only a rebake + r2_sync, never a redeploy):
   python pipeline/web_export.py --only players           # one family
   python pipeline/web_export.py --only players --player 694973
   python pipeline/web_export.py --check                  # bake twice, diff
+  python pipeline/web_export.py --check --write          # ...and on PASS write it (no third bake)
 
 Families: pitchers players arsenal slot vaa savant. `--player` limits the
 per-player file loops (players/, slot/) to one id — global files are always
 baked whole. `--check` runs the same bake twice into temp dirs and diffs
 (meta.json's exportedAt excepted); it exits 1 on any difference, which is the
 no-op guarantee: same inputs -> byte-identical outputs -> r2_sync uploads
-nothing new.
+nothing new. Both check bakes start from an APFS clone of the export dir (files
+the bake merges into start the same); `--write` then copies bake A's changes into it,
+under the export dir's lock, instead of baking a third time.
 """
 
 import argparse
@@ -47,7 +50,9 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
     os.environ.setdefault(_v, "1")
 
 import argparse
+import contextlib
 import functools
+import subprocess
 import hashlib
 import json
 import math
@@ -300,26 +305,51 @@ def fetch_logos(out: Path, seasons_roster_teams: set[str]) -> dict:
     return got
 
 
-def diff_dirs(a: Path, b: Path) -> list[str]:
-    """Files that differ between two bake dirs. meta.json's exportedAt is the
-    only field allowed to differ (it timestamps the run)."""
-    ra = {p.relative_to(a) for p in a.rglob("*") if p.is_file()}
-    rb = {p.relative_to(b) for p in b.rglob("*") if p.is_file()}
-    diffs = []
-    for rel in sorted(ra | rb):
-        pa, pb = a / rel, b / rel
-        if not pa.exists() or not pb.exists():
-            diffs.append(f"{rel}: missing on one side")
-            continue
-        if rel == Path("meta.json"):
-            ja, jb = json.loads(pa.read_text()), json.loads(pb.read_text())
-            ja.pop("exportedAt", None), jb.pop("exportedAt", None)
-            if ja != jb:
-                diffs.append("meta.json (beyond exportedAt)")
-            continue
-        if pa.read_bytes() != pb.read_bytes():
-            diffs.append(str(rel))
-    return diffs
+def _files(d: Path, skip: tuple[str, ...]) -> set[Path]:
+    return {p.relative_to(d) for p in d.rglob("*")
+            if p.is_file() and p.name != "BAKE_LOCK" and p.relative_to(d).parts[0] not in skip}
+
+
+def _same(pa: Path, pb: Path, rel: Path) -> bool:
+    if not pa.exists() or not pb.exists():
+        return False
+    if rel == Path("meta.json"):  # exportedAt timestamps the run; nothing else may differ
+        ja, jb = json.loads(pa.read_text()), json.loads(pb.read_text())
+        ja.pop("exportedAt", None), jb.pop("exportedAt", None)
+        return ja == jb
+    return pa.stat().st_size == pb.stat().st_size and pa.read_bytes() == pb.read_bytes()
+
+
+def diff_dirs(a: Path, b: Path, skip: tuple[str, ...] = ()) -> list[Path]:
+    """Files that differ between two bake dirs (top-level names in `skip` ignored)."""
+    return sorted(rel for rel in _files(a, skip) | _files(b, skip) if not _same(a / rel, b / rel, rel))
+
+
+def seed_dir(src: Path, dst: Path, skip: tuple[str, ...]) -> None:
+    """Start a --check bake from a copy of the real export, so files the bake merges into
+    (percentiles.json, ...) start the same. APFS clone (cp -c): instant, no extra disk."""
+    if not src.exists():
+        dst.mkdir(parents=True)
+        return
+    if subprocess.run(["cp", "-cR", str(src), str(dst)], capture_output=True).returncode:
+        shutil.copytree(src, dst)  # not APFS: a real copy
+    for name in (*skip, "BAKE_LOCK"):
+        p = dst / name
+        shutil.rmtree(p) if p.is_dir() else p.unlink(missing_ok=True)
+
+
+def apply_dir(src: Path, dst: Path, skip: tuple[str, ...]) -> int:
+    """Make dst match src (outside `skip`): copy new/changed files, delete ones src dropped."""
+    changed = diff_dirs(src, dst, skip)
+    print(f"check: {len(changed)} file(s) changed vs the export: {', '.join(map(str, changed[:8]))}"
+          + (" ..." if len(changed) > 8 else ""))
+    for rel in [*changed, Path("meta.json")]:
+        if (src / rel).exists():
+            (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src / rel, dst / rel)
+        else:
+            (dst / rel).unlink(missing_ok=True)
+    return len(changed)
 
 
 def fold_site_rows(sub: pd.DataFrame) -> pd.DataFrame:
@@ -720,6 +750,13 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     Guarded by a lock file in the output directory: two agents share this
     working tree, and overlapping bakes writing one export dir produced the
     intermittent --check diffs of 2026-10-28. A stale lock (dead pid) breaks."""
+    with bake_lock(out):
+        return _bake_inner(out, seasons, only, player, level)
+
+
+@contextlib.contextmanager
+def bake_lock(out: Path):
+    """Hold <out>/BAKE_LOCK for the block; refuse while a live pid holds it, break a dead one."""
     lock_path = Path(out) / "BAKE_LOCK"
     if lock_path.exists():
         try:
@@ -733,7 +770,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     lock_path.write_text(str(os.getpid()))
     try:
-        return _bake_inner(out, seasons, only, player, level)
+        yield
     finally:
         lock_path.unlink(missing_ok=True)
 
@@ -4368,6 +4405,9 @@ def main() -> None:
                     help="run the same bake twice and diff — exits 1 on any difference "
                          "beyond meta.json's exportedAt (the no-op guarantee)")
     ap.add_argument("--keep-check", action="store_true", help="keep the --check temp dirs")
+    ap.add_argument("--write", action="store_true",
+                    help="with --check: on PASS, write the checked bake into the export dir "
+                         "(replaces a third full bake)")
     ap.add_argument("--out", type=Path, help="bake into this directory instead of data/export/web")
     ap.add_argument("--level", choices=("mlb", "aaa"), default="mlb",
                     help="aaa: the same bake over pitches_aaa into data/export/web/aaa (no Savant boards)")
@@ -4377,27 +4417,35 @@ def main() -> None:
     if level == "aaa":
         only = (only or set(FAMILIES)) - {"savant"}
 
+    real = args.out or (EXPORT / "aaa" if level == "aaa" else EXPORT)
     if args.check:
+        skip = ("aaa",) if real == EXPORT else ()  # the MLB export dir holds the AAA one; an MLB bake never touches it
         base = Path(tempfile.mkdtemp(prefix="goat-web-check-"))
         try:
-            a, b = base / "a", base / "b"
-            print(f"check: bake 1/2 -> {a}")
-            run_bake(a, args.seasons, only, args.player, level)
-            print(f"check: bake 2/2 -> {b}")
-            run_bake(b, args.seasons, only, args.player, level)
-            diffs = diff_dirs(a, b)
-            if diffs:
-                print(f"check: FAIL — {len(diffs)} file(s) differ:")
-                for dline in diffs[:40]:
-                    print(f"  {dline}")
-                sys.exit(1)
-            print("check: PASS — the two bakes are byte-identical (meta.json exportedAt excepted)")
+            with bake_lock(real) if args.write else contextlib.nullcontext():
+                a, b = base / "a", base / "b"
+                for d in (a, b):
+                    seed_dir(real, d, skip)
+                print(f"check: bake 1/2 -> {a}")
+                run_bake(a, args.seasons, only, args.player, level)
+                print(f"check: bake 2/2 -> {b}")
+                run_bake(b, args.seasons, only, args.player, level)
+                diffs = diff_dirs(a, b)
+                if diffs:
+                    print(f"check: FAIL — {len(diffs)} file(s) differ:")
+                    for dline in diffs[:40]:
+                        print(f"  {dline}")
+                    sys.exit(1)
+                print("check: PASS — the two bakes are byte-identical (meta.json exportedAt excepted)")
+                if args.write:
+                    apply_dir(a, real, skip)
+                    print(f"check: written -> {real}")
         finally:
             if not args.keep_check:
                 shutil.rmtree(base, ignore_errors=True)
         return
 
-    run_bake(args.out or (EXPORT / "aaa" if level == "aaa" else EXPORT), args.seasons, only, args.player, level)
+    run_bake(real, args.seasons, only, args.player, level)
 
 
 if __name__ == "__main__":
