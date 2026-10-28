@@ -21,9 +21,9 @@ export default async function PlayerProfilePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ season?: string }>;
+  searchParams?: Promise<{ season?: string; tab?: string }>;
 }) {
   const { id } = await params;
-  const season = (await searchParams)?.season;
-  return <PlayerPage id={id} season={season} extra={<CareerByLevel id={id} />} />;
+  const sp = (await searchParams) ?? {};
+  return <PlayerPage id={id} season={sp.season} tab={sp.tab} extra={<CareerByLevel id={id} />} />;
 }

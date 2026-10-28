@@ -11,7 +11,7 @@ import { PITCH_CONFIG } from "@/lib/constants";
 import { statRow, PercentileGroup, PercentilePanel, ThinSampleBanner } from "@/components/ui/percentile-row";
 import { DefensePanel } from "@/components/ui/defense-panel";
 import { AboutThis } from "@/components/ui/discipline-block";
-import { ProfileTabs, ProfileTabPanel } from "@/components/ui/profile-tabs";
+import { ProfileTabs, ProfileTabPanel, TABS_FOR } from "@/components/ui/profile-tabs";
 import { logoUrl, teamPixels } from "@/lib/team-pixel";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
@@ -24,6 +24,7 @@ import { YoYDelta } from "@/components/ui/yoy-delta";
 import { SprayPanel } from "@/components/ui/spray-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
+import { SwingTab } from "@/components/ui/swing-tab";
 import { TrendPanel } from "@/components/ui/trend-panel";
 import { RollingPanel } from "@/components/ui/rolling-panel";
 import { LeagueScatter, RvFamilyBars, ProjectionBand } from "@/components/ui/league-views";
@@ -36,7 +37,7 @@ const FAM_LABEL: Record<string, string> = {
   FB: "Fastballs (FF/SI)", CT: "Cutters", BR: "Breaking (SL/SW/CB/KC)", OS: "Offspeed (CH/FS/EP)",
 };
 
-export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, career, visuals, level }: {
+export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, career, visuals, swing, initialTab, level }: {
   profile: any;
   percentiles: any;
   playerId: string;
@@ -48,9 +49,13 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
   benchmarks?: any | null;
   career?: any | null;
   visuals?: any | null;
+  swing?: any | null;
+  initialTab?: string | null;
   level?: string;
 }) {
-  const [tab, setTab] = useState<any>("overview");
+  // ?tab= deep link (the swing board links here); stale keys fall back to Overview.
+  const [tab, setTab] = useState<any>(
+    initialTab && TABS_FOR.batter.some((x) => x.key === initialTab) ? initialTab : "overview");
   const seasonBp = percentiles?.by_season?.[String(profile.season)] ?? null;
   const denseWoba = percentiles?.dense?.[String(profile.season)]?.woba ?? null;
 
@@ -220,6 +225,8 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "visuals" ? (
           <HitterVisualsTab visuals={visuals ?? null} />
+        ) : tab === "swing" ? (
+          <SwingTab swing={swing ?? null} name={profile.name} />
         ) : tab === "defense" ? (
           <DefensePanel playerId={playerId} season={profile.season} />
         ) : tab === "savant" ? (

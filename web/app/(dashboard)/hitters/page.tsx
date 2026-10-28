@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getHitters, getHitterPercentiles, getHitterSkillIndex } from "@/lib/data";
+import { getHitters, getHitterPercentiles, getHitterSkillIndex, getSwingIndex } from "@/lib/data";
 import { hittersProps } from "@/lib/boards/hitters";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { GradePctProvider } from "@/components/ui/grade-pct";
@@ -9,7 +9,9 @@ import { ApproachDial } from "@/components/ui/approach-dial";
 export const metadata = { title: "Hitters" };
 
 /**
- * Two views (wave 9). `Rate` — the measured leaderboard (the default board).
+ * Three views. `Rate` — the measured leaderboard (the default board).
+ * `Swing` — bat tracking (2023 on, 100+ tracked swings): bat speed, length,
+ * attack angle, swords, squared-up and blast rates per hitter-season.
  * `Skill` — the league-wide 20-80 skill board: every hitter's Power / Contact /
  * Eye estimates and approach dial, one row per hitter-season, the same grades
  * the profile cards carry (bake-side, from the scouting family's index).
@@ -34,13 +36,27 @@ const TYPE_SHORT: Record<string, string> = {
   "Balanced — no carrying tool this season": "Balanced",
 };
 
+const SWING_COLS: Col[] = [
+  { key: "avgBatSpeed", label: "Bat mph" },
+  { key: "batSpeedP90", label: "Peak 90th" },
+  { key: "swingLength", label: "Length ft" },
+  { key: "attackAngle", label: "Attack°" },
+  { key: "whiffPerSwing", label: "Whiff/sw" },
+  { key: "swords", label: "Swords" },
+  { key: "swordRate", label: "Sword%" },
+  { key: "squaredUpPerSwing", label: "Sq-up%" },
+  { key: "blastPerSwing", label: "Blast%" },
+  { key: "hardSwingRate", label: "Hard-sw%" },
+  { key: "n", label: "Swings" },
+];
+
 const fmtG = (v: unknown): string => (typeof v === "number" && Number.isFinite(v) ? String(v) : "—");
 
 export default async function HittersPage({ searchParams }: {
   searchParams?: Promise<{ view?: string; season?: string; team?: string; sort?: string; page?: string }>;
 }) {
   const q = (await searchParams) ?? {};
-  const view = q.view === "skill" ? "skill" : "rate";
+  const view = q.view === "skill" ? "skill" : q.view === "swing" ? "swing" : "rate";
   const data = await getHitters();
   const { meta, initial } = hittersProps(data);
   const percentiles = await getHitterPercentiles();
@@ -143,6 +159,95 @@ export default async function HittersPage({ searchParams }: {
     );
   }
 
+  if (view === "swing") {
+    const index = await getSwingIndex();
+    const seasons: number[] = Object.keys(index?.seasons ?? {}).map(Number).sort((a, b) => b - a);
+    const season = seasons.includes(Number(q.season)) ? Number(q.season) : seasons[0];
+    const byId = new Map((data ?? []).map((r0: any) => [String(r0.id), r0]));
+    let rows: any[] = (index?.seasons?.[String(season)] ?? []).map((r0: any) => {
+      const b = byId.get(String(r0.id));
+      return { ...r0, name: b?.name ?? r0.id, team: b?.team ?? null, bats: b?.bats ?? null };
+    });
+    if (q.team) rows = rows.filter((r0) => r0.team === q.team);
+    const teams = [...new Set(rows.map((r0) => r0.team).filter(Boolean))].sort() as string[];
+    const sortKey = SWING_COLS.some((c) => c.key === q.sort) ? q.sort! : "avgBatSpeed";
+    const asc = sortKey === "swordRate" || sortKey === "swords" || sortKey === "whiffPerSwing" || sortKey === "swingLength";
+    rows.sort((a: any, b: any) => {
+      const x = a[sortKey], y = b[sortKey];
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return asc ? x - y : y - x;
+    });
+    const PAGE = 50;
+    const page = Math.max(0, Number(q.page) || 0);
+    const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">Hitters — swing</h1>
+        <div className="flex flex-wrap items-center gap-2 animate-fade-up">
+          <DescriptiveChip />
+          <span className="text-[11px] text-text-dim hidden md:inline">{DESCRIPTIVE_LINE}</span>
+        </div>
+        <p className="text-xs text-text-dim max-w-[75ch]">
+          Statcast bat tracking, {season}: every hitter with 100+ tracked swings. Bat speed is our average over all
+          tracked swings (Savant&apos;s leaderboard averages competitive swings only, so theirs reads about a point
+          higher); swords, squared-up, blast and hard-swing rates are Savant&apos;s own. Swing length and attack angle
+          are style — sortable, never coloured.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/hitters" className={chip(false)}>Rate board</Link>
+          <Link href={link({ view: "skill" })} className={chip(false)}>Skill board</Link>
+        <Link href={link({ view: "swing" })} className={chip(false)}>Swing board</Link>
+          <Link href={link({ view: "swing" })} className={chip(true)}>Swing board</Link>
+          <span className="w-px h-4 bg-border-subtle mx-1" />
+          {seasons.map((s) => <Link key={s} href={link({ season: String(s) })} className={chip(s === season)}>{s}</Link>)}
+          <span className="w-px h-4 bg-border-subtle mx-1" />
+          <Link href={link({ team: undefined, page: undefined })} className={chip(!q.team)}>All teams</Link>
+          {teams.map((tm) => <Link key={tm} href={link({ team: tm })} className={chip(q.team === tm)}>{tm}</Link>)}
+        </div>
+        <div className="glass-panel overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max text-xs font-data">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-text-dim">
+                  <th className="px-4 py-2 text-left font-semibold">Player</th>
+                  <th className="px-2 py-2 text-left font-semibold">Team</th>
+                  <th className="px-2 py-2 text-left font-semibold">Bats</th>
+                  {SWING_COLS.map((c) => (
+                    <th key={c.key} className="px-2 py-2 text-right font-semibold">
+                      <Link href={link({ sort: c.key })} className={c.key === sortKey ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}</Link>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((r0: any) => (
+                  <tr key={r0.id} className="border-t border-white/[0.04]">
+                    <td className="px-4 py-1.5 font-sans">
+                      <Link href={`/player/${r0.id}?season=${season}&tab=swing`} className="text-text-primary hover:underline">{r0.name}</Link>
+                    </td>
+                    <td className="px-2 py-1.5 font-sans text-text-secondary">{r0.team ?? "—"}</td>
+                    <td className="px-2 py-1.5 font-sans text-text-secondary">{r0.bats ?? "—"}</td>
+                    {SWING_COLS.map((c) => (
+                      <td key={c.key} className={`px-2 py-1.5 text-right ${c.key === sortKey ? "text-text-primary" : "text-text-secondary"}`}>
+                        {fmtG(r0[c.key])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-text-dim">
+          <span>{rows.length.toLocaleString("en-US")} hitters · 100+ tracked swings each</span>
+          {page > 0 && <Link href={link({ page: String(page - 1) })} className="text-text-secondary hover:underline">← Previous</Link>}
+          {(page + 1) * PAGE < rows.length && <Link href={link({ page: String(page + 1) })} className="text-text-secondary hover:underline">Next →</Link>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="sr-only">Hitters</h1>
@@ -153,6 +258,7 @@ export default async function HittersPage({ searchParams }: {
       <div className="flex flex-wrap items-center gap-2">
         <Link href="/hitters" className={chip(true)}>Rate board</Link>
         <Link href={link({ view: "skill" })} className={chip(false)}>Skill board</Link>
+        <Link href={link({ view: "swing" })} className={chip(false)}>Swing board</Link>
       </div>
       <p className="text-xs text-text-dim">
         Measured only: the slash line, batted-ball quality and plate discipline. wOBA uses weights derived from this

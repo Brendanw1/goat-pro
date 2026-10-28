@@ -160,6 +160,16 @@ export async function getVisuals(id: string, season: string | number, level: Lev
   return fetchGzippedJson<any>(lv(level, `visuals/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** Hitter swing profile from Statcast bat tracking (depth item 1): distributions, splits, swords. */
+export async function getSwingProfile(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
+  return fetchGzippedJson<any>(lv(level, `swing/${id}-${season}.json.gz`)).catch(() => null);
+}
+
+/** League swing-board rows per season (100+ tracked swings). */
+export async function getSwingIndex(): Promise<any | null> {
+  return fetchFromR2<any>("swing_index.json", { shared: true }).catch(() => null);
+}
+
 /** Per-season 20-80 skill grades for every hitter (the league skill board's rows). */
 export async function getHitterSkillIndex(): Promise<any | null> {
   return fetchFromR2<any>("hitter_skill_index.json", { shared: true }).catch(() => null);

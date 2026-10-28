@@ -1,4 +1,4 @@
-import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank } from "@/lib/data";
+import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile } from "@/lib/data";
 import { vaaZoneRows } from "@/lib/vaa-zone";
 import { profilePercentiles } from "@/lib/percentiles";
 import { PlayerReady } from "@/components/ui/player-transition";
@@ -26,7 +26,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   // Percentiles in the profile's OWN season; a season param that mismatches
   // the file falls back to the file's season.
   const detSeason = profile?.season ?? hitter?.season ?? season ?? "";
-  const [gameLog, spray, sprayRefs, scouting, scoutingLeague, visuals, career, splitBench, prospectRank] = await Promise.all([
+  const [gameLog, spray, sprayRefs, scouting, scoutingLeague, visuals, career, splitBench, prospectRank, swing] = await Promise.all([
     detSeason ? getGameLog(id, detSeason, level) : Promise.resolve(null),
     hitter && detSeason ? getSpray(id, detSeason, level) : Promise.resolve(null),
     hitter ? getSprayRefs(level) : Promise.resolve(null),
@@ -36,6 +36,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
     getCareer(id, level),
     hitter ? getHitterSplitBenchmarks() : Promise.resolve(null),
     getProspectRank(id),
+    hitter && detSeason ? getSwingProfile(id, detSeason, level) : Promise.resolve(null),
   ]);
   const pctSeason = String(profile?.season ?? hitter?.season ?? season ?? "");
   const percentiles = hitter
@@ -100,21 +101,25 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
         {prospectRank?.ranks?.length > 0 && (
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Pipeline prospect ranking</span>
-            {prospectRank.ranks.slice(0, 8).map((r: any) => (
+            {prospectRank.ranks.slice(0, 8).map((r: any) => {
+              const kind = String(r.list).split(":")[0];
+              const label = kind === "top100" ? "top 100" : kind === "team" ? String(r.team ?? r.teamSlug ?? "team").replace(/^./, (c) => c.toUpperCase()) : r.pos ?? "pos";
+              return (
               <Link key={`${r.season}-${r.list}-${r.rank}`}
-                href={`/prospects?year=${r.season}&view=${r.list === "top100" ? "top100" : r.list === "team" ? "team" : "pos"}${r.list === "team" ? "&team=" + (r.teamSlug || "") : r.list === "position" ? "&pos=" + (r.posSlug || "") : ""}`}
-                title={`${r.season}: ${r.list === "top100" ? `#${r.rank} overall` : r.list === "team" ? `#${r.rank} ${r.team ?? ""} prospect` : `#${r.rank} ${r.pos ?? ""} prospect`}`}
+                href={`/prospects?year=${r.season}&view=${kind === "top100" ? "top100" : kind === "team" ? "team" : "pos"}${kind === "team" ? "&team=" + (r.teamSlug || "") : kind === "position" ? "&pos=" + (r.posSlug || "") : ""}`}
+                title={`${r.season}: #${r.rank} ${label}`}
                 className="inline-flex items-center gap-1 rounded border border-border-subtle px-1.5 py-0.5 text-[10px] font-data text-text-secondary hover:bg-white/[0.04]">
-                {r.season} · {r.rank}
+                {r.season} · #{r.rank} {label}
               </Link>
-            ))}
+              );
+            })}
           </span>
         )}
       </div>
 {hitter ? (
         <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}
-          scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} level={level} />
+          scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} initialTab={tab} level={level} />
       ) : (
         <PlayerProfileView
           profile={profile}

@@ -101,10 +101,11 @@ HBP_EVENT = "hit_by_pitch"
 SABR_FLOORS = {"grade": 100, "type": 50, "card": 100, "row": 5}
 VAA_CELL_FLOOR = 15
 LEAGUE_CELL_MIN_PITCHERS = 30
+SWING_MIN_SWINGS = 100  # tracked swings before a swing profile bakes (the probe's floor)
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -118,6 +119,7 @@ FAM_NEEDS = {
     "visuals": {"totals"},  # per-player chart datasets: velo KDE, spin clock, release cloud, location grids, count lattice
     "career": {"totals"},   # per-player season list + pitcher mix per season (profile season selector + career arsenal)
     "prospects": set(),     # MLB Pipeline rankings (pipeline/prospects_fetch.py): /prospects page + profile badges
+    "swing": set(),         # hitter swing profiles from bat tracking (self-contained, 2023+)
 }
 
 
@@ -611,11 +613,21 @@ def _kde_curve(vals: list[float], lo: float, hi: float, bw_min: float = 0.4,
             {"peak_x": round(float(grid[peak]), 2), "peak_y": round(float(dens[peak]), 5)})
 
 
+# Module-level alias: the visuals family shadows `_kde_curve` with a nested
+# redefinition inside _bake_inner, which makes the module function unreachable
+# from other families (Python binds the name for the whole function). Same
+# pattern as the DETAIL_GATE hoist.
+sw_kde_curve = _kde_curve
+
+
 def _stride(points: list, cap: int) -> list:
     """Deterministic thinning for dot clouds: keep the order, cap the count."""
     if len(points) <= cap:
         return points
     return points[:: len(points) // cap + 1]
+
+
+sw_stride = _stride
 
 
 def _loc_grid(px: list, pz: list) -> dict | None:
@@ -3928,6 +3940,245 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             print(f"prospect season files: {n_season_files}; rank files: {n_rank_files}")
         else:
             print("prospects: data/milb/prospects.json missing — run pipeline/prospects_fetch.py first")
+
+    # ------------------------------------------------------------------ swing
+    # Hitter swing profiles from bat tracking (depth list item 1). MLB-only:
+    # AAA Hawk-Eye carries no bat data (0 of 1.35M rows, checked 2026-10-28),
+    # so this family is skipped at --level aaa. Sources: the per-pitch tracked
+    # swings in pitches_all (bat_speed IS NOT NULL, 2023+, ~100% of swings
+    # carry speed/length/attack-angle/tilt/contact depth) for the distributions
+    # and splits, plus Savant's own aggregates — lb_bat_tracking (swords,
+    # squared-up / blast / hard-swing rates, competitive-swing counts) and
+    # lb_swingpath (path tilt, ideal attack-angle rate, contact depth, 2025+)
+    # — so Savant-named numbers match their leaderboard exactly. Descriptive
+    # throughout; the gate is 100 tracked swings (the probe's MIN_SWINGS).
+    print(f"[{time.time() - t0:.0f}s] swing", flush=True)
+    if "swing" not in fams:
+        pass
+    elif level == "aaa":
+        print("swing: no bat tracking at AAA — skipped")
+    else:
+        sw_seasons = [s for s in seasons if s >= 2023]
+        if not sw_seasons:
+            print("swing: no 2023+ seasons in range — skipped")
+        else:
+            # Same region constants as the zone-mix family (heart/shadow/chase/
+            # waste on the standardised zone) so the two surfaces never disagree.
+            sw_zone_sql = ("CASE WHEN abs(plate_x) <= 0.558 AND plate_z BETWEEN 1.833 AND 3.500 THEN 'heart' "
+                           "WHEN abs(plate_x) <= 1.108 AND plate_z BETWEEN 1.166 AND 4.000 THEN 'shadow' "
+                           "WHEN abs(plate_x) <= 1.666 AND plate_z BETWEEN 0.500 AND 4.500 THEN 'chase' "
+                           "ELSE 'waste' END")
+            sw_df = con.sql(f"""
+                SELECT batter, season, stand, bat_speed, swing_length,
+                       attack_angle, swing_path_tilt,
+                       intercept_ball_minus_batter_pos_y_inches AS icpt_y,
+                       description, balls, strikes, p_throws, release_speed,
+                       {site_case_sql()} AS ptype, {sw_zone_sql} AS zreg
+                FROM pitches_all
+                WHERE game_type = 'R' AND season IN ({",".join(str(s) for s in sw_seasons)})
+                  AND batter IS NOT NULL AND bat_speed IS NOT NULL
+            """).df()
+            sw_df["whiff"] = sw_df["description"].isin(WHIFF)
+            sw_df["velo_band"] = pd.cut(sw_df["release_speed"], [0, 85, 90, 95, 200],
+                                        labels=["v85", "v85-90", "v90-95", "v95+"])
+
+            sw_agg = (sw_df.groupby(["batter", "season"], sort=True)
+                      .agg(n=("bat_speed", "size"),
+                           avgBatSpeed=("bat_speed", "mean"),
+                           bsP90=("bat_speed", lambda s: float(s.quantile(0.9))),
+                           swingLength=("swing_length", "mean"),
+                           attackAngle=("attack_angle", "mean"),
+                           pathTilt=("swing_path_tilt", "mean"),
+                           contactDepth=("icpt_y", "mean"),
+                           nWhiff=("whiff", "sum"))
+                      .reset_index())
+            sw_agg["whiffPerSwing"] = 100 * sw_agg["nWhiff"] / sw_agg["n"]
+
+            # Savant's own aggregates, joined per season (their avg_bat_speed is
+            # the cross-check for ours; their swords/rates are definitionally
+            # theirs and we do not recompute them).
+            sw_lb = []
+            for s in sw_seasons:
+                try:
+                    t = con.sql(f"SELECT * FROM lb_bat_tracking_{s}").df()
+                except Exception:  # noqa: BLE001
+                    print(f"swing: lb_bat_tracking_{s} missing — skipped")
+                    continue
+                t = t[["id", "swings_competitive", "percent_swings_competitive", "avg_bat_speed",
+                       "hard_swing_rate", "squared_up_per_swing", "blast_per_swing",
+                       "swords", "whiff_per_swing", "batter_run_value"]].copy()
+                t["season"] = s
+                sw_lb.append(t)
+            lb = pd.concat(sw_lb, ignore_index=True) if sw_lb else pd.DataFrame(
+                columns=["id", "season", "swings_competitive", "percent_swings_competitive", "avg_bat_speed",
+                         "hard_swing_rate", "squared_up_per_swing", "blast_per_swing",
+                         "swords", "whiff_per_swing", "batter_run_value"])
+            lb["swordRate"] = 100 * lb["swords"] / lb["swings_competitive"].where(
+                lb["swings_competitive"] > 0)
+
+            sp = pd.DataFrame()
+            sp_parts = []
+            for s in sw_seasons:
+                try:
+                    t = con.sql(f"SELECT * FROM lb_swingpath_{s}").df()
+                except Exception:  # noqa: BLE001
+                    continue
+                t = t[["id", "side", "swing_tilt", "attack_angle", "ideal_attack_angle_rate",
+                       "avg_intercept_y_vs_plate", "competitive_swings"]].copy()
+                t["season"] = s
+                sp_parts.append(t)
+            if sp_parts:
+                sp = pd.concat(sp_parts, ignore_index=True)
+
+            qual = sw_agg[sw_agg["n"] >= SWING_MIN_SWINGS].copy()
+
+            def sw_pct(series: pd.Series, higher_better: bool = True) -> pd.Series:
+                """Percentile among qualified hitters, 0–100 (higher = more of the stat)."""
+                if len(series) < 2:
+                    return pd.Series(dtype=float)
+                ranked = series if higher_better else -series
+                return (100 * (ranked.rank(method="average") - 1) / (len(series) - 1)).round(1)
+
+            for col, hb in (("avgBatSpeed", True), ("bsP90", True), ("swingLength", True),
+                            ("attackAngle", True), ("whiffPerSwing", False)):
+                qual[f"{col}Pct"] = sw_pct(qual[col], hb)
+            # Swords and the Savant rate metrics rank only where the lb table
+            # has the player-season (join keeps NaN, UI shows them only with data).
+            lb_qual = lb.merge(qual[["batter", "season"]].rename(columns={"batter": "id"}),
+                               on=["id", "season"], how="inner")
+            for col in ("swordRate", "squared_up_per_swing", "blast_per_swing"):
+                q = lb_qual[col].reset_index(drop=True)
+                if len(q):
+                    lb_qual[f"{col}Pct"] = sw_pct(q, True).values
+                else:
+                    lb_qual[f"{col}Pct"] = pd.Series(dtype=float)
+            sw_pcols = [c for c in lb_qual.columns if c.endswith("Pct")]
+            lb_pct = (lb_qual.set_index(["id", "season"])[sw_pcols]
+                      if sw_pcols and len(lb_qual) else pd.DataFrame())
+
+            def _sw_split(gdf: pd.DataFrame, by: str, min_n: int = 20) -> dict:
+                out: dict = {}
+                for key, sub in gdf.groupby(by, sort=True, observed=True):
+                    row = {"n": int(len(sub)),
+                           "avgBatSpeed": f(sub["bat_speed"].mean(), 1),
+                           "swingLength": f(sub["swing_length"].mean(), 2),
+                           "whiffPct": f(100 * sub["whiff"].mean(), 1)}
+                    if len(sub) >= min_n:
+                        out[str(key)] = row
+                return out
+
+            n_swing = 0
+            index_rows: dict = {}
+            for pid, grp in sw_df.groupby("batter", sort=True):
+                if player is not None and int(pid) != player:
+                    continue
+                trend = []
+                arows = grp.merge(sw_agg[sw_agg["batter"] == pid][
+                    ["season", "n", "avgBatSpeed", "swingLength", "attackAngle", "pathTilt",
+                     "whiffPerSwing"]], on="season")
+                for t in arows.drop_duplicates("season").itertuples():
+                    if t.n >= 50:
+                        trend.append({"season": int(t.season), "n": int(t.n),
+                                      "avgBatSpeed": f(t.avgBatSpeed, 1),
+                                      "swingLength": f(t.swingLength, 2),
+                                      "attackAngle": f(getattr(t, "attackAngle", float("nan")), 1),
+                                      "pathTilt": f(getattr(t, "pathTilt", float("nan")), 1),
+                                      "whiffPerSwing": f(t.whiffPerSwing, 1)})
+                qrows = qual[qual["batter"] == pid]
+                for a in qrows.itertuples():
+                    season = int(a.season)
+                    sub = grp[grp["season"] == season]
+                    side = sub["stand"].mode()
+                    side = str(side.iloc[0]) if len(side) else None
+                    bsx, bsy, bs_meta = sw_kde_curve(sub["bat_speed"].tolist(), 55, 90, bw_min=0.5)
+                    slx, sly, sl_meta = sw_kde_curve(sub["swing_length"].clip(4.5, 10.5).tolist(),
+                                                   4.5, 10.5, bw_min=0.15)
+                    lbrow = lb[(lb["id"] == pid) & (lb["season"] == season)]
+                    lbdoc: dict = {}
+                    if len(lbrow):
+                        b0 = lbrow.iloc[0]
+                        lbdoc = {
+                            "competitiveSwings": int(b0["swings_competitive"]) if pd.notna(b0["swings_competitive"]) else None,
+                            "pctCompetitive": f(100 * b0["percent_swings_competitive"], 1) if pd.notna(b0["percent_swings_competitive"]) else None,
+                            # Savant averages COMPETITIVE swings; our avgBatSpeed covers all
+                            # tracked swings — both shown, glossary explains the difference.
+                            "savantAvgBatSpeed": f(b0["avg_bat_speed"], 1) if pd.notna(b0["avg_bat_speed"]) else None,
+                            "swords": int(b0["swords"]) if pd.notna(b0["swords"]) else None,
+                            "swordRate": f(b0["swordRate"], 2) if pd.notna(b0["swordRate"]) else None,
+                            "hardSwingRate": f(100 * b0["hard_swing_rate"], 1) if pd.notna(b0["hard_swing_rate"]) else None,
+                            "squaredUpPerSwing": f(100 * b0["squared_up_per_swing"], 1) if pd.notna(b0["squared_up_per_swing"]) else None,
+                            "blastPerSwing": f(100 * b0["blast_per_swing"], 1) if pd.notna(b0["blast_per_swing"]) else None,
+                            "savantRunValue": f(b0["batter_run_value"], 1) if pd.notna(b0["batter_run_value"]) else None,
+                        }
+                    spdoc = None
+                    if len(sp):
+                        sprow = sp[(sp["id"] == pid) & (sp["season"] == season) & (sp["side"] == side)]
+                        if len(sprow):
+                            s0 = sprow.iloc[0]
+                            spdoc = {"idealAttackAngleRate": f(100 * s0["ideal_attack_angle_rate"], 1)
+                                     if pd.notna(s0["ideal_attack_angle_rate"]) else None,
+                                     "interceptVsPlate": f(s0["avg_intercept_y_vs_plate"], 1)
+                                     if pd.notna(s0["avg_intercept_y_vs_plate"]) else None}
+                    pcts = {"n": int(len(qual[(qual["season"] == season)])),
+                            "avgBatSpeed": a.avgBatSpeedPct, "bsP90": a.bsP90Pct,
+                            "swingLength": a.swingLengthPct, "attackAngle": a.attackAnglePct,
+                            "whiffPerSwing": a.whiffPerSwingPct}
+                    for key in ("swordRate", "squared_up_per_swing", "blast_per_swing"):
+                        if (pid, season) in lb_pct.index:
+                            v = lb_pct.loc[(pid, season)].get(f"{key}Pct")
+                            pcts[key] = float(v) if pd.notna(v) else None
+                    doc = {
+                        "id": str(pid), "season": season, "side": side,
+                        "n": int(a.n),
+                        "summary": {
+                            "avgBatSpeed": f(a.avgBatSpeed, 1), "batSpeedP90": f(a.bsP90, 1),
+                            "swingLength": f(a.swingLength, 2),
+                            "attackAngle": f(a.attackAngle, 1), "pathTilt": f(a.pathTilt, 1),
+                            "contactDepth": f(a.contactDepth, 1),
+                            "whiffPerSwing": f(a.whiffPerSwing, 1),
+                            **lbdoc,
+                        },
+                        "savant": spdoc,
+                        "percentiles": pcts,
+                        "dist": {
+                            "batSpeed": {"x": [f(v, 1) for v in bsx], "y": bsy,
+                                         "meta": bs_meta, "rug": sw_stride(
+                                             sorted(sub["bat_speed"].round(1).tolist()), 60)},
+                            "swingLength": {"x": [f(v, 1) for v in slx], "y": sly, "meta": sl_meta},
+                        },
+                        "byZoneRegion": _sw_split(sub, "zreg"),
+                        "byPitchType": _sw_split(sub, "ptype"),
+                        "byCount": _sw_split(sub.assign(
+                            cnt=sub["balls"].astype(int).astype(str) + "-" + sub["strikes"].astype(int).astype(str)), "cnt"),
+                        "byVeloBand": _sw_split(sub, "velo_band"),
+                        "byHand": {"vsL": _sw_split(sub[sub["p_throws"] == "L"], "p_throws").get("L"),
+                                   "vsR": _sw_split(sub[sub["p_throws"] == "R"], "p_throws").get("R")},
+                        "trend": sorted(trend, key=lambda e: e["season"]),
+                    }
+                    jwrite_gz(out / "swing" / f"{pid}-{season}.json.gz", _clean(doc), sort_keys=True)
+                    row = {"id": str(pid), "n": int(a.n),
+                           "avgBatSpeed": f(a.avgBatSpeed, 1), "batSpeedP90": f(a.bsP90, 1),
+                           "swingLength": f(a.swingLength, 2), "attackAngle": f(a.attackAngle, 1),
+                           "contactDepth": f(a.contactDepth, 1),
+                           "whiffPerSwing": f(a.whiffPerSwing, 1),
+                           "avgBatSpeedPct": a.avgBatSpeedPct, "whiffPerSwingPct": a.whiffPerSwingPct}
+                    if lbdoc:
+                        row.update({"swords": lbdoc["swords"], "swordRate": lbdoc["swordRate"],
+                                    "squaredUpPerSwing": lbdoc["squaredUpPerSwing"],
+                                    "blastPerSwing": lbdoc["blastPerSwing"],
+                                    "hardSwingRate": lbdoc["hardSwingRate"]})
+                    index_rows.setdefault(str(season), []).append(row)
+                    n_swing += 1
+            jwrite(out / "swing_index.json", {
+                "_comment": ("hitter swing profiles per season (bat tracking, 100+ tracked swings); "
+                             "names/teams join from hitters.json on the board; Savant fields keep "
+                             "Savant definitions (swords, squared-up, blast, competitive swings)"),
+                "minSwings": SWING_MIN_SWINGS,
+                "seasons": {k: sorted(v, key=lambda rw: -(rw.get("avgBatSpeedPct") or -1))
+                            for k, v in sorted(index_rows.items())},
+            }, sort_keys=True)
+            counts["swing_files"] = n_swing
+            print(f"swing files: {n_swing}")
 
     # ----------------------------------------------------------------- meta
     # The manifest doubles as the sync audit: per-file bytes + sha (16) so a

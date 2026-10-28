@@ -18,6 +18,7 @@ export type ProfileTab =
   | "approach"
   | "arsenal"
   | "visuals"
+  | "swing"
   | "situational"
   | "pitchplan"
   | "stuff"
@@ -56,6 +57,7 @@ export const TABS_FOR: Record<ProfileRole, readonly { key: ProfileTab; label: st
     { key: "approach", label: "Splits" },
     { key: "scouting", label: "Scouting" },
     { key: "visuals", label: "Visuals" },
+    { key: "swing", label: "Swing" },
     { key: "defense", label: "Defense" },
     { key: "savant", label: "Savant" },
     { key: "gamelog", label: "Game log" },
