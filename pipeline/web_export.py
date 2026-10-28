@@ -451,7 +451,6 @@ def milb_names(kind: str) -> dict[int, str]:
     return {int(k): v for k, v in zip(df["mlbam_id"], df["player_name"])}
 
 
-@functools.lru_cache(maxsize=1)
 @functools.lru_cache(maxsize=2)
 def official_er(level: str) -> dict[tuple[int, int], tuple[int, int]]:
     """(mlbam, season) -> (earned runs, outs) from the MLB Stats API season lines
@@ -473,6 +472,7 @@ def era_of(pid: int, season: int, level: str, runs: float, ip: float) -> float |
     return 9 * runs / ip if ip > 0 else None
 
 
+@functools.lru_cache(maxsize=1)  # one register + MiLB read per bake; uncached it ran once per row (~85% of the pitchers family)
 def births() -> dict[int, pd.Timestamp]:
     """mlbam -> birth date: the Chadwick register in the mart, then the MiLB lines for players it lacks."""
     reg = mart.connect().sql("""
