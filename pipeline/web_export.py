@@ -739,7 +739,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                    SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul','foul_tip','foul_bunt','missed_bunt','bunt_foul_tip','hit_into_play') THEN 1 ELSE 0 END) AS swings,
                    SUM(CASE WHEN description IN {TAKEN} THEN 1 ELSE 0 END) AS taken,
                    SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k,
-                   SUM(CASE WHEN events = 'walk' THEN 1 ELSE 0 END) AS bb,
+                   SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,  -- all walks; ibb split out
                    SUM(CASE WHEN events = 'intent_walk' THEN 1 ELSE 0 END) AS ibb,
                    SUM(CASE WHEN events = 'hit_by_pitch' THEN 1 ELSE 0 END) AS hbp,
                    SUM(CASE WHEN events IN {BB_EVENTS} THEN 1 ELSE 0 END) AS h,
@@ -845,7 +845,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                         + CASE WHEN events IN {OUT_EVENTS_2} THEN 2 ELSE 0 END
                         + CASE WHEN events IN {OUT_EVENTS_3} THEN 3 ELSE 0 END) AS outs,
                    SUM(CASE WHEN events = 'home_run' THEN 1 ELSE 0 END) AS hr,
-                   SUM(CASE WHEN events = 'walk' THEN 1 ELSE 0 END) AS bb,
+                   SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,  -- all walks; ibb split out
                    SUM(CASE WHEN events = 'intent_walk' THEN 1 ELSE 0 END) AS ibb,
                    SUM(CASE WHEN events = 'hit_by_pitch' THEN 1 ELSE 0 END) AS hbp,
                    SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k
@@ -859,7 +859,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         oer = pd.DataFrame([(s, e, o) for (_, s), (e, o) in official_er(level).items()], columns=["season", "er", "o"])
         lg_era = (27 * oer.groupby("season")["er"].sum() / oer.groupby("season")["o"].sum()) if len(oer) else pd.Series(dtype=float)
         lg["ra9"] = [lg_era.get(s, r) for s, r in zip(lg["season"], lg["ra9"])]
-        lg["fip_raw"] = (13 * lg["hr"] + 3 * (lg["bb"] + lg["ibb"] + lg["hbp"]) - 2 * lg["k"]) / (lg["outs"] / 3)
+        lg["fip_raw"] = (13 * lg["hr"] + 3 * (lg["bb"] + lg["hbp"]) - 2 * lg["k"]) / (lg["outs"] / 3)
         lg["c"] = lg["ra9"] - lg["fip_raw"]
         fip_c = dict(zip(lg["season"], lg["c"]))
         print("league FIP constant:", {int(k): round(v, 3) for k, v in fip_c.items()})
@@ -1028,12 +1028,12 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             gr = g.loc[key]
             ip = t["outs"] / 3
             c = fip_c.get(int(t["season"]), 3.1)
-            fip = (13 * t["hr"] + 3 * (t["bb"] + t["ibb"] + t["hbp"]) - 2 * t["k"]) / ip + c if ip > 0 else None
+            fip = (13 * t["hr"] + 3 * (t["bb"] + t["hbp"]) - 2 * t["k"]) / ip + c if ip > 0 else None
             row = {
                 "id": str(t["id"]), "name": gr["name"], "team": tot_team.get(key),
                 "throws": t["throws"], "season": int(t["season"]), "age": season_age(t["id"], t["season"]),
                 "ip": f(ip, 1), "era": f(era_of(t["id"], t["season"], level, t["runs"], ip), 2),
-                "fip": f(fip, 2), "whip": f((t["h"] + t["bb"] + t["ibb"]) / ip, 2) if ip > 0 else None,
+                "fip": f(fip, 2), "whip": f((t["h"] + t["bb"]) / ip, 2) if ip > 0 else None,
                 "battersFaced": int(t["pa"]), "pitches": int(t["n_pitches"]),
                 "hits": int(t["h"]), "walks": int(t["bb"]),
                 "kPct": f(100 * t["k"] / t["pa"], 1), "bbPct": f(100 * t["bb"] / t["pa"], 1),
@@ -1489,8 +1489,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "id": str(pid), "name": gr_row["name"], "team": team_map.get(key), "position": "P",
                 "throws": t["throws"], "season": season, "age": season_age(pid, season),
                 "ip": f(ip, 1), "era": f(era_of(pid, season, level, t["runs"], ip), 2),
-                "fip": f((13 * t["hr"] + 3 * (t["bb"] + t["ibb"] + t["hbp"]) - 2 * t["k"]) / ip + c, 2) if ip > 0 else None,
-                "whip": f((t["h"] + t["bb"] + t["ibb"]) / ip, 2) if ip > 0 else None,
+                "fip": f((13 * t["hr"] + 3 * (t["bb"] + t["hbp"]) - 2 * t["k"]) / ip + c, 2) if ip > 0 else None,
+                "whip": f((t["h"] + t["bb"]) / ip, 2) if ip > 0 else None,
                 "battersFaced": int(t["pa"]), "pitches": int(t["n_pitches"]),
                 "hits": int(t["h"]), "walks": int(t["bb"]),
                 "kPct": f(100 * t["k"] / t["pa"], 1), "bbPct": f(100 * t["bb"] / t["pa"], 1),
@@ -2202,7 +2202,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                    SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
                    SUM(CASE WHEN events = 'triple' THEN 1 ELSE 0 END) AS s3,
                    SUM(CASE WHEN events = 'home_run' THEN 1 ELSE 0 END) AS hr,
-                   SUM(CASE WHEN events = 'walk' THEN 1 ELSE 0 END) AS bb,
+                   SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,  -- all walks; ibb split out
                    SUM(CASE WHEN events = 'intent_walk' THEN 1 ELSE 0 END) AS ibb,
                    SUM(CASE WHEN events = 'hit_by_pitch' THEN 1 ELSE 0 END) AS hbp,
                    SUM(CASE WHEN events IN ('sac_fly','sac_fly_double_play') THEN 1 ELSE 0 END) AS sf,
@@ -2455,7 +2455,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                        SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
                        SUM(CASE WHEN events = 'triple' THEN 1 ELSE 0 END) AS s3,
                        SUM(CASE WHEN events = 'home_run' THEN 1 ELSE 0 END) AS hr,
-                       SUM(CASE WHEN events = 'walk' THEN 1 ELSE 0 END) AS bb,
+                       SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,  -- all walks; ibb split out
                        SUM(CASE WHEN events = 'intent_walk' THEN 1 ELSE 0 END) AS ibb,
                        SUM(CASE WHEN events = 'hit_by_pitch' THEN 1 ELSE 0 END) AS hbp,
                        SUM(CASE WHEN events IN ('sac_fly','sac_fly_double_play') THEN 1 ELSE 0 END) AS sf,
@@ -2507,7 +2507,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                        SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
                        SUM(CASE WHEN events = 'triple' THEN 1 ELSE 0 END) AS s3,
                        SUM(CASE WHEN events = 'home_run' THEN 1 ELSE 0 END) AS hr,
-                       SUM(CASE WHEN events = 'walk' THEN 1 ELSE 0 END) AS bb,
+                       SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,  -- all walks; ibb split out
                        SUM(CASE WHEN events = 'intent_walk' THEN 1 ELSE 0 END) AS ibb,
                        SUM(CASE WHEN events = 'hit_by_pitch' THEN 1 ELSE 0 END) AS hbp,
                        SUM(CASE WHEN events IN ('sac_fly','sac_fly_double_play') THEN 1 ELSE 0 END) AS sf,
@@ -2747,7 +2747,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                      COUNT(DISTINCT at_bat_number) AS pa,
                      SUM(CASE WHEN description IN {TAKEN} THEN 1 ELSE 0 END) AS taken,
                      SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k,
-                     SUM(CASE WHEN events = 'walk' THEN 1 ELSE 0 END) AS bb,
+                     SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,
                      SUM(CASE WHEN events IN {BB_EVENTS} THEN 1 ELSE 0 END) AS h,
                      SUM(CASE WHEN events = 'home_run' THEN 1 ELSE 0 END) AS hr,
                      SUM(CASE WHEN events IN {OUT_EVENTS_1} THEN 1 ELSE 0 END
@@ -2803,7 +2803,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                    SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS whiffs,
                    SUM(CASE WHEN events IN ('single','double','triple','home_run') THEN 1 ELSE 0 END) AS h,
                    SUM(CASE WHEN events = 'home_run' THEN 1 ELSE 0 END) AS hr,
-                   SUM(CASE WHEN events = 'walk' THEN 1 ELSE 0 END) AS bb,
+                   SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,
                    SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
                    SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS n_hard,
