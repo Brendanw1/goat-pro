@@ -2186,13 +2186,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             woba[s] = wts
         print("wOBA weights (vs out):", {s: {k: round(v, 3) for k, v in w.items()} for s, w in woba.items()})
 
-        BARREL_SQL = """CASE WHEN launch_speed IS NULL OR launch_angle IS NULL THEN 0
-                   WHEN launch_speed >= 113 AND launch_angle BETWEEN 11 AND 39 THEN 1""" + "".join(
-            f"\n                   WHEN launch_speed >= {v} AND launch_angle BETWEEN {lo} AND {hi} THEN 1"
-            for v, lo, hi in [(112, 12, 38), (111, 13, 38), (110, 14, 37), (109, 15, 36), (108, 16, 36),
-                              (107, 17, 35), (106, 18, 35), (105, 19, 34), (104, 20, 34), (103, 21, 33),
-                              (102, 22, 33), (101, 23, 33), (100, 24, 32), (99, 25, 31), (98, 26, 30)]
-        ) + "\n                   ELSE 0 END"
+        BARREL_SQL = "(launch_speed_angle = 6)::INT"  # Savant's own barrel flag (the old table stopped widening at 113 mph)
 
         hag = con.sql(f"""
             SELECT batter AS id, season,
@@ -3129,7 +3123,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                    SUM(CASE WHEN zone BETWEEN 10 AND 14 AND description IN {SWING} THEN 1 ELSE 0 END) AS chase,
                    SUM(CASE WHEN zone BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS ooz,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
-                   SUM(CASE WHEN launch_speed >= 95 AND bb_type IS NOT NULL THEN 1 ELSE 0 END) AS barrels
+                   SUM(CASE WHEN launch_speed_angle = 6 AND bb_type IS NOT NULL THEN 1 ELSE 0 END) AS barrels  -- was EV >= 95 (hard-hit)
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND stand IN ('L','R') AND p_throws IN ('L','R')
