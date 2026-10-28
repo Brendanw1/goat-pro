@@ -2133,6 +2133,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
               "squared_up": ("squaredUpPct", 1), "blast": ("blastPct", 1), "sprint_speed": ("sprintSpeed", 1)}
         hd = hitter_depth(con, tuple(seasons), level=level)
         h_trend = trends(con, tuple(seasons), who="batter", level=level)
+        from hitter_proj import projections  # §67 Marcel + measured ranges (D-36)
+        h_proj = projections(level, con)
         h_depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in HD.items() if c in r}
                    for r in hd.to_dict("records")}
         hboard = []
@@ -2172,6 +2174,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             row["oSwingPct"] = f(100 * rates["n_ooz_swing"] / rates["n_ooz"], 1) if rates["n_ooz"] else None
             row["nBip"] = int(rates["bip"])
             row.update(h_depth.get(key, {}))
+            row.update(h_proj.get(key, {}))
             hboard.append(row)
         hj = con.sql(f"""
             SELECT batter AS id, season, mode(stand) AS bats
@@ -2237,7 +2240,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         # hitter percentiles (per season): pct5 + dense wOBA for the chips
         H_METRICS = ["woba", "obp", "slg", "avg", "ops", "iso", "kPct", "bbPct", "ev90", "maxEv",
                      "hardHitPct", "barrelPct", "whiffPct", "contactPct", "swingPct",
-                     "oSwingPct", "nBip", *dict.fromkeys(k for k, _ in HD.values())]
+                     "oSwingPct", "nBip", *dict.fromkeys(k for k, _ in HD.values()),
+                     "wobaProj", "kPctProj", "bbPctProj"]
         h_pcts = {}
         h_dense = {}
         for s in seasons:
@@ -2475,6 +2479,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "faced": sorted(faced_by.get((pid, season), []), key=lambda x: -x["n"]),
                 **h_depth.get((pid, season), {}),
                 "trend": h_trend.get((pid, season)),
+                **h_proj.get((pid, season), {}),
                 "percentiles": {},
                 **h_shrunk(t, season),
             }

@@ -87,7 +87,7 @@ def projections(level="mlb", con=None) -> dict:
     """{(mlbam, season): {...}} for every hitter-season with >= 100 PA: next-season Marcel and its 80% range
     from results/hitter_proj_bands.json, for the rates §67 shipped. Empty if the read has not run."""
     bp = PIPE / "results" / "hitter_proj_bands.json"
-    if not bp.exists():
+    if level != "mlb" or not bp.exists():  # §67 read MLB pairs only; AAA would need its own read
         return {}
     b = json.loads(bp.read_text())
     keep = {"woba": "wobaProj", "k": "kPctProj", "bb": "bbPctProj"}

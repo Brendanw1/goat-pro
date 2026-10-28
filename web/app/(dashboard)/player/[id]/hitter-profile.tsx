@@ -22,7 +22,7 @@ import { SprayPanel } from "@/components/ui/spray-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
 import { TrendPanel } from "@/components/ui/trend-panel";
-import { LeagueScatter, RvFamilyBars } from "@/components/ui/league-views";
+import { LeagueScatter, RvFamilyBars, ProjectionBand } from "@/components/ui/league-views";
 
 const pct1 = (v: number) => v.toFixed(1);
 const dec3 = (v: number) => v.toFixed(3).replace(/^0/, "");
@@ -341,6 +341,21 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                   statRow("hitter", "sprintSpeed", "Sprint speed", profile.sprintSpeed, pct1, seasonBp?.sprintSpeed),
                 ]} />
               </PercentilePanel>
+            )}
+
+            {profile.wobaProj != null && (
+              <div className="glass-panel p-4">
+                <h2 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-dim">Next-season projection (Marcel baseline)</h2>
+                {([["wobaProj", "wOBA", dec3], ["kPctProj", "K%", pct1], ["bbPctProj", "BB%", pct1]] as const).map(([k, label, fmt]) => (
+                  <ProjectionBand key={k} label={label} value={profile[k]} lo={profile[k + "Lo"]} hi={profile[k + "Hi"]}
+                    bp={seasonBp?.[k]} fmt={fmt}
+                    rank={seasonBp?.[k] && profile[k] != null ? getStatPercentileRank(k, profile[k], seasonBp[k]) : null} />
+                ))}
+                <p className="mt-1 text-[10px] text-text-dim">
+                  Marcel: his last three seasons weighted 5/4/3, pulled toward league average by 1,200 PA; no age or park term (RESULTS-MLB §67).
+                  Shaded: where 80% of past hitters with this much playing time actually landed. wOBA on Savant&apos;s scale.
+                </p>
+              </div>
             )}
 
             <TrendPanel trend={profile.trend} role="hitter" />

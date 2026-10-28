@@ -48,7 +48,7 @@ const DESCRIPTIVE = {
 const HITTER_NEUTRAL = new Set(["pullPct", "laSd", "swingLength", "attackAngle", "wobaMinusXwoba"]);
 
 /** Hitter stats where LOWER values are better — invert the rank */
-const LOWER_IS_BETTER = new Set(["kPct"]);
+const LOWER_IS_BETTER = new Set(["kPct", "kPctProj"]);
 
 /** Pitcher stats where LOWER is better */
 const PITCHER_LOWER_IS_BETTER = new Set([
