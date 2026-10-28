@@ -13,15 +13,15 @@ import mart  # noqa: E402
 
 # (table stem, id column, {source column: (site key, decimals)})
 BOARDS = [
-    ("baserunning_run_value", "player_id", {"runner_runs_tot": ("bsrRuns", 1), "runner_runs_XB": ("xbRuns", 1),
-                                            "runner_runs_SBX": ("sbRuns", 1)}),
-    ("fielding_run_value", "id", {"total_runs": ("frvRuns", 1)}),
+    ("baserunning_run_value", "player_id", {"runner_runs_tot": ("bsrRuns", 2), "runner_runs_XB": ("xbRuns", 2),
+                                            "runner_runs_SBX": ("sbRuns", 2)}),
+    ("fielding_run_value", "id", {"total_runs": ("frvRuns", 2)}),
     ("outs_above_average", "player_id", {"outs_above_average": ("oaa", 0), "primary_pos_formatted": ("oaaPos", None)}),
-    ("catcher_framing", "id", {"rv_tot": ("framingRuns", 1), "pct_tot": ("framingStrikePct", 1)}),
+    ("catcher_framing", "id", {"rv_tot": ("framingRuns", 2), "pct_tot": ("framingStrikePct", 2)}),
     ("catcher_blocking", "player_id", {"catcher_blocking_runs": ("blockingRuns", 1),
                                        "blocks_above_average": ("blocksAboveAvg", 0)}),
-    ("catcher_throwing", "player_id", {"catcher_stealing_runs": ("throwingRuns", 1), "pop_time": ("popTime", 2),
-                                       "arm_strength": ("catcherArm", 1)}),
+    ("catcher_throwing", "player_id", {"catcher_stealing_runs": ("throwingRuns", 2), "pop_time": ("popTime", 2),
+                                       "arm_strength": ("catcherArm", 2)}),
 ]
 
 
@@ -55,7 +55,7 @@ def fielding(con, seasons) -> dict:
 def demo():
     f = fielding(mart.connect(), [2025])
     carroll, bailey = f[(682998, 2025)], f[(672275, 2025)]
-    assert carroll["bsrRuns"] == 10.1 and bailey["frvRuns"] == 31.5 and bailey["framingRuns"] is not None, (carroll, bailey)
+    assert carroll["bsrRuns"] == 10.09 and bailey["frvRuns"] == 31.47 and bailey["framingRuns"] is not None, (carroll, bailey)
     print("demo ok", carroll, bailey)
 
 

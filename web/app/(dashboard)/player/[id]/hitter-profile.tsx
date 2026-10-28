@@ -215,6 +215,26 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "visuals" ? (
           <HitterVisualsTab visuals={visuals ?? null} />
+        ) : tab === "savant" ? (
+          <PercentilePanel peer={`Baseball Savant's published numbers, ${profile.season} · percentiles among the players Savant lists`} toggle={null}>
+                <PercentileGroup title={<>Speed and baserunning <span className="font-normal text-text-dim">· Savant</span></>} rows={[
+                  statRow("hitter", "sprintSpeed", "Sprint speed", profile.sprintSpeed, (v) => v.toFixed(2), seasonBp?.sprintSpeed),
+                  statRow("hitter", "bsrRuns", "Baserunning runs", profile.bsrRuns, (v) => signedFixed(v, 2), seasonBp?.bsrRuns),
+                  statRow("hitter", "xbRuns", "Extra bases", profile.xbRuns, (v) => signedFixed(v, 2), seasonBp?.xbRuns),
+                  statRow("hitter", "sbRuns", "Stolen bases", profile.sbRuns, (v) => signedFixed(v, 2), seasonBp?.sbRuns),
+                ]} />
+                <PercentileGroup title={<>Fielding <span className="font-normal text-text-dim">· Savant{profile.oaaPos ? ` · ${profile.oaaPos}` : ""}</span></>} rows={[
+                  statRow("hitter", "frvRuns", "Fielding run value", profile.frvRuns, (v) => signedFixed(v, 2), seasonBp?.frvRuns),
+                  statRow("hitter", "oaa", "Outs above avg", profile.oaa, (v) => signedFixed(v, 0), seasonBp?.oaa),
+                ]} />
+                <PercentileGroup title={<>Catching <span className="font-normal text-text-dim">· Savant</span></>} rows={[
+                  statRow("hitter", "framingRuns", "Framing runs", profile.framingRuns, (v) => signedFixed(v, 2), seasonBp?.framingRuns),
+                  statRow("hitter", "blockingRuns", "Blocking runs", profile.blockingRuns, (v) => signedFixed(v, 2), seasonBp?.blockingRuns),
+                  statRow("hitter", "throwingRuns", "Throwing runs", profile.throwingRuns, (v) => signedFixed(v, 2), seasonBp?.throwingRuns),
+                  statRow("hitter", "popTime", "Pop time (2B)", profile.popTime, (v) => `${v.toFixed(2)}s`, seasonBp?.popTime),
+                  statRow("hitter", "catcherArm", "Arm strength", profile.catcherArm, (v) => v.toFixed(2), seasonBp?.catcherArm),
+                ]} />
+          </PercentilePanel>
         ) : tab === "scouting" ? (
           <div className="space-y-5">
             <ZoneGridPanel data={scouting} league={scoutingLeague?.seasons?.[String(profile.season)]?.cells?.[profile.bats] ?? null} />
@@ -342,23 +362,6 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                   statRow("hitter", "drvPer100", "Decision runs/100", profile.drvPer100, (v) => signedFixed(v, 2), seasonBp?.drvPer100, thinPa),
                   statRow("hitter", "izaPer100", "In-zone", profile.izaPer100, (v) => signedFixed(v, 2), seasonBp?.izaPer100, thinPa),
                   statRow("hitter", "ozaPer100", "Out-of-zone", profile.ozaPer100, (v) => signedFixed(v, 2), seasonBp?.ozaPer100, thinPa),
-                ]} />
-                <PercentileGroup title={<>Speed and baserunning <span className="font-normal text-text-dim">· Savant</span></>} rows={[
-                  statRow("hitter", "sprintSpeed", "Sprint speed", profile.sprintSpeed, pct1, seasonBp?.sprintSpeed),
-                  statRow("hitter", "bsrRuns", "Baserunning runs", profile.bsrRuns, (v) => signedFixed(v, 1), seasonBp?.bsrRuns),
-                  statRow("hitter", "xbRuns", "Extra bases", profile.xbRuns, (v) => signedFixed(v, 1), seasonBp?.xbRuns),
-                  statRow("hitter", "sbRuns", "Stolen bases", profile.sbRuns, (v) => signedFixed(v, 1), seasonBp?.sbRuns),
-                ]} />
-                <PercentileGroup title={<>Fielding <span className="font-normal text-text-dim">· Savant{profile.oaaPos ? ` · ${profile.oaaPos}` : ""}</span></>} rows={[
-                  statRow("hitter", "frvRuns", "Fielding run value", profile.frvRuns, (v) => signedFixed(v, 1), seasonBp?.frvRuns),
-                  statRow("hitter", "oaa", "Outs above avg", profile.oaa, (v) => signedFixed(v, 0), seasonBp?.oaa),
-                ]} />
-                <PercentileGroup title={<>Catching <span className="font-normal text-text-dim">· Savant</span></>} rows={[
-                  statRow("hitter", "framingRuns", "Framing runs", profile.framingRuns, (v) => signedFixed(v, 1), seasonBp?.framingRuns),
-                  statRow("hitter", "blockingRuns", "Blocking runs", profile.blockingRuns, (v) => signedFixed(v, 1), seasonBp?.blockingRuns),
-                  statRow("hitter", "throwingRuns", "Throwing runs", profile.throwingRuns, (v) => signedFixed(v, 1), seasonBp?.throwingRuns),
-                  statRow("hitter", "popTime", "Pop time (2B)", profile.popTime, (v) => `${v.toFixed(2)}s`, seasonBp?.popTime),
-                  statRow("hitter", "catcherArm", "Arm strength", profile.catcherArm, pct1, seasonBp?.catcherArm),
                 ]} />
               </PercentilePanel>
             )}

@@ -21,7 +21,8 @@ export type ProfileTab =
   | "situational"
   | "pitchplan"
   | "stuff"
-  | "lab";
+  | "lab"
+  | "savant";
 
 export type ProfileRole = "pitcher" | "batter";
 
@@ -54,6 +55,7 @@ export const TABS_FOR: Record<ProfileRole, readonly { key: ProfileTab; label: st
     { key: "approach", label: "Splits" },
     { key: "scouting", label: "Scouting" },
     { key: "visuals", label: "Visuals" },
+    { key: "savant", label: "Savant" },
     { key: "gamelog", label: "Game log" },
   ],
   // 2026-10-23 (profile design review H2): Overview · Arsenal · Situational · Game log. Situational holds the
