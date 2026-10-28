@@ -2275,3 +2275,36 @@ Calibration passes every season (decile gaps ≤ .0043). AUC is .956–.957.
   - `crossfit_v2_{s4_bb,s7_aaa}_grades.csv` are the hand-matched grades (pre-fix copies kept as `_pre82`, replicas as `_quirk`).
   - `p7_export` and `aaa_export` were re-run.
 - **Diagnosis:** our handling error, not the model. Predictions and references were right; only the reference lookup was wrong. Skubal 2025: 114.0 → 110.65.
+
+## §83 Do the grades under-credit hard fastballs with steep approach angles? Pre-registered 2026-10-28 before any read
+
+**Owner question.** On the Whiff+ breakdown, a hard four-seamer with a steep approach angle shows a big negative "approach angle & release height" bar next to a big positive velocity bar. Does the model penalize steepness too much when the velocity is elite (an interaction it failed to learn), or is the penalty real? Nothing is added to the site or the card until this is read.
+
+**Scope.** Four-seamers (FF), MLB, regular season, 2023–2025. Sinkers (SI) are run the same way and reported, not judged. Velocity = `release_speed`. Steepness = −`hvaa` (the model's own input: VAA residualized on plate height, so steeper means steeper than his location implies). Both are z-scored within season among FF.
+
+**Bins (display only, never judged).** 1-mph velocity bins (≤ 91, 92 … 99, ≥ 100) × steepness quintiles within season. Each cell shows n, observed, predicted and the gap; cells under 300 swings (T1) or 1,000 pitches (T2) are greyed out. Finer bins than this go below the sample a cell needs. The judged tests below are continuous.
+
+**T1, Whiff+ (per swing).** Outcome: whiff on swing. Prediction: the shipped cross-fit `pred` (`cache/pred_s4_bb.parquet`, out of fold by pitcher). Logistic regression with offset logit(pred) and terms velo_z, steep_z, velo_z × steep_z. The main terms soak up any one-way miscalibration, so only the interaction carries the claim.
+- **C1 (claim):** the interaction coefficient is > 0, meaning steepness hurts less at higher velocity than the model thinks. The 95% CI (1,000-rep pitcher-cluster bootstrap) must exclude 0.
+- **C2 (materiality):** in the hard-and-steep corner (velo ≥ 97, steepest quintile), observed − predicted whiff/swing ≥ +1.0 pp, with a pitcher-cluster CI excluding 0.
+- **CONFIRMED only if C1 and C2 both hold.**
+  - C1 without C2: real but too small to act on.
+  - The corner gap ≈ 0: the penalty is the data's, not the model's.
+- Reported, not judged: the soft-and-flat corner (velo ≤ 93, flattest quintile), and one-way calibration by velocity alone and by steepness alone.
+
+**T2, Pitching+ (per pitch).** Outcome: the `location_plus.target` per-pitch value. Prediction: the cross-fit f from `pitching_plus.py` (P_raw, `cache/pitchval_raw.parquet`). The fit is dev pitchers 2023–24 only; sealed pitchers stay untouched. Linear regression of the residual y − f on velo_z, steep_z and velo_z × steep_z.
+- **C1:** the interaction is in the pitcher-favourable direction, CI excluding 0.
+- **C2:** the corner residual is ≥ 0.5 runs per 100 pitches in the pitcher's favour, CI excluding 0.
+- Same verdict rule as T1.
+
+**T3, Prevention+ (pitcher-season, dev pitchers only).** Population: pitchers with ≥ 200 FF in season S and ≥ 300 pitches in S+1 (pairs 2023→24, 2024→25). Regress next-season RV/100 (pitcher-positive) on Prevention+ in S plus his FF mean velo_z, mean steep_z and their product.
+- **C1:** the product's coefficient is > 0, CI excluding 0 (pitcher-cluster bootstrap).
+- Next-season xRV/100 is reported alongside, not judged.
+- **Expected underpowered:** a few hundred pairs. The minimum detectable effect is reported with the result, and a null here is "not detectable", not "no effect".
+
+**Read once,** after the current MLB/AAA rebake finishes, in one script (`pipeline/fb_steep_interaction.py`), the code written before the read.
+
+**Expected.** A small positive interaction in T1 (C1 plausible); C2 unlikely, because gradient-boosted trees can learn this interaction from about a million FF swings. T2 and T3 are near 0.
+
+**If CONFIRMED:** a separate pre-registration for the fix (an explicit velo × hvaa feature in the FF class, re-gated on the §47 judge), never a hand adjustment.
+**If not:** a failure diagnosis (data vs handling vs modeling), then the display-only question (a velocity × approach-angle interaction bar from SHAP interaction values) comes back to the owner.
