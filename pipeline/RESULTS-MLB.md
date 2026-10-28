@@ -1734,3 +1734,18 @@ Tiny samples can sit on the grade scale's 50 floor (3 MLB, 16 AAA added rows). `
 | Prevention+ | 94.8 | 96.9 | 98.1 | 97.6 |
 
 `web_export.overlay_aaa_p7` passes the three fields. Control+ and Pitching+ stay MLB-only.
+
+## §67 Hitter Marcel projection + measured ranges (D-36, owner: "projection percentiles with visuals"), pre-registered 2026-10-27 before any read
+
+**Design.** Marcel for hitters, three rates: wOBA (Savant scale: Σ woba_value / Σ woba_denom), K/PA and BB/PA. Seasons S, S−1, S−2 are weighted 5/4/3 by PA. Each rate is regressed with 1,200 PA of that season's league rate. No age term, no park term: this is the textbook baseline, built so a range can be drawn around it. `hitter_proj.py`.
+- **Pairs:** S → S+1 for every S in the mart with 2 prior seasons available. S−1 and S−2 enter when present.
+- **Pair floor:** ≥ 100 PA in S and ≥ 100 PA in S+1. Regular season only.
+- **Benchmark:** persistence, his S rate.
+- **Bootstrap:** hitter-clustered across pairs (`judge.cluster_w`), 2,000 draws, seed 13.
+
+**Claims (each read once):**
+- Marcel beats persistence in Δr on the S+1 rate, separately for wOBA, K/PA and BB/PA.
+- A rate is CONFIRMED if the pooled 95% CI lower bound is > 0 **and** Marcel wins in all pairs but at most one.
+- Only CONFIRMED rates ship.
+
+**What this cannot show, up front.** Marcel beating persistence is the expected result: regression to the mean nearly always wins. A pass is a sanity gate, not evidence of a skill model. The deliverable is the range. For each shipped rate, take 5-fold hitter-grouped residuals (S+1 actual − Marcel), bin them by PA in S (100–250, 250–400, 400–550, 550+), and use each bin's 10th and 90th percentiles. That gives "80% of past hitters projected from this much playing time landed here". It is the same construction as the pitcher ranges (`proj_bands.py`). Marcel has no fitted parameters, so these residuals are already out of sample. The fold split is only there to keep the procedure identical to the pitcher one.
