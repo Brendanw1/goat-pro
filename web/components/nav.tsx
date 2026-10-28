@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/pitchers", label: "Pitchers" },
   { href: "/hitters", label: "Hitters" },
   { href: "/minors", label: "Minors" },
+  { href: "/prospects", label: "Prospects" },
   { href: "/teams", label: "Teams" },
   { href: "/tunneling", label: "Tunneling" },
   { href: "/arsenal", label: "Arsenal" },

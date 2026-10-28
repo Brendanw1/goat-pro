@@ -104,7 +104,7 @@ LEAGUE_CELL_MIN_PITCHERS = 30
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -117,6 +117,7 @@ FAM_NEEDS = {
     "scouting": set(),      # hitter zone cells + count rows + skill grades (self-contained)
     "visuals": {"totals"},  # per-player chart datasets: velo KDE, spin clock, release cloud, location grids, count lattice
     "career": {"totals"},   # per-player season list + pitcher mix per season (profile season selector + career arsenal)
+    "prospects": set(),     # MLB Pipeline rankings (pipeline/prospects_fetch.py): /prospects page + profile badges
 }
 
 
@@ -3792,6 +3793,75 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             n_hvis += 1
         counts["hitter_visuals"] = n_hvis
         print(f"hitter visuals: {n_hvis}")
+
+    # ------------------------------------------------- prospect rankings (prospects)
+    # MLB Pipeline's public rankings (pipeline/prospects_fetch.py, all lists and
+    # years back to 2011), keyed by mlbam id. Baked three ways from one source:
+    # per-season page files, per-player rank files for the profile badges, and
+    # nothing graded — rankings are Pipeline editors' opinions, quoted as such.
+    # The per-row shape leaves a `value` key open for a prospect-value metric.
+    if "prospects" in fams:
+        SRC = ROOT / "data" / "milb" / "prospects.json"
+        if SRC.exists():
+            ORG_ABBR = {
+                "Arizona Diamondbacks": "AZ", "Athletics": "ATH", "Atlanta Braves": "ATL",
+                "Baltimore Orioles": "BAL", "Boston Red Sox": "BOS", "Chicago Cubs": "CHC",
+                "Chicago White Sox": "CWS", "Cincinnati Reds": "CIN", "Cleveland Guardians": "CLE",
+                "Colorado Rockies": "COL", "Detroit Tigers": "DET", "Houston Astros": "HOU",
+                "Kansas City Royals": "KC", "Los Angeles Angels": "LAA", "Los Angeles Dodgers": "LAD",
+                "Miami Marlins": "MIA", "Milwaukee Brewers": "MIL", "Minnesota Twins": "MIN",
+                "New York Mets": "NYM", "New York Yankees": "NYY", "Philadelphia Phillies": "PHI",
+                "Pittsburgh Pirates": "PIT", "San Diego Padres": "SD", "San Francisco Giants": "SF",
+                "Seattle Mariners": "SEA", "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TB",
+                "Texas Rangers": "TEX", "Toronto Blue Jays": "TOR", "Washington Nationals": "WSH",
+            }
+            POS_LABEL = {"of": "OF", "rhp": "RHP", "lhp": "LHP", "ss": "SS", "c": "C",
+                         "1b": "1B", "2b": "2B", "3b": "3B"}
+
+            def _clean_row(r: dict) -> dict:
+                return {
+                    "rank": int(r["rank"]), "id": str(r["id"]), "n": r["name"],
+                    "pos": r["pos"], "org": ORG_ABBR.get(r["org"] or "", r["org"]),
+                    "eta": r.get("eta"), "age": r.get("age"), "bats": r.get("bats"),
+                    "gradesH": r.get("gradesHitting"), "gradesP": r.get("gradesPitching"),
+                }
+
+            raw = json.loads(SRC.read_text())
+            per_player: dict = {}
+            n_season_files = 0
+            for year, lists in sorted(raw.items(), key=lambda kv: int(kv[0])):
+                season_out = {}
+                for key, rows in sorted(lists.items()):
+                    cleaned = [_clean_row(r) for r in rows]
+                    if key == "top100":
+                        season_out["top100"] = cleaned
+                    else:
+                        kind, _, slug = key.partition(":")
+                        season_out.setdefault(f"{kind}s", {})[slug] = cleaned
+                    for r in cleaned:
+                        entry = {"season": int(year), "list": key, "rank": r["rank"]}
+                        if key.startswith("team:"):
+                            entry["team"] = r["org"]
+                            entry["teamSlug"] = key.split(":")[1]
+                        if key.startswith("position:"):
+                            entry["pos"] = POS_LABEL.get(key.split(":")[1], key.split(":")[1].upper())
+                            entry["posSlug"] = key.split(":")[1]
+                        per_player.setdefault(r["id"], {"id": r["id"], "n": r["n"], "ranks": []})["ranks"].append(entry)
+                jwrite(out / "prospects" / f"{year}.json", {
+                    "season": int(year),
+                    **season_out,
+                }, sort_keys=True)
+                n_season_files += 1
+            n_rank_files = 0
+            for pid, doc in sorted(per_player.items()):
+                doc["ranks"] = sorted(doc["ranks"], key=lambda e: (-e["season"], e["list"]))
+                jwrite(out / "prospect_rank" / f"{pid}.json", doc, sort_keys=True)
+                n_rank_files += 1
+            counts["prospect_season_files"] = n_season_files
+            counts["prospect_rank_files"] = n_rank_files
+            print(f"prospect season files: {n_season_files}; rank files: {n_rank_files}")
+        else:
+            print("prospects: data/milb/prospects.json missing — run pipeline/prospects_fetch.py first")
 
     # ----------------------------------------------------------------- meta
     # The manifest doubles as the sync audit: per-file bytes + sha (16) so a

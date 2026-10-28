@@ -113,6 +113,16 @@ export async function getPaLog(id: string, season: string | number, level: Level
   return fetchGzippedJson<any>(lv(level, `pa_log/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** One season's Pipeline prospect rankings (Top 100 + teams + positions). */
+export async function getProspectsSeason(year: number | string): Promise<any | null> {
+  return fetchFromR2<any>(`prospects/${year}.json`, { shared: true }).catch(() => null);
+}
+
+/** One player's Pipeline ranking history, for the profile badges. */
+export async function getProspectRank(id: string): Promise<any | null> {
+  return fetchFromR2<any>(`prospect_rank/${id}.json`).catch(() => null);
+}
+
 /** The latest day's games, for the home page's report links. */
 export async function getRecentGames(): Promise<any | null> {
   return fetchFromR2<any>("recent_games.json", { shared: true }).catch(() => null);
