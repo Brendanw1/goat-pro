@@ -177,7 +177,7 @@ export function RollingPanel({ trend, role }: { trend: Trend | null | undefined;
       </svg>
       <p className="mt-1 text-[10px] text-text-dim">
         Last {eff} {m.unit} at each game date; dashed = league ({m.good > 0 ? "higher" : "lower"} is better for him).
-        {m.key === "whiffPlus" && " Whiff+ scale (per-pitch predicted whiff/swing vs league by pitch class and batter hand, 100 = average). Each pitch is scored against its own batter hand, so it can differ by a few points from the season card until that grade gets the same fix."}
+        {m.key === "whiffPlus" && " Whiff+ scale (per-pitch predicted whiff/swing vs league by pitch class and batter hand, 100 = average). Each pitch is scored against its own batter hand, as the season grade is (RESULTS-MLB §82)."}
         {m.key === "decisionPlus" && " Same scale as his season Decision+ (swing/take run value per pitch vs that season's 100+ PA hitters)."}
         {m.key === "ev90" && " 90th percentile of exit velocity on balls in play in the window."}
         {m.key === "bat" && " Mean of every tracked swing (Savant's average uses competitive swings, so his card can read higher)."}

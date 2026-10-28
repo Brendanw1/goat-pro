@@ -2250,3 +2250,28 @@ Calibration passes every season (decile gaps ≤ .0043). AUC is .956–.957.
 - **If it fails:** the correct grade still ships, because the old one is a bug. The failure is diagnosed in the §82 result.
 
 **Expected:** a near-tie (r between versions ≈ .97), with a small gain for pitchers whose first batter of a class was atypical.
+
+### §82 result (read once, 2026-10-28)
+
+`judge.py` (GOAT_LO=2020, --skip 2023), A = quirk replica, B = hand-matched, 5 pairs (n 558–578):
+
+| outcome | Δr (B − A) [95% CI] |
+|---|---|
+| K/PA | +.0011 [−.0032, +.0056] |
+| (K−BB)/PA | −.0001 [−.0046, +.0047] |
+| RV/100 | +.0024 [−.0020, +.0069] |
+| xRV/100 | +.0023 [−.0025, +.0071] |
+| **composite** | **+.0014 [−.0025, +.0056] → NON-INFERIOR (ships)** |
+
+- **Versions:** they agree at r .994; the mean absolute change is 0.79 points.
+- **Cascade (robustness re-run, same ridges and split, no choices):**
+  - K+ sealed Δr CI [+.015, +.069] (was [+.014, +.068]);
+  - Prevention+ sealed RV [+.041, +.134] (was [+.041, +.131]);
+  - Prevention+ sealed xRV [+.037, +.164] (was [+.038, +.163]).
+  - All stay confirmed.
+- **AAA (`s7_aaa`):** same fix, same rule. The replica matches the published grades at r .99987; mean change 0.86. No new AAA read: the holdout is spent (§49).
+- **Shipped:**
+  - `train_mlb.season_grades` now scores each pitch against its own hand's reference.
+  - `crossfit_v2_{s4_bb,s7_aaa}_grades.csv` are the hand-matched grades (pre-fix copies kept as `_pre82`, replicas as `_quirk`).
+  - `p7_export` and `aaa_export` were re-run.
+- **Diagnosis:** our handling error, not the model. Predictions and references were right; only the reference lookup was wrong. Skubal 2025: 114.0 → 110.65.

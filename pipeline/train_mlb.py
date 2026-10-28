@@ -364,9 +364,12 @@ def season_grades(sdf, model, bst, refs, features):
             c = g[(g["pclass"] == pclass) & g[f"{model}_pred"].notna()]
             if c.empty:
                 continue
-            side = "LHH" if c["stand"].iloc[0] == "L" else "RHH"
-            ref = refs.get(f"{pclass}_vs_{side}") or refs["_absolute"]
-            z = float(((c[f"{model}_pred"] - ref["mean"]) / ref["sd"]).mean())
+            # §82: each pitch against its own batter hand's reference (was: the class's first pitch's hand)
+            zs_ = []
+            for side, ch in c.groupby("stand"):
+                ref = refs.get(f"{pclass}_vs_{'LHH' if side == 'L' else 'RHH'}") or refs["_absolute"]
+                zs_.append((ch[f"{model}_pred"] - ref["mean"]) / ref["sd"])
+            z = float(pd.concat(zs_).mean())
             per_cell.append({"class": pclass, "n": len(c), "z": z, "grade": grade(z)})
         zs = np.array([c["z"] for c in per_cell])
         ns = np.array([c["n"] for c in per_cell])
