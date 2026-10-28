@@ -1855,3 +1855,16 @@ Between-venue SD of the log ratio (τ), L/R: 1B .03/.06, 2B .10/.09, 3B .38/.28,
 **Sanity check, reported honestly: half right.** On triples, the top 3 are AZ, COL and KC (expected). On HR, the top 5 for 2024–26 are LAD, PHI, NYY, CIN and MIL. CIN is 4th, but **COL is not in the top 5**. The pre-registered expectation was stale: recent Statcast-era park factors also put Dodger Stadium first for HR, and Coors' edge is in hits in play, not home runs. The method is not changed after the read.
 
 **Read:** 1B and BB factors are mostly noise year to year; the 3-year EB does not beat a single season reliably. They are not shown. **Shipped:** PF for 2B, 3B, HR and SO, by hand, 2024–26 window, `results/park_factors.json`. They are descriptive venue effects; nothing on the site is park-adjusted with them yet (that is D-04's second half, after this read).
+
+**Result (read once, 2026-10-27): NOT CONFIRMED as a forecast; ships descriptive.** The run used 2,059 hitter-pairs. Automatic balls and strikes (pitch-clock calls) were excluded along with bunts, pitchouts and HBP, as "not a decision" (set in code before the read).
+
+| | value |
+|---|---|
+| Δr Decision+ − (−Chase%) on S+1 BB% − K% [95% CI] | **−.069 [−.103, −.035]**, 0/6 pairs |
+| per pair (−Chase% → Decision+) | .278→.245, .213→.178, .305→.267, .242→.136, .224→.135, .286→.177 |
+| split-half r (Spearman-Brown) at ≥ 100 PA, n 3,086 | dRV/100 .69 (.82); IZA .46 (.63); OZA .77 (.87) |
+| year-to-year r, dRV/100 | .71 |
+| r with Savant swing/take total runs (2024–26, n 900) | .52 |
+| cross-fit RMSE, swing / take / count-only | .310 / .042 / .223 |
+
+**Read:** decision value is a stable, measurable trait. Its reliability is high and it holds year to year. It agrees moderately with Savant's swing/take runs, which also price execution. It does **not** forecast next-season BB% − K% better than chase rate alone: BB − K carries contact skill, which the decision metric leaves out by design, and chase rate is the decision component most tied to strikeouts. **Shipped, under the pre-registered fail rule** (reliability ≥ .3): dRV/100, IZA, OZA and Decision+ on hitter rows and profiles, labelled **descriptive, not a forecast**.

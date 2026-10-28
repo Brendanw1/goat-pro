@@ -1,0 +1,72 @@
+{
+ "n_pitches": 4508647,
+ "rmse": {
+  "swing_model": 0.31037,
+  "take_model": 0.04206,
+  "count_only": 0.22294
+ },
+ "claim": {
+  "pairs": {
+   "2020->2021": {
+    "n": 279,
+    "r_neg_chase": 0.278,
+    "r_decision_plus": 0.2446
+   },
+   "2021->2022": {
+    "n": 354,
+    "r_neg_chase": 0.2134,
+    "r_decision_plus": 0.1776
+   },
+   "2022->2023": {
+    "n": 353,
+    "r_neg_chase": 0.3052,
+    "r_decision_plus": 0.2668
+   },
+   "2023->2024": {
+    "n": 358,
+    "r_neg_chase": 0.2419,
+    "r_decision_plus": 0.1356
+   },
+   "2024->2025": {
+    "n": 362,
+    "r_neg_chase": 0.2239,
+    "r_decision_plus": 0.1346
+   },
+   "2025->2026": {
+    "n": 353,
+    "r_neg_chase": 0.2863,
+    "r_decision_plus": 0.177
+   }
+  },
+  "dr": -0.0688,
+  "ci": [
+   -0.1026,
+   -0.0346
+  ],
+  "pairs_won": 0,
+  "n": 2059,
+  "verdict": "NOT CONFIRMED"
+ },
+ "reliability": {
+  "drv100": {
+   "split_half_r": 0.69,
+   "spearman_brown": 0.816,
+   "n": 3086
+  },
+  "iza": {
+   "split_half_r": 0.46,
+   "spearman_brown": 0.63,
+   "n": 3086
+  },
+  "oza": {
+   "split_half_r": 0.769,
+   "spearman_brown": 0.869,
+   "n": 3086
+  }
+ },
+ "year_to_year_r_drv100": 0.709,
+ "savant_swing_take_r": {
+  "n": 900,
+  "r_total_runs": 0.518
+ }
+}
