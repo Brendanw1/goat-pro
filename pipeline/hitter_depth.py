@@ -11,7 +11,7 @@ Per hitter-season (regular season, >= 50 PA), from pitches_all:
   swing         bat speed (fastest 90% of his tracked swings = Savant's competitive swings, approx.),
                 fast-swing % (>= 75 mph), swing length, attack angle / direction, swing tilt,
                 ideal attack angle % (5-20 deg), squared-up % and blast % per swing (Savant:
-                squared up = EV >= 80% of 1.23 x bat speed + 0.23 x pitch speed; blast = squared-up %
+                squared up = EV >= 80% of 1.23 x bat speed + 0.23 x pitch speed at the plate; blast = squared-up %
                 + bat speed >= 164), contact depth vs the plate (in); 2024+ (2023 partial)
   run value     batting runs per 100 pitches (delta_run_exp, batter-positive), overall and vs
                 fastballs (FF/SI), cutters (FC), breaking (SL/ST/SV/CU/KC), offspeed (CH/FS/FO/SC)
@@ -29,8 +29,11 @@ import mart  # noqa: E402
 SQL = """
 WITH p AS (
   SELECT {who} AS id, season, stand, pitch_type, description, events, bb_type, launch_speed AS ev,
-         launch_angle AS la, launch_speed_angle, hc_x, hc_y, release_speed, bat_speed, swing_length, attack_angle,
-         attack_direction, swing_path_tilt, intercept_ball_minus_batter_pos_y_inches AS depth,
+         launch_angle AS la, launch_speed_angle, hc_x, hc_y, release_speed, bat_speed,
+         -- pitch speed at the front of the plate (y = 17/12 ft) from the 9-parameter fit: Savant's
+         -- squared-up max EV uses the speed at contact; release speed ran squared-up 1.4 and blast 2 pts low
+         vx0, vy0, vz0, ax, ay, az, (-vy0 - sqrt(vy0 * vy0 - 2 * ay * (50 - 17.0 / 12))) / ay AS t_plate,
+         swing_length, attack_angle, attack_direction, swing_path_tilt, intercept_ball_minus_batter_pos_y_inches AS depth,
          CAST(estimated_ba_using_speedangle AS DECIMAL(9, 4)) AS xba, CAST(estimated_slg_using_speedangle AS DECIMAL(9, 4)) AS xslg,
          CAST(estimated_woba_using_speedangle AS DECIMAL(9, 4)) AS xw, CAST(woba_value AS DECIMAL(9, 4)) AS woba_value, woba_denom,
          CAST(delta_run_exp AS DECIMAL(18, 6)) AS rv,  -- exact sums: parallel DOUBLE sums flipped a 3-dp rounding between bakes
@@ -46,8 +49,10 @@ WITH p AS (
 ),
 sw AS (  -- tracked swings, ranked by bat speed: the fastest 90% approximate Savant's competitive swings
   SELECT *, percent_rank() OVER (PARTITION BY id, season ORDER BY bat_speed DESC) AS r,
-         ev >= 0.8 * (1.23 * bat_speed + 0.23 * release_speed) AS sq,
-         100 * ev / (1.23 * bat_speed + 0.23 * release_speed) + bat_speed >= 164 AS blast
+         0.681818 * sqrt(power(vx0 + ax * t_plate, 2) + power(vy0 + ay * t_plate, 2)
+                         + power(vz0 + az * t_plate, 2)) AS plate_v,   -- ft/s -> mph
+         ev >= 0.8 * (1.23 * bat_speed + 0.23 * plate_v) AS sq,
+         100 * ev / (1.23 * bat_speed + 0.23 * plate_v) + bat_speed >= 164 AS blast
   FROM p WHERE swing AND bat_speed IS NOT NULL AND description NOT LIKE '%bunt%'
 ),
 swa AS (

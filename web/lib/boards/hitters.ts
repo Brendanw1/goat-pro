@@ -32,7 +32,7 @@ export const HITTER_QUALITY_COLUMNS = [
   { key: "hardHitPct", label: "HH%", w: "w-[48px]", align: "right", tip: "Balls in play at 95 mph or harder." },
   { key: "xwoba", label: "xwOBA", w: "w-[54px]", align: "right", tip: "Statcast expected wOBA: each ball in play valued by its exit velocity and launch angle (plus sprint speed on weak grounders), walks and strikeouts at face value." },
   { key: "batSpeed", label: "BatSpd", w: "w-[54px]", align: "right", tip: "Average bat speed (mph) of his fastest 90% of tracked swings; 50+ tracked swings, 2024 on." },
-  { key: "squaredUpPct", label: "SqUp%", w: "w-[52px]", align: "right", tip: "Balls in play hit at 80%+ of the exit velocity his bat speed and the pitch speed allow, per competitive swing." },
+  { key: "squaredUpPct", label: "SqUp%", w: "w-[52px]", align: "right", tip: "Balls in play hit at 80%+ of the exit velocity his bat speed and the pitch's speed at the plate allow, per competitive swing." },
   { key: "sprintSpeed", label: "Sprint", w: "w-[50px]", align: "right", tip: "Savant sprint speed: feet per second in his fastest one-second window." },
   { key: "barrelPct", label: "Brl%", w: "w-[48px]", align: "right", tip: "Statcast barrels (exit velocity + launch angle combos) over balls in play." },
   { key: "whiffPct", label: "Whiff%", w: "w-[54px]", align: "right", tip: "Whiffs over swings — lower is better for a hitter.", asc: true },
