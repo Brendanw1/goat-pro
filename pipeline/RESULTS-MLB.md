@@ -1764,3 +1764,24 @@ Tiny samples can sit on the grade scale's 50 floor (3 MLB, 16 AAA added rows). `
 - BB/PA: −.030/+.030, −.029/+.026, −.027/+.023, −.021/+.032.
 
 **Read:** the sanity gate passes, as expected. The wOBA ranges are lopsided: Marcel overshoots more often than it undershoots. It carries no age term, and next season's hitters skew older and include the ones who held their jobs. The ranges keep that asymmetry rather than hiding it. **Shipped:** all three rates, display-only, as "Marcel baseline" with these measured ranges (`hitter_proj.projections`).
+
+## §68 Our own xwOBA (D-01), pre-registered 2026-10-27 before any read
+
+**Model.** Per ball in play, LightGBM multiclass over {out, 1B, 2B, 3B, HR}. Features:
+- exit velocity and launch angle;
+- spray angle from the side he batted on, so pull is positive;
+- the batter's Savant sprint speed that season (league median when missing);
+- the batter's stand.
+
+The expected wOBA of a ball is Σ p(class) × that season's Savant wOBA weight for the class, with out = 0. Errors and fielder's choices count as outs, as in Savant's wOBA.
+
+Every estimate is cross-fit: 5 folds grouped by **batter**, so no hitter's own balls train the model that scores him (the Stuff+ memorization lesson, RESULTS-MLB §5x and memory: pitcher/batter-grouped gates required). Seasons 2020–2026 are pooled, with a season indicator as a feature so the run environment can shift. Hitter xwOBA = (Σ BIP estimate + Σ woba_value on non-BIP PA) / Σ woba_denom, the same roll-up as Savant's. `xwoba_model.py`.
+
+**Claim (read once):** our hitter xwOBA in S beats **Savant's** xwOBA in S at predicting wOBA in S+1. The metric is pooled Δr over pairs S → S+1, S = 2020…2025, with ≥ 100 PA in both seasons. The bootstrap is hitter-clustered, 2,000 draws, seed 13. CONFIRMED if the 95% CI lower bound is > 0 **and** ours wins in at least 5 of 6 pairs.
+
+**Reported, not judged:**
+- same-season r with wOBA, ours vs Savant's;
+- the BIP-level log loss of the cross-fit model;
+- the pitcher-side version (xwOBA-against in S vs S+1 wOBA-against, ≥ 100 BF). Pitchers control contact quality weakly, so this side is descriptive only.
+
+**What it means either way.** A pass means spray angle and sprint speed add forecast signal beyond Savant's EV/LA estimate. The site would then show our xwOBA as the headline, with Savant's beside it. A fail means the site keeps Savant's (attributed) and ours is not shipped. Spray-aware expected stats are known to help on pulled fly balls, so a pass is plausible but not given: Savant's estimate is strong, and the S+1 target is noisy.
