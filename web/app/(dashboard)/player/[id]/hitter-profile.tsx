@@ -337,6 +337,12 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                   statRow("hitter", "swingLength", "Swing length", profile.swingLength, (v) => v.toFixed(2), seasonBp?.swingLength),
                   statRow("hitter", "attackAngle", "Attack angle", profile.attackAngle, pct1, seasonBp?.attackAngle),
                 ]} />
+                <PercentileGroup title={<>Swing decisions <span className="font-normal text-text-dim">· descriptive</span></>} rows={[
+                  statRow("hitter", "decisionPlus", "Decision+", profile.decisionPlus, (v) => v.toFixed(0), seasonBp?.decisionPlus, thinPa),
+                  statRow("hitter", "drvPer100", "Decision runs/100", profile.drvPer100, (v) => signedFixed(v, 2), seasonBp?.drvPer100, thinPa),
+                  statRow("hitter", "izaPer100", "In-zone", profile.izaPer100, (v) => signedFixed(v, 2), seasonBp?.izaPer100, thinPa),
+                  statRow("hitter", "ozaPer100", "Out-of-zone", profile.ozaPer100, (v) => signedFixed(v, 2), seasonBp?.ozaPer100, thinPa),
+                ]} />
                 <PercentileGroup title="Speed" rows={[
                   statRow("hitter", "sprintSpeed", "Sprint speed", profile.sprintSpeed, pct1, seasonBp?.sprintSpeed),
                 ]} />

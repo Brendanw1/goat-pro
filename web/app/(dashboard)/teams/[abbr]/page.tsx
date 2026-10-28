@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPitchers, getHitters } from "@/lib/data";
+import { getPitchers, getHitters, getParks } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 
@@ -158,6 +158,47 @@ function Board({ title, rows, cols, sort, sortBase, link }: {
   );
 }
 
+const PF_LABEL: Record<string, string> = { "2B": "Doubles", "3B": "Triples", HR: "Home runs", SO: "Strikeouts" };
+
+/** §70 park factors for the club's main venue (most home PA), each with its rank among the 30 main venues. */
+function ParkPanel({ parks, team }: { parks: any; team: string }) {
+  const venues: any[] = parks?.venues ?? [];
+  const main = new Map<string, any>();
+  for (const v of venues) if (!main.has(v.team) || v.home_pa > main.get(v.team).home_pa) main.set(v.team, v);
+  const mine = main.get(team);
+  if (!mine || !parks.shipped?.length) return null;
+  const all = [...main.values()];
+  return (
+    <div className="glass-panel p-4">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Park factors · {mine.venue} · {parks.window}</h2>
+        <span className="text-[10px] text-text-dim">100 = league average; rank 1 = most of that event</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-4">
+        {parks.shipped.map((c: string) => (
+          <div key={c}>
+            <p className="text-[11px] text-text-secondary">{PF_LABEL[c] ?? c}</p>
+            {(["L", "R"] as const).map((h) => {
+              const v = mine.pf?.[c]?.[h];
+              if (v == null) return null;
+              const rank = 1 + all.filter((o) => (o.pf?.[c]?.[h] ?? -1) > v).length;
+              return (
+                <p key={h} className="font-data text-[12px] text-text-primary">
+                  {h}HB {Math.round(v)} <span className="text-[10px] text-text-dim">#{rank}</span>
+                </p>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[10px] text-text-dim">
+        Home vs road rates for both teams over three seasons, shrunk toward average by how much each venue&apos;s sample can say
+        (RESULTS-MLB §70). Singles and walks are left off: their factors did not hold up year to year.
+      </p>
+    </div>
+  );
+}
+
 export default async function TeamPage({ params, searchParams }: {
   params: Promise<{ abbr: string }>;
   searchParams?: Promise<Q>;
@@ -165,7 +206,7 @@ export default async function TeamPage({ params, searchParams }: {
   const { abbr: raw } = await params;
   const abbr = decodeURIComponent(raw).toUpperCase();
   const q = (await searchParams) ?? {};
-  const [pitchers, hitters] = await Promise.all([getPitchers(), getHitters()]);
+  const [pitchers, hitters, parks] = await Promise.all([getPitchers(), getHitters(), getParks()]);
   const prows = (pitchers ?? []).filter((r: any) => r.team === abbr);
   const hrows = (hitters ?? []).filter((r: any) => r.team === abbr);
   if (!prows.length && !hrows.length) notFound();
@@ -208,6 +249,7 @@ export default async function TeamPage({ params, searchParams }: {
         <TeamSummary title={`Pitching staff, ${season}`} aggs={P_AGG} team={abbr} rows={allP} />
         <TeamSummary title={`Lineup, ${season}`} aggs={H_AGG} team={abbr} rows={allH} />
       </div>
+      <ParkPanel parks={parks} team={abbr} />
       <div className="grid gap-5 xl:grid-cols-2">
         <Board title="Pitchers" rows={pFiltered} cols={P_COLS} sort={q.psort ?? "rvPer100"} sortBase="psort" link={link} />
         <Board title="Hitters" rows={hFiltered} cols={H_COLS} sort={q.hsort ?? "woba"} sortBase="hsort" link={link} />

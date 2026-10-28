@@ -296,6 +296,11 @@ export async function getSavantBoard(family: string): Promise<SavantBoard | null
   return fetchFromR2<SavantBoard>(`savant/${family}.json`).catch(() => null);
 }
 
+/** parks.json (pipeline/park_factors.py, RESULTS-MLB §70): EB venue factors for the confirmed components, by hand. */
+export async function getParks(): Promise<any | null> {
+  return fetchFromR2<any>("parks.json").catch(() => null);
+}
+
 /** meta.json: export version, model-card fingerprints, per-file manifests. */
 export async function getMeta(): Promise<any | null> {
   return fetchFromR2<any>("meta.json").catch(() => null);

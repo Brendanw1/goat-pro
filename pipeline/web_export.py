@@ -661,6 +661,10 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     """One full pass. `only` limits the families baked (None = all); `player`
     limits the per-player file loops. Returns a counts dict for the log."""
     t0 = time.time()
+    pf = ROOT / "pipeline" / "results" / "park_factors.json"  # §70 (D-04): venue factors, any family's bake
+    if level == "mlb" and pf.exists():
+        out.mkdir(parents=True, exist_ok=True)
+        jwrite(out / "parks.json", json.loads(pf.read_text()))
     fams = only if only else set(FAMILIES)
     wanted = set().union(*(FAM_NEEDS[fam] for fam in fams))
     season_csv = ",".join(str(s) for s in seasons)
@@ -2304,6 +2308,14 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         h_trend = trends(con, tuple(seasons), who="batter", level=level)
         from hitter_proj import projections  # §67 Marcel + measured ranges (D-36)
         h_proj = projections(level, con)
+        # §69 (D-02) swing decisions: descriptive, not a forecast (failed the gate, reliable); MLB only
+        dec_f = ROOT / "pipeline" / "results" / "decisions_hitters.csv"
+        h_dec = {}
+        if level == "mlb" and dec_f.exists():
+            for r in pd.read_csv(dec_f).itertuples():
+                h_dec[(int(r.mlbam), int(r.season))] = {
+                    "drvPer100": f(r.drv100, 2), "izaPer100": f(r.iza, 2), "ozaPer100": f(r.oza, 2),
+                    "decisionPlus": f(r.decision_plus, 0) if pd.notna(r.decision_plus) else None}
         h_depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in HD.items() if c in r}
                    for r in hd.to_dict("records")}
         hboard = []
@@ -2344,6 +2356,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             row["nBip"] = int(rates["bip"])
             row.update(h_depth.get(key, {}))
             row.update(h_proj.get(key, {}))
+            row.update(h_dec.get(key, {}))
             hboard.append(row)
         hj = con.sql(f"""
             SELECT batter AS id, season, mode(stand) AS bats
@@ -2410,7 +2423,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         H_METRICS = ["woba", "obp", "slg", "avg", "ops", "iso", "kPct", "bbPct", "ev90", "maxEv",
                      "hardHitPct", "barrelPct", "whiffPct", "contactPct", "swingPct",
                      "oSwingPct", "nBip", *dict.fromkeys(k for k, _ in HD.values()),
-                     "wobaProj", "kPctProj", "bbPctProj"]
+                     "wobaProj", "kPctProj", "bbPctProj", "drvPer100", "izaPer100", "ozaPer100", "decisionPlus"]
         h_pcts = {}
         h_dense = {}
         for s in seasons:
@@ -2649,6 +2662,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 **h_depth.get((pid, season), {}),
                 "trend": h_trend.get((pid, season)),
                 **h_proj.get((pid, season), {}),
+                **h_dec.get((pid, season), {}),
                 "percentiles": {},
                 **h_shrunk(t, season),
             }
