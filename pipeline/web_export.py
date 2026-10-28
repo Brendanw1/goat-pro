@@ -2479,7 +2479,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                     "v": label_fn(r.grp),
                     "pa": int(r.pa),
                     "avg": f((r.s1 + r.s2 + r.s3 + r.hr) / ab, 3) if ab else None,
-                    "obp": f((r.s1 + r.s2 + r.s3 + r.hr + r.bb + r.hbp + r.ci) / (ab + r.bb + r.hbp + r.sf + r.ci), 3) if (ab + r.bb + r.hbp + r.sf + r.ci) else None,
+                    "obp": f((r.s1 + r.s2 + r.s3 + r.hr + r.bb + r.hbp) / (ab + r.bb + r.hbp + r.sf), 3) if (ab + r.bb + r.hbp + r.sf) else None,
                     "slg": f(tb / ab, 3) if ab else None,
                     "woba": f(raw / den * hfactor.get(r.season, 1.0), 3) if den and r.season in woba else None,
                     "kPct": f(100 * r.k / r.pa, 1) if r.pa else None,
@@ -2528,7 +2528,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 out[str(int(r.season))][label_of(r.grp)] = {
                     "pa": int(r.pa),
                     "avg": f((r.s1 + r.s2 + r.s3 + r.hr) / ab, 3) if ab else None,
-                    "obp": f((r.s1 + r.s2 + r.s3 + r.hr + r.bb + r.hbp + r.ci) / (ab + r.bb + r.hbp + r.sf + r.ci), 3) if (ab + r.bb + r.hbp + r.sf + r.ci) else None,
+                    "obp": f((r.s1 + r.s2 + r.s3 + r.hr + r.bb + r.hbp) / (ab + r.bb + r.hbp + r.sf), 3) if (ab + r.bb + r.hbp + r.sf) else None,
                     "slg": f(tb / ab, 3) if ab else None,
                     "woba": f(raw / den * hfactor.get(r.season, 1.0), 3) if den and r.season in woba else None,
                     "kPct": f(100 * r.k / r.pa, 1) if r.pa else None,
