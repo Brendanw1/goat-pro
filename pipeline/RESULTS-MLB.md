@@ -1808,3 +1808,22 @@ Every estimate is cross-fit: 5 folds grouped by **batter**, so no hitter's own b
 - the swing and take models' cross-fit RMSE against a count-only baseline.
 
 **What it means either way.** A pass ships Decision+, IZA and OZA as forecast-gated hitter stats. A fail ships dRV/100 descriptively only, under the "descriptive, not a forecast" label, or not at all if the split-half reliability is below .3.
+
+## §70 Park factors: component, by hand, EB-shrunk (D-04), pre-registered 2026-10-27 before any read
+
+**Method.** Venues come from the MLB Stats API schedule (game_pk → venue id), so temporary homes count as their own parks: TB at Steinbrenner Field in 2025, ATH in Sacramento from 2025. Components are 1B, 2B, 3B, HR, BB and SO per PA, by batter hand.
+- **Raw ratio:** for a team-venue spell, the rate in its home games (both teams' PA) divided by the rate in its road games (both teams' PA), over the same seasons. Team quality appears on both sides and cancels.
+- **Window:** seasons S−2..S.
+- **EB shrinkage:** the log ratio is shrunk toward 0 with weight τ²/(τ² + v). Here v = 1/home events + 1/road events (Poisson), and τ² is the method-of-moments between-venue variance per component and hand.
+- **Display:** PF = 100 × exp(shrunk log ratio): the venue's own effect, not halved. `park_factors.py`.
+
+**Claim, per component, pooled over hands (read once).**
+- **Test:** the EB PF from S−2..S beats the raw single-season S ratio at predicting the venue's raw home/road log ratio in S+1.
+- **Metric:** pooled Δr over S = 2022…2025, venue-clustered bootstrap, 2,000 draws, seed 13.
+- **CONFIRMED** if the CI lower bound is > 0 **and** r(EB PF, S+1) > 0 in every pair.
+- Components that pass ship as park factors. Components that fail are not shown.
+
+**Reported, not judged:**
+- the r of each PF with S+1, by hand;
+- τ per component;
+- a cross-check that Coors (COL) and Great American (CIN) rank top-3 in HR and Coors leads 3B. These are the known extremes.
