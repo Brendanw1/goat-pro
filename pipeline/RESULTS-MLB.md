@@ -2314,3 +2314,27 @@ Calibration passes every season (decile gaps ≤ .0043). AUC is .956–.957.
 - **T3 pairs are now 2021→22 through 2024→25**, dev pitchers only; the sealed pitchers stay untouched.
 - **A coarse 3×3 display grid** (velocity terciles × steepness terciles within season) is added beside the fine 1-mph grid, as a stability check: a pattern the fine grid shows and the coarse one does not is read as noise.
 - **Reported, not judged:** the T1 and T2 verdicts re-run on 2023–25 alone (the original scope), so the widening cannot carry the claim by itself. The judged tests, thresholds and verdict rule are unchanged.
+
+### §83 result (read once, 2026-10-28)
+
+`fb_steep_interaction.py` on 2021–25 MLB (full output in `results/fb_steep_interaction_83.json`). Verdict rule as registered.
+
+| | C1: velo × steepness interaction [95% pitcher-cluster CI] | C2: hard-and-steep corner (≥ 97 mph, steepest quintile), observed − predicted | verdict |
+|---|---|---|---|
+| **T1 Whiff+**, FF swings (564,884; 1,485 pitchers) | +.0084 [−.0035, +.0215] (logit) | **−0.65 pp [−2.35, +1.13]**, n 5,068 | **NOT CONFIRMED** |
+| **T2 Pitching+**, FF pitches, dev pitchers (945,983) | +0.009 [−0.027, +0.046] runs/100 | +0.29 [−0.05, +0.70] runs/100, n 7,328 | **NOT CONFIRMED** |
+| **T3 Prevention+**, 911 pitcher-season pairs (448 dev pitchers) | −0.020 [−0.066, +0.039] next RV/100 | — | **NOT CONFIRMED** (MDE 0.075 at 80% power) |
+| SI (reported) | T1 +.0147 [−.035, +.043]; T2 −0.039 [−0.085, +0.035] | T1 +0.25 pp; T2 −0.62 | both not confirmed |
+
+The 2023–25-only re-runs agree: not confirmed for T1 and T2, FF and SI. Soft-and-flat corner: T1 +0.20 pp [−1.18, +1.72], T2 +0.06.
+
+**Read.** Steepness costs whiffs at every velocity, and Whiff+ already prices that cost the way the data does. On the fine grid, flattest to steepest four-seamers lose 5.5 points of whiff/swing at 94 mph (22.1 → 16.6) and 1.7 at 98 (24.5 → 22.8). The cost does shrink with velocity, but the predictions shrink with it (21.9 → 17.1 and 24.8 → 22.9). In the hard-and-steep corner the model slightly *over*-predicts whiffs. The negative approach-angle bar on a hard thrower's card is the data's penalty, not a missed interaction.
+
+**Diagnosis (gate-failure rule).**
+- Data: the corner holds 5,068 swings, so its CI is about ±1.7 pp. A true 1 pp miss could not have been confirmed there. The point estimate sits on the other side of 0, though, and the interaction test (C1) has full power and its CI spans 0.
+- Handling: rows were asserted aligned with the shipped predictions, and the synthetic demo recovers a planted interaction and rejects a null.
+- Modeling: not implicated.
+
+**Pitching+ lean, not a finding.** The pitcher-favourable corner residual (+0.29 runs/100, CI touching 0) and the coarse grid's positive top-velocity row (+0.13 to +0.22) hint that hard four-seamers carry a little value Pitching+ misses at every steepness, a velocity effect rather than a steepness one. It is below the registered threshold. A test of it would need its own pre-registration.
+
+**Ships:** nothing. The model is unchanged. The owner's display question (a velocity × approach-angle bar on the Whiff+ card) stays open: the data says the penalty is real, so such a bar would only show a small shared effect.
