@@ -2308,3 +2308,9 @@ Calibration passes every season (decile gaps ≤ .0043). AUC is .956–.957.
 
 **If CONFIRMED:** a separate pre-registration for the fix (an explicit velo × hvaa feature in the FF class, re-gated on the §47 judge), never a hand adjustment.
 **If not:** a failure diagnosis (data vs handling vs modeling), then the display-only question (a velocity × approach-angle interaction bar from SHAP interaction values) comes back to the owner.
+
+**§83 amendment (owner, 2026-10-28, still before any read).**
+- **Seasons widened to 2021–2025** for T1 and T2, because the cross-fit Whiff+ predictions and the Pitching+ per-pitch values cover 2020–26. 2020 (60 games) and 2026 (partial) stay out.
+- **T3 pairs are now 2021→22 through 2024→25**, dev pitchers only; the sealed pitchers stay untouched.
+- **A coarse 3×3 display grid** (velocity terciles × steepness terciles within season) is added beside the fine 1-mph grid, as a stability check: a pattern the fine grid shows and the coarse one does not is read as noise.
+- **Reported, not judged:** the T1 and T2 verdicts re-run on 2023–25 alone (the original scope), so the widening cannot carry the claim by itself. The judged tests, thresholds and verdict rule are unchanged.
