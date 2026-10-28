@@ -313,6 +313,31 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                   hDiscRow("swingPct", "Swing%"),
                   hDiscRow("firstPitchSwingPct", "1P-Swg%"),
                 ]} />
+                <PercentileGroup title="Expected (Statcast)" rows={[
+                  statRow("hitter", "xwoba", "xwOBA", profile.xwoba, dec3, seasonBp?.xwoba, thinPa),
+                  statRow("hitter", "xba", "xBA", profile.xba, dec3, seasonBp?.xba, thinPa),
+                  statRow("hitter", "xslg", "xSLG", profile.xslg, dec3, seasonBp?.xslg, thinPa),
+                  statRow("hitter", "xwobacon", "xwOBACON", profile.xwobacon, dec3, seasonBp?.xwobacon, bipThin),
+                  statRow("hitter", "batRvPer100", "RV/100", profile.batRvPer100, (v) => signedFixed(v, 2), seasonBp?.batRvPer100, thinPa),
+                ]} />
+                <PercentileGroup title="Batted ball" rows={[
+                  statRow("hitter", "sweetSpotPct", "Sweet-spot%", profile.sweetSpotPct, pct1, seasonBp?.sweetSpotPct, bipThin),
+                  statRow("hitter", "pullAirPct", "Pull-air%", profile.pullAirPct, pct1, seasonBp?.pullAirPct, bipThin),
+                  statRow("hitter", "pullPct", "Pull%", profile.pullPct, pct1, seasonBp?.pullPct, bipThin),
+                  statRow("hitter", "laSd", "LA spread", profile.laSd, pct1, seasonBp?.laSd, bipThin),
+                ]} />
+                <PercentileGroup title="Swing (bat tracking)" rows={[
+                  statRow("hitter", "batSpeed", "Bat speed", profile.batSpeed, pct1, seasonBp?.batSpeed),
+                  statRow("hitter", "fastSwingPct", "Fast-swing%", profile.fastSwingPct, pct1, seasonBp?.fastSwingPct),
+                  statRow("hitter", "squaredUpPct", "Squared-up%", profile.squaredUpPct, pct1, seasonBp?.squaredUpPct),
+                  statRow("hitter", "blastPct", "Blast%", profile.blastPct, pct1, seasonBp?.blastPct),
+                  statRow("hitter", "idealAaPct", "Ideal AA%", profile.idealAaPct, pct1, seasonBp?.idealAaPct),
+                  statRow("hitter", "swingLength", "Swing length", profile.swingLength, (v) => v.toFixed(2), seasonBp?.swingLength),
+                  statRow("hitter", "attackAngle", "Attack angle", profile.attackAngle, pct1, seasonBp?.attackAngle),
+                ]} />
+                <PercentileGroup title="Speed" rows={[
+                  statRow("hitter", "sprintSpeed", "Sprint speed", profile.sprintSpeed, pct1, seasonBp?.sprintSpeed),
+                ]} />
               </PercentilePanel>
             )}
 

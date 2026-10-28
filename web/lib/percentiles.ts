@@ -44,6 +44,9 @@ const DESCRIPTIVE = {
   pitcher: new Set(PITCHER_DISCIPLINE.filter((m) => m.descriptive).map((m) => m.key)),
 };
 
+/** Hitter profile rows that are style, not skill: ranked, never coloured (D-34). */
+const HITTER_NEUTRAL = new Set(["pullPct", "laSd", "swingLength", "attackAngle", "wobaMinusXwoba"]);
+
 /** Hitter stats where LOWER values are better — invert the rank */
 const LOWER_IS_BETTER = new Set(["kPct"]);
 
@@ -89,7 +92,8 @@ const PITCHER_HIGHER_IS_BETTER = new Set([
  * as descriptive: a rank, no verdict colour.
  */
 export function isNeutralStat(role: "hitter" | "pitcher", statKey: string): boolean {
-  return DISCIPLINE_DIRECTION[role].get(statKey) === "neutral" || DESCRIPTIVE[role].has(statKey);
+  return DISCIPLINE_DIRECTION[role].get(statKey) === "neutral" || DESCRIPTIVE[role].has(statKey)
+    || (role === "hitter" && HITTER_NEUTRAL.has(statKey));
 }
 
 /**

@@ -2071,6 +2071,18 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             return raw / den * hfactor.get(s, 1.0)
 
         HITTER_PA_FLOOR = 50
+        # D-34 depth (pipeline/hitter_depth.py): Savant expected stats, batted-ball
+        # direction, bat tracking (>= 50 tracked swings), sprint speed, batting RV/100.
+        from hitter_depth import hitter_depth
+        HD = {"xwoba": ("xwoba", 3), "xba": ("xba", 3), "xslg": ("xslg", 3), "xwobacon": ("xwobacon", 3),
+              "xwoba_gap": ("wobaMinusXwoba", 3), "rv100": ("batRvPer100", 2), "sweet_spot": ("sweetSpotPct", 1),
+              "pull": ("pullPct", 1), "oppo": ("oppoPct", 1), "pull_air": ("pullAirPct", 1), "la_sd": ("laSd", 1),
+              "bat_speed": ("batSpeed", 1), "fast_swing": ("fastSwingPct", 1), "swing_length": ("swingLength", 2),
+              "attack_angle": ("attackAngle", 1), "ideal_aa": ("idealAaPct", 1),
+              "squared_up": ("squaredUpPct", 1), "blast": ("blastPct", 1), "sprint_speed": ("sprintSpeed", 1)}
+        hd = hitter_depth(con, tuple(seasons), level=level)
+        h_depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in HD.items() if c in r}
+                   for r in hd.to_dict("records")}
         hboard = []
         for t in hag.itertuples():
             key = (int(t.id), int(t.season))
@@ -2107,6 +2119,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             row["swingPct"] = f(100 * rates["swings"] / rates["pitches_seen"], 1) if rates["pitches_seen"] else None
             row["oSwingPct"] = f(100 * rates["n_ooz_swing"] / rates["n_ooz"], 1) if rates["n_ooz"] else None
             row["nBip"] = int(rates["bip"])
+            row.update(h_depth.get(key, {}))
             hboard.append(row)
         hj = con.sql(f"""
             SELECT batter AS id, season, mode(stand) AS bats
@@ -2172,7 +2185,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         # hitter percentiles (per season): pct5 + dense wOBA for the chips
         H_METRICS = ["woba", "obp", "slg", "avg", "ops", "iso", "kPct", "bbPct", "ev90", "maxEv",
                      "hardHitPct", "barrelPct", "whiffPct", "contactPct", "swingPct",
-                     "oSwingPct", "nBip"]
+                     "oSwingPct", "nBip", *dict.fromkeys(k for k, _ in HD.values())]
         h_pcts = {}
         h_dense = {}
         for s in seasons:
@@ -2408,6 +2421,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "vsHand": vs_hand.get((pid, season)),
                 "vsFamily": vs_fam.get((pid, season)),
                 "faced": sorted(faced_by.get((pid, season), []), key=lambda x: -x["n"]),
+                **h_depth.get((pid, season), {}),
                 "percentiles": {},
                 **h_shrunk(t, season),
             }

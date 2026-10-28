@@ -17,7 +17,7 @@ import { FilterBuilder, useUrlFilters } from "@/components/ui/filter-builder";
 import { PAGE_SIZE } from "@/lib/boards/shared";
 import { useBoardPage } from "@/lib/boards/use-board-page";
 
-const CHIP_KEYS = new Set(["woba", "obp", "slg", "ev90", "hardHitPct", "barrelPct", "whiffPct", "oSwingPct"]);
+const CHIP_KEYS = new Set(["woba", "obp", "slg", "ev90", "hardHitPct", "barrelPct", "whiffPct", "oSwingPct", "xwoba", "batSpeed", "squaredUpPct", "sprintSpeed"]);
 
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
