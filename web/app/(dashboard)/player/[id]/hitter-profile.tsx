@@ -9,6 +9,7 @@
  */
 import { PITCH_CONFIG } from "@/lib/constants";
 import { statRow, PercentileGroup, PercentilePanel, ThinSampleBanner } from "@/components/ui/percentile-row";
+import { DefensePanel } from "@/components/ui/defense-panel";
 import { AboutThis } from "@/components/ui/discipline-block";
 import { ProfileTabs, ProfileTabPanel } from "@/components/ui/profile-tabs";
 import { logoUrl, teamPixels } from "@/lib/team-pixel";
@@ -215,6 +216,8 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "visuals" ? (
           <HitterVisualsTab visuals={visuals ?? null} />
+        ) : tab === "defense" ? (
+          <DefensePanel playerId={playerId} season={profile.season} />
         ) : tab === "savant" ? (
           <PercentilePanel peer={`Baseball Savant's published numbers, ${profile.season} · percentiles among the players Savant lists`} toggle={null}>
                 <PercentileGroup title={<>Speed and baserunning <span className="font-normal text-text-dim">· Savant</span></>} rows={[

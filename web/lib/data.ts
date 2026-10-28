@@ -103,6 +103,11 @@ export async function getGameLog(id: string, season: string | number, level: Lev
   return fetchGzippedJson<any>(lv(level, `gamelog/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** D-12/D-13 site defense file (pipeline/defense_export.py): position cards with chance lists, catcher framing. MLB only. */
+export async function getDefense(id: string, season: string | number): Promise<any | null> {
+  return fetchGzippedJson<any>(`defense/${id}-${season}.json.gz`).catch(() => null);
+}
+
 /** Per-PA pitch sequences (wave 6, gzipped): every pitch under every PA, joined from the gamelog rows' `g`. */
 export async function getPaLog(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
   return fetchGzippedJson<any>(lv(level, `pa_log/${id}-${season}.json.gz`)).catch(() => null);
