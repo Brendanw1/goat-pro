@@ -171,6 +171,11 @@ def p_depth(level: str, seasons: tuple, con) -> tuple[dict, dict]:
     d = pitcher_depth(con, seasons, level=level)
     depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in PD.items() if c in r}
              for r in d.to_dict("records")}
+    xf = ROOT / "pipeline" / "results" / "xrv_pitchers.csv"  # §71 (D-03) xRV/100 + luck: descriptive, MLB only
+    if level == "mlb" and xf.exists():
+        for r in pd.read_csv(xf).itertuples():
+            depth.setdefault((int(r.mlbam), int(r.season)), {}).update(
+                {"xrvPer100": f(r.xrv100, 2), "rvLuck": f(r.luck, 2)})
     return depth, trends(con, seasons, who="pitcher", level=level)
 
 
@@ -1068,7 +1073,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                           "putawayPct", "swingPct",
                           "xwobaAg", "xbaAg", "xslgAg", "xwobaconAg", "wobaAg", "evAg", "hardHitPctAg",
                           "barrelPctAg", "sweetSpotPctAg", "pullAirPctAg", "batSpeedAg", "squaredUpPctAg",
-                          "blastPctAg", "rvPer100Fb", "rvPer100Br", "rvPer100Os", "rvProj"]
+                          "blastPctAg", "rvPer100Fb", "rvPer100Br", "rvPer100Os", "rvProj", "xrvPer100", "rvLuck"]
 
         # per-pitch-type rows joined to their season's grades — the per_type population
         type_grades = bytype[(bytype["n"] >= SABR_FLOORS["type"])].copy()

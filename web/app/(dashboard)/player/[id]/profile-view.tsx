@@ -707,6 +707,10 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               statRow("pitcher", "rvPer100Br", "Breaking", profile.rvPer100Br, signed2, pitcherBp?.rvPer100Br),
               statRow("pitcher", "rvPer100Os", "Offspeed", profile.rvPer100Os, signed2, pitcherBp?.rvPer100Os),
             ]} />
+            <PercentileGroup title={<>Expected run value <span className="font-normal text-text-dim">· descriptive</span></>} rows={[
+              statRow("pitcher", "xrvPer100", "xRV/100", profile.xrvPer100, signed2, pitcherBp?.xrvPer100),
+              statRow("pitcher", "rvLuck", "RV − xRV", profile.rvLuck, signed2, pitcherBp?.rvLuck),
+            ]} />
             <PercentileGroup title="P7 value" rows={[
               statRow("pitcher", "kPlus", "K+", profile.kPlus, int0, pitcherBp?.kPlus, thinGrade),
               statRow("pitcher", "preventionPlus", "Prevention+", profile.preventionPlus, int0, pitcherBp?.preventionPlus, thinGrade),

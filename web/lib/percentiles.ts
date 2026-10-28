@@ -46,6 +46,8 @@ const DESCRIPTIVE = {
 
 /** Hitter profile rows that are style, not skill: ranked, never coloured (D-34). */
 const HITTER_NEUTRAL = new Set(["pullPct", "laSd", "swingLength", "attackAngle", "wobaMinusXwoba"]);
+/** Pitcher rows ranked without a verdict colour: luck is RV/100 minus xRV/100 (§71), neither good nor bad skill. */
+const PITCHER_NEUTRAL = new Set(["rvLuck"]);
 
 /** Hitter stats where LOWER values are better — invert the rank */
 const LOWER_IS_BETTER = new Set(["kPct", "kPctProj"]);
@@ -96,7 +98,7 @@ const PITCHER_HIGHER_IS_BETTER = new Set([
  */
 export function isNeutralStat(role: "hitter" | "pitcher", statKey: string): boolean {
   return DISCIPLINE_DIRECTION[role].get(statKey) === "neutral" || DESCRIPTIVE[role].has(statKey)
-    || (role === "hitter" && HITTER_NEUTRAL.has(statKey));
+    || (role === "hitter" && HITTER_NEUTRAL.has(statKey)) || (role === "pitcher" && PITCHER_NEUTRAL.has(statKey));
 }
 
 /**
