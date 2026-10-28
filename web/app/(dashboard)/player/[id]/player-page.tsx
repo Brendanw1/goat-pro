@@ -1,4 +1,4 @@
-import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile } from "@/lib/data";
+import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard } from "@/lib/data";
 import { vaaZoneRows } from "@/lib/vaa-zone";
 import { profilePercentiles } from "@/lib/percentiles";
 import { PlayerReady } from "@/components/ui/player-transition";
@@ -38,6 +38,26 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
     getProspectRank(id),
     hitter && detSeason ? getSwingProfile(id, detSeason, level) : Promise.resolve(null),
   ]);
+  // Baserunning detail (Savant reference): slice this hitter's rows from the
+  // league board files server-side, like zoneMix — the client gets 4 rows.
+  let running: any = null;
+  if (hitter) {
+    const rs = String(hitter.season);
+    const pick = (rows: any[] | undefined) =>
+      (rows ?? []).find((rw: any) => String(rw.id) === String(id) && String(rw.season) === rs) ?? null;
+    const [bsrBoard, stealBoard, xbBoard, sprintBoard] = await Promise.all([
+      getSavantBoard("baserunning_rv").catch(() => null),
+      getSavantBoard("basestealing_rv").catch(() => null),
+      getSavantBoard("xb_taken").catch(() => null),
+      getSavantBoard("sprint_speed").catch(() => null),
+    ]);
+    running = {
+      season: rs,
+      bsr: pick(bsrBoard?.rows), steal: pick(stealBoard?.rows),
+      xb: pick(xbBoard?.rows), sprint: pick(sprintBoard?.rows),
+    };
+  }
+
   const pctSeason = String(profile?.season ?? hitter?.season ?? season ?? "");
   const percentiles = hitter
     ? await getHitterPercentiles(pctSeason, level)
@@ -119,7 +139,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
 {hitter ? (
         <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}
-          scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} initialTab={tab} level={level} />
+          scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} running={running} initialTab={tab} level={level} />
       ) : (
         <PlayerProfileView
           profile={profile}

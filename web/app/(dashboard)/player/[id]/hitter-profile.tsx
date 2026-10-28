@@ -37,7 +37,7 @@ const FAM_LABEL: Record<string, string> = {
   FB: "Fastballs (FF/SI)", CT: "Cutters", BR: "Breaking (SL/SW/CB/KC)", OS: "Offspeed (CH/FS/EP)",
 };
 
-export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, career, visuals, swing, initialTab, level }: {
+export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, career, visuals, swing, running, initialTab, level }: {
   profile: any;
   percentiles: any;
   playerId: string;
@@ -50,6 +50,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
   career?: any | null;
   visuals?: any | null;
   swing?: any | null;
+  running?: any | null;
   initialTab?: string | null;
   level?: string;
 }) {
@@ -237,6 +238,36 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                   statRow("hitter", "xbRuns", "Extra bases", profile.xbRuns, (v) => signedFixed(v, 2), seasonBp?.xbRuns),
                   statRow("hitter", "sbRuns", "Stolen bases", profile.sbRuns, (v) => signedFixed(v, 2), seasonBp?.sbRuns),
                 ]} />
+                {running && (running.bsr || running.steal || running.xb || running.sprint) && (
+                  <div className="glass-panel p-4 space-y-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Baserunning detail</span>
+                      <span className="text-[10px] text-text-dim">Savant · {running.season}</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1.5 text-xs font-data">
+                      {[
+                        ["Bolts", running.sprint ? `${running.sprint.bolts} runs 30+ ft/s` : null],
+                        ["Home → 1st", running.sprint && running.sprint.hp_to_1b != null ? `${Number(running.sprint.hp_to_1b).toFixed(2)}s` : null],
+                        ["Competitive runs", running.sprint ? `${running.sprint.competitive_runs}` : null],
+                        ["XB attempts", running.xb ? `${running.xb.attempts} of ${running.xb.opportunities} opps (${Math.round(100 * Number(running.xb.attempt_rate ?? 0))}%, league ${Math.round(100 * Number(running.xb.lg_attempt_rate ?? 0))}%)` : null],
+                        ["Safe on XB", running.xb && running.xb.safe != null ? `${running.xb.safe} safe / ${running.xb.outs_made} out (${Math.round(100 * Number(running.xb.safe_rate ?? 0))}%)` : null],
+                        ["Steal runs split", running.bsr ? `+${Number(running.bsr.xb_runs ?? 0).toFixed(1)} extra bases · +${Number(running.bsr.steal_runs ?? 0).toFixed(1)} steals (${running.bsr.times_moved} moves)` : null],
+                        ["XB style", running.bsr && running.bsr.xb_swipe != null ? `swipe +${Number(running.bsr.xb_swipe).toFixed(1)} · snipe ${Number(running.bsr.xb_snipe ?? 0).toFixed(1)} · freeze ${Number(running.bsr.xb_freeze ?? 0).toFixed(1)}` : null],
+                        ["Lead runs", running.steal ? `primary +${Number(running.steal.primary_lead_runs ?? 0).toFixed(1)} · secondary +${Number(running.steal.secondary_lead_runs ?? 0).toFixed(1)}` : null],
+                        ["Steals", running.steal ? `${running.steal.sb} SB / ${running.steal.cs} CS${running.steal.sb_rate != null ? ` (${Math.round(100 * Number(running.steal.sb_rate))}%)` : ""}` : null],
+                      ].filter(([, v]) => v != null).map(([label, v]) => (
+                        <div key={String(label)}>
+                          <div className="text-[9px] uppercase tracking-wider text-text-dim">{label}</div>
+                          <div className="text-text-secondary">{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-text-dim">
+                      Swipe = takes the extra base on a hit; snipe = advances on an out or error; freeze = holds where the
+                      generic runner advances. Savant reference numbers, {running.season} rules — no model of ours.
+                    </p>
+                  </div>
+                )}
                 <PercentileGroup title={<>Fielding <span className="font-normal text-text-dim">· Savant{profile.oaaPos ? ` · ${profile.oaaPos}` : ""}</span></>} rows={[
                   statRow("hitter", "frvRuns", "Fielding run value", profile.frvRuns, (v) => signedFixed(v, 2), seasonBp?.frvRuns),
                   statRow("hitter", "oaa", "Outs above avg", profile.oaa, (v) => signedFixed(v, 0), seasonBp?.oaa),
