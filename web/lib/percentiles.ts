@@ -49,8 +49,11 @@ const HITTER_NEUTRAL = new Set(["pullPct", "laSd", "swingLength", "attackAngle",
 /** Pitcher rows ranked without a verdict colour: luck is RV/100 minus xRV/100 (§71), neither good nor bad skill. */
 const PITCHER_NEUTRAL = new Set(["rvLuck"]);
 
-/** Hitter stats where LOWER values are better — invert the rank */
-const LOWER_IS_BETTER = new Set(["kPct", "kPctProj", "popTime"]);
+/** Hitter stats where LOWER values are better — invert the rank. oSwingPct is the hitter Chase% under its board key. */
+const LOWER_IS_BETTER = new Set(["kPct", "kPctProj", "popTime", "oSwingPct"]);
+
+/** The sample-adjusted twin ranks in its raw stat's direction: "whiffPctShrunk" reads as "whiffPct". */
+const baseKey = (k: string) => k.replace(/Shrunk$/, "");
 
 /** Pitcher stats where LOWER is better */
 const PITCHER_LOWER_IS_BETTER = new Set([
@@ -96,7 +99,8 @@ const PITCHER_HIGHER_IS_BETTER = new Set([
  * aggression rates (Swing%, Z-Swing%, 1st-Pitch Swing%), which the profile shows
  * as descriptive: a rank, no verdict colour.
  */
-export function isNeutralStat(role: "hitter" | "pitcher", statKey: string): boolean {
+export function isNeutralStat(role: "hitter" | "pitcher", key: string): boolean {
+  const statKey = baseKey(key);
   return DISCIPLINE_DIRECTION[role].get(statKey) === "neutral" || DESCRIPTIVE[role].has(statKey)
     || (role === "hitter" && HITTER_NEUTRAL.has(statKey)) || (role === "pitcher" && PITCHER_NEUTRAL.has(statKey));
 }
@@ -182,6 +186,7 @@ export function getStatPercentileRank(
   breakpoints: Breakpoints
 ): number {
   const rank = getPercentileRank(value, breakpoints);
+  statKey = baseKey(statKey);
 
   if (LOWER_IS_BETTER.has(statKey) || DISCIPLINE_DIRECTION.hitter.get(statKey) === "lower") {
     // Invert: a low value (good) should map to a high rank
@@ -335,6 +340,7 @@ export function getPitcherPercentileRank(
   breakpoints: Breakpoints
 ): number {
   const rank = getPercentileRank(value, breakpoints);
+  statKey = baseKey(statKey);
 
   if (PITCHER_LOWER_IS_BETTER.has(statKey) || DISCIPLINE_DIRECTION.pitcher.get(statKey) === "lower") {
     // Invert: a low value (good for pitcher) should map to a high rank
