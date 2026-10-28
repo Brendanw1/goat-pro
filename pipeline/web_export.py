@@ -3838,15 +3838,15 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     else:
                         kind, _, slug = key.partition(":")
                         season_out.setdefault(f"{kind}s", {})[slug] = cleaned
-                    for r in cleaned:
-                        entry = {"season": int(year), "list": key, "rank": r["rank"]}
+                    for row in cleaned:
+                        entry = {"season": int(year), "list": key, "rank": row["rank"]}
                         if key.startswith("team:"):
-                            entry["team"] = r["org"]
+                            entry["team"] = row["org"]
                             entry["teamSlug"] = key.split(":")[1]
                         if key.startswith("position:"):
                             entry["pos"] = POS_LABEL.get(key.split(":")[1], key.split(":")[1].upper())
                             entry["posSlug"] = key.split(":")[1]
-                        per_player.setdefault(r["id"], {"id": r["id"], "n": r["n"], "ranks": []})["ranks"].append(entry)
+                        per_player.setdefault(row["id"], {"id": row["id"], "n": row["n"], "ranks": []})["ranks"].append(entry)
                 jwrite(out / "prospects" / f"{year}.json", {
                     "season": int(year),
                     **season_out,
