@@ -1749,3 +1749,18 @@ Tiny samples can sit on the grade scale's 50 floor (3 MLB, 16 AAA added rows). `
 - Only CONFIRMED rates ship.
 
 **What this cannot show, up front.** Marcel beating persistence is the expected result: regression to the mean nearly always wins. A pass is a sanity gate, not evidence of a skill model. The deliverable is the range. For each shipped rate, take 5-fold hitter-grouped residuals (S+1 actual − Marcel), bin them by PA in S (100–250, 250–400, 400–550, 550+), and use each bin's 10th and 90th percentiles. That gives "80% of past hitters projected from this much playing time landed here". It is the same construction as the pitcher ranges (`proj_bands.py`). Marcel has no fitted parameters, so these residuals are already out of sample. The fold split is only there to keep the procedure identical to the pitcher one.
+
+**Result (read once, 2026-10-27).** n = 353 / 358 / 362 / 353 hitter-pairs (2022→23 … 2025→26; the mart starts in 2020, so 2022 is the first S with two prior seasons).
+
+| rate | pooled Δr Marcel − persistence [95% CI] | pairs won | verdict |
+|---|---|---|---|
+| wOBA (Savant scale) | **+.053 [+.022, +.081]** | 4/4 | **CONFIRMED** |
+| K/PA | **+.020 [+.008, +.033]** | 3/4 | **CONFIRMED** |
+| BB/PA | **+.048 [+.031, +.068]** | 4/4 | **CONFIRMED** |
+
+**80% ranges (S+1 actual − Marcel; 10th, 90th percentiles) by PA in S:**
+- wOBA: 100–250 PA −.057/+.052; 250–400 −.060/+.032; 400–550 −.059/+.035; 550+ −.040/+.033.
+- K/PA: −.051/+.059, −.045/+.064, −.041/+.052, −.038/+.039.
+- BB/PA: −.030/+.030, −.029/+.026, −.027/+.023, −.021/+.032.
+
+**Read:** the sanity gate passes, as expected. The wOBA ranges are lopsided: Marcel overshoots more often than it undershoots. It carries no age term, and next season's hitters skew older and include the ones who held their jobs. The ranges keep that asymmetry rather than hiding it. **Shipped:** all three rates, display-only, as "Marcel baseline" with these measured ranges (`hitter_proj.projections`).
