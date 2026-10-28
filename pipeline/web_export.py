@@ -1446,6 +1446,16 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             return {"id": str(src[0]), "n": _names_by_id.get(src[0]), "s": src[1],
                     "d": round(float(d[j]), 2),
                     "dv": [round(velo - src[3], 1), round(ivb - src[4], 1), round(hb - src[5], 1)]}
+        # D-07 (§73, descriptive): Whiff+ per type vs each batter hand, shrunk + CI, and usage by hand
+        platoon = {}
+        plf = ROOT / "pipeline" / "results" / "platoon_splits.csv"
+        if level == "mlb" and plf.exists():
+            for pl in pd.read_csv(plf).itertuples():
+                h = "LHH" if pl.stand == "L" else "RHH"
+                platoon.setdefault((int(pl.pitcher), int(pl.season), pl.site), {}).update({
+                    f"stuffVs{h}": f(pl.grade, 1), f"stuffVs{h}Shrunk": f(pl.grade_shrunk, 1),
+                    f"stuffVs{h}Lo": f(pl.lo, 1), f"stuffVs{h}Hi": f(pl.hi, 1),
+                    f"usageVs{h}": f(pl.usage, 1), f"nVs{h}": int(pl.n)})
         player_index = {}
         written_pairs: set[tuple[int, int]] = set()
         written_latest: set[int] = set()
@@ -1504,6 +1514,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                     "twin": twin_of(pid, site, b["velo"], b["ivb"], b["hb"]),
                     "pitchingPlus": f(pg, 1) if pg is not None else None,
                     "abStuffPlus": f(gr_row["stuff_plus_abs"], 1),
+                    **platoon.get((pid, season, site), {}),
                 })
             bb_rows = []
             for _, b in sub[sub["n_bip"] > 0].iterrows():

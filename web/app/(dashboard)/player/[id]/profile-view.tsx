@@ -254,6 +254,21 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
   );
 }
 
+const PLATOON_TIP = "Whiff+ of this pitch vs left- / right-handed hitters (shrunk toward its overall grade), with usage vs that hand. Both hands share one scale, so the usual same-side edge shows. Descriptive: the observed whiff split forecast next season's split better than this one (RESULTS-MLB §73).";
+
+/** Shrunk per-hand Whiff+ over usage vs that hand; neutral colour, since §73 did not confirm it as a forecast. */
+function PlatoonCell({ pitch, h }: { pitch: any; h: "LHH" | "RHH" }) {
+  const v = pitch[`stuffVs${h}Shrunk`];
+  if (typeof v !== "number") return <div className="w-[76px] text-right text-xs text-text-dim">—</div>;
+  const tip = `Raw ${pitch[`stuffVs${h}`]} (95% CI ${pitch[`stuffVs${h}Lo`]}–${pitch[`stuffVs${h}Hi`]}) on ${pitch[`nVs${h}`]} pitches`;
+  return (
+    <div className="w-[76px] text-right text-xs font-data leading-tight text-text-secondary" title={tip}>
+      {Math.round(v)}
+      <span className="block text-[9px] text-text-dim">{pitch[`usageVs${h}`]?.toFixed(1)}% use</span>
+    </div>
+  );
+}
+
 export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, backHref = "/pitchers", level }: ProfileViewProps) {
   const [vaaPitchFilter, setVaaPitchFilter] = useState<string>("all");
   const [percentilePitchTab, setPercentilePitchTab] = useState<string | null>(null);
@@ -322,6 +337,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
     (a: any, b: any) => (b.n_bip || b.nBip || 0) - (a.n_bip || a.nBip || 0),
   );
 
+  const hasPlatoon = rows.some((p: any) => typeof p.stuffVsLHHShrunk === "number" || typeof p.stuffVsRHHShrunk === "number");
+
   /** The pitch table. `compact` is the Overview's version beside the movement plot; the Arsenal tab carries every column. */
   const arsenalCard = (compact: boolean) => (
     <div className="glass-panel overflow-hidden" data-glow="fastball">
@@ -348,6 +365,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
             <div className="w-[100px] text-right text-usf-gold" title={STUFF_TIP}>Whiff+</div>
             {!compact && <div className="w-[84px] text-right" title={PITCHING_TIP}>Pitching+</div>}
             {!compact && <div className="w-[54px] text-right" title={RV100_TIP}>RV/100</div>}
+            {!compact && hasPlatoon && <div className="w-[76px] text-right" title={PLATOON_TIP}>vs LHH</div>}
+            {!compact && hasPlatoon && <div className="w-[76px] text-right" title={PLATOON_TIP}>vs RHH</div>}
           </div>
           {rows.map((pitch: any, i: number) => {
             const pt = pitch.pitchType || "FF";
@@ -408,6 +427,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                     {typeof pitch.rv100 === "number" && Number.isFinite(pitch.rv100) ? signed2(pitch.rv100) : "—"}
                   </div>
                 )}
+                {!compact && hasPlatoon && (["LHH", "RHH"] as const).map((h) => <PlatoonCell key={h} pitch={pitch} h={h} />)}
               </div>
             );
           })}

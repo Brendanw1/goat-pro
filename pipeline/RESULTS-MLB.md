@@ -1947,3 +1947,15 @@ CONFIRMED if the 95% CI lower bound is > 0.
 - the n.
 
 **What it means either way.** If CONFIRMED, the per-hand grades ship as the better forecast of a pitch's platoon split. If NOT CONFIRMED, they still ship, labelled descriptive (shape-based, this season), because usage by hand and the per-hand grades describe the arsenal either way. Nothing gets coloured as a forecast. Pitching+ by hand is not in scope: its per-pitch cache has no batter-hand column.
+
+**Result (read once, 2026-10-28): NOT CONFIRMED.** Δr = −.058, 95% CI [−.104, −.011], n = 2,035 pitcher × type pairs. The observed whiff gap in S forecasts S+1 better than the shrunk predicted gap in every pair but 2025→26:
+- r(obs) ranges .37 to .47;
+- r(pred) ranges .34 to .39.
+
+Reported:
+- raw predicted gap, Δr = −.050 [−.098, −.002];
+- YoY r of the shrunk predicted gap, .84.
+
+The model's gap is a very stable property of shape, but some platoon skill sits outside shape: release angle, deception, sequencing.
+
+**Shipped:** per-hand Whiff+ (raw, shrunk, CI) and usage on profile arsenal rows, labelled descriptive. Not coloured as a forecast (`results/platoon_splits.csv`, `platoon_SEALED.json`).
