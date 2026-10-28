@@ -3895,11 +3895,32 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             }
             POS_LABEL = {"of": "OF", "rhp": "RHP", "lhp": "LHP", "ss": "SS", "c": "C",
                          "1b": "1B", "2b": "2B", "3b": "3B"}
+            # slug -> site abbr, same pairs the /prospects page's chips use
+            SLUG_ABBR = {
+                "angels": "LAA", "astros": "HOU", "athletics": "ATH", "bluejays": "TOR",
+                "braves": "ATL", "brewers": "MIL", "cardinals": "STL", "cubs": "CHC",
+                "dbacks": "AZ", "dodgers": "LAD", "giants": "SF", "guardians": "CLE",
+                "mariners": "SEA", "marlins": "MIA", "mets": "NYM", "nationals": "WSH",
+                "orioles": "BAL", "padres": "SD", "phillies": "PHI", "pirates": "PIT",
+                "rangers": "TEX", "rays": "TB", "redsox": "BOS", "reds": "CIN",
+                "rockies": "COL", "royals": "KC", "tigers": "DET", "twins": "MIN",
+                "whitesox": "CWS", "yankees": "NYY",
+            }
+            # Pipeline's ARCHIVED lists return each player's CURRENT org: graduated
+            # major leaguers carry null (no activeRoster), released players read
+            # "Office of the Commissioner". List MEMBERSHIP is historical, though —
+            # a player on the 2011 Angels' top 30 was an Angel in 2011 — so the
+            # historical org is reconstructed from that year's team lists before
+            # the rows are cleaned (rank stays Pipeline's; only the org is filled).
+            RECON_NULL = {None, "", "Office of the Commissioner"}
 
-            def _clean_row(r: dict) -> dict:
+            def _clean_row(r: dict, hist_org: dict | None = None) -> dict:
+                org = ORG_ABBR.get(r["org"] or "", r["org"])
+                if org in RECON_NULL and hist_org and r["id"] in hist_org:
+                    org = hist_org[r["id"]]
                 return {
                     "rank": int(r["rank"]), "id": str(r["id"]), "n": r["name"],
-                    "pos": r["pos"], "org": ORG_ABBR.get(r["org"] or "", r["org"]),
+                    "pos": r["pos"], "org": org,
                     "eta": r.get("eta"), "age": r.get("age"), "bats": r.get("bats"),
                     "gradesH": r.get("gradesHitting"), "gradesP": r.get("gradesPitching"),
                 }
@@ -3909,8 +3930,22 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             n_season_files = 0
             for year, lists in sorted(raw.items(), key=lambda kv: int(kv[0])):
                 season_out = {}
+                # membership org, keyed by player id; a traded prospect can sit on
+                # two club lists — keep the BETTER (lower) rank's club.
+                hist_org: dict = {}
                 for key, rows in sorted(lists.items()):
-                    cleaned = [_clean_row(r) for r in rows]
+                    if not key.startswith("team:"):
+                        continue
+                    abbr = SLUG_ABBR.get(key.partition(":")[2])
+                    if not abbr:
+                        continue
+                    for r0 in rows:
+                        pid = r0["id"]
+                        if pid not in hist_org or int(r0["rank"]) < int(hist_org[pid][0]):
+                            hist_org[pid] = (int(r0["rank"]), abbr)
+                hist = {pid: abbr for pid, (_, abbr) in hist_org.items()}
+                for key, rows in sorted(lists.items()):
+                    cleaned = [_clean_row(r, hist) for r in rows]
                     if key == "top100":
                         season_out["top100"] = cleaned
                     else:
