@@ -21,6 +21,7 @@ import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { SprayPanel } from "@/components/ui/spray-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
+import { TrendPanel } from "@/components/ui/trend-panel";
 
 const pct1 = (v: number) => v.toFixed(1);
 const dec3 = (v: number) => v.toFixed(3).replace(/^0/, "");
@@ -340,6 +341,8 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                 ]} />
               </PercentilePanel>
             )}
+
+            <TrendPanel trend={profile.trend} role="hitter" />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="glass-panel p-4">

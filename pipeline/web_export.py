@@ -146,6 +146,23 @@ def pct5(values) -> dict | None:
             "p90": round(float(p90), 3)}
 
 
+@functools.lru_cache(maxsize=2)
+def p_depth(level: str, seasons: tuple, con) -> tuple[dict, dict]:
+    """D-35 (pipeline/hitter_depth.py): contact and bat tracking AGAINST each pitcher-season (>= 50 BF),
+    plus the per-game trend rows. Shared by the pitchers and players families."""
+    from hitter_depth import pitcher_depth, trends
+    PD = {"xwoba": ("xwobaAg", 3), "xba": ("xbaAg", 3), "xslg": ("xslgAg", 3), "xwobacon": ("xwobaconAg", 3),
+          "woba": ("wobaAg", 3), "xwoba_gap": ("wobaMinusXwobaAg", 3), "ev_mean": ("evAg", 1),
+          "hard_hit": ("hardHitPctAg", 1), "barrel": ("barrelPctAg", 1), "sweet_spot": ("sweetSpotPctAg", 1),
+          "pull_air": ("pullAirPctAg", 1), "bat_speed": ("batSpeedAg", 1), "squared_up": ("squaredUpPctAg", 1),
+          "blast": ("blastPctAg", 1), "rv100_fb": ("rvPer100Fb", 2), "rv100_br": ("rvPer100Br", 2),
+          "rv100_os": ("rvPer100Os", 2)}
+    d = pitcher_depth(con, seasons, level=level)
+    depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in PD.items() if c in r}
+             for r in d.to_dict("records")}
+    return depth, trends(con, seasons, who="pitcher", level=level)
+
+
 def dense_q(values, n: int = 99) -> list[float] | None:
     v = np.asarray([x for x in values if x is not None and np.isfinite(x)], dtype=float)
     if v.size < 30:
@@ -871,6 +888,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "nPitches": int(gr["pitches_graded"]), "nStuffPitches": int(gr["pitches_graded"]),
             }
             discipline_fields(row, t, season=int(t["season"]), totals=totals)
+            row.update(p_depth(level, tuple(seasons), con)[0].get((int(t["id"]), int(t["season"])), {}))
             board_rows.append(row)
         board = pd.DataFrame(board_rows)
         print(f"board rows: {len(board)}")
@@ -885,7 +903,10 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                           "kPlus", "preventionPlus", "controlPlus", "kProj", "pitchingRunsPer100",
                           "zonePct", "chasePct", "zSwingPct", "zWhiffPct", "oWhiffPct", "zContactPct",
                           "oContactPct", "swStrPct", "calledStrikePct", "firstPitchStrikePct",
-                          "putawayPct", "swingPct"]
+                          "putawayPct", "swingPct",
+                          "xwobaAg", "xbaAg", "xslgAg", "xwobaconAg", "wobaAg", "evAg", "hardHitPctAg",
+                          "barrelPctAg", "sweetSpotPctAg", "pullAirPctAg", "batSpeedAg", "squaredUpPctAg",
+                          "blastPctAg", "rvPer100Fb", "rvPer100Br", "rvPer100Os"]
 
         # per-pitch-type rows joined to their season's grades — the per_type population
         type_grades = bytype[(bytype["n"] >= SABR_FLOORS["type"])].copy()
@@ -1293,6 +1314,9 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "percentiles": {},
             }
             discipline_fields(doc, t, season=season, totals=totals)
+            p_dep, p_tr = p_depth(level, tuple(seasons), con)
+            doc.update(p_dep.get((pid, season), {}))
+            doc["trend"] = p_tr.get((pid, season))
             rel_row = rel_stats.loc[(pid, season)] if (pid, season) in rel_stats.index else None
             if rel_row is not None:
                 doc["release"] = [{
@@ -2073,7 +2097,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         HITTER_PA_FLOOR = 50
         # D-34 depth (pipeline/hitter_depth.py): Savant expected stats, batted-ball
         # direction, bat tracking (>= 50 tracked swings), sprint speed, batting RV/100.
-        from hitter_depth import hitter_depth
+        from hitter_depth import hitter_depth, trends
         HD = {"xwoba": ("xwoba", 3), "xba": ("xba", 3), "xslg": ("xslg", 3), "xwobacon": ("xwobacon", 3),
               "xwoba_gap": ("wobaMinusXwoba", 3), "rv100": ("batRvPer100", 2), "sweet_spot": ("sweetSpotPct", 1),
               "pull": ("pullPct", 1), "oppo": ("oppoPct", 1), "pull_air": ("pullAirPct", 1), "la_sd": ("laSd", 1),
@@ -2081,6 +2105,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
               "attack_angle": ("attackAngle", 1), "ideal_aa": ("idealAaPct", 1),
               "squared_up": ("squaredUpPct", 1), "blast": ("blastPct", 1), "sprint_speed": ("sprintSpeed", 1)}
         hd = hitter_depth(con, tuple(seasons), level=level)
+        h_trend = trends(con, tuple(seasons), who="batter", level=level)
         h_depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in HD.items() if c in r}
                    for r in hd.to_dict("records")}
         hboard = []
@@ -2422,6 +2447,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "vsFamily": vs_fam.get((pid, season)),
                 "faced": sorted(faced_by.get((pid, season), []), key=lambda x: -x["n"]),
                 **h_depth.get((pid, season), {}),
+                "trend": h_trend.get((pid, season)),
                 "percentiles": {},
                 **h_shrunk(t, season),
             }

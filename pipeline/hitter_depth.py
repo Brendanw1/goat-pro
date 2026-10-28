@@ -28,8 +28,8 @@ import mart  # noqa: E402
 
 SQL = """
 WITH p AS (
-  SELECT batter AS id, season, stand, pitch_type, description, events, bb_type, launch_speed AS ev,
-         launch_angle AS la, hc_x, hc_y, release_speed, bat_speed, swing_length, attack_angle,
+  SELECT {who} AS id, season, stand, pitch_type, description, events, bb_type, launch_speed AS ev,
+         launch_angle AS la, launch_speed_angle, hc_x, hc_y, release_speed, bat_speed, swing_length, attack_angle,
          attack_direction, swing_path_tilt, intercept_ball_minus_batter_pos_y_inches AS depth,
          estimated_ba_using_speedangle AS xba, estimated_slg_using_speedangle AS xslg,
          estimated_woba_using_speedangle AS xw, woba_value, woba_denom, delta_run_exp AS rv,
@@ -41,7 +41,7 @@ WITH p AS (
               WHEN pitch_type IN ('SL','ST','SV','CU','KC') THEN 'br'
               WHEN pitch_type IN ('CH','FS','FO','SC') THEN 'os' END AS fam
   FROM {tbl}
-  WHERE game_type = 'R' AND season IN ({seasons}) AND batter IS NOT NULL
+  WHERE game_type = 'R' AND season IN ({seasons}) AND {who} IS NOT NULL
 ),
 sw AS (  -- tracked swings, ranked by bat speed: the fastest 90% approximate Savant's competitive swings
   SELECT *, percent_rank() OVER (PARTITION BY id, season ORDER BY bat_speed DESC) AS r,
@@ -78,6 +78,8 @@ a AS (
          avg((la BETWEEN 8 AND 32)::INT) FILTER (WHERE bip AND la IS NOT NULL) AS sweet_spot,
          avg(la) FILTER (WHERE bip) AS la_mean, stddev_samp(la) FILTER (WHERE bip) AS la_sd,
          avg(ev) FILTER (WHERE bip) AS ev_mean,
+         avg((ev >= 95)::INT) FILTER (WHERE bip AND ev IS NOT NULL) AS hard_hit,
+         avg((launch_speed_angle = 6)::INT) FILTER (WHERE bip AND launch_speed_angle IS NOT NULL) AS barrel,
          sum(CASE WHEN bip AND xw IS NOT NULL THEN xw ELSE woba_value END) FILTER (WHERE woba_denom > 0)
            / nullif(sum(woba_denom), 0) AS xwoba,
          avg(xw) FILTER (WHERE bip) AS xwobacon,
@@ -117,7 +119,7 @@ def sprint(con, seasons) -> pd.DataFrame:
 def hitter_depth(con=None, seasons=(2023, 2024, 2025, 2026), level: str = "mlb") -> pd.DataFrame:
     con = con or mart.connect()
     tbl = "pitches_aaa" if level == "aaa" else "pitches_all"
-    d = con.sql(SQL.format(tbl=tbl, seasons=",".join(map(str, seasons)))).df()
+    d = con.sql(SQL.format(tbl=tbl, who="batter", seasons=",".join(map(str, seasons)))).df()
     if level == "mlb":
         d = d.merge(sprint(con, seasons), on=["id", "season"], how="left")
     pct = ["gb", "ld", "fb", "pu", "pull", "straight", "oppo", "pull_air", "sweet_spot", "fast_swing",
@@ -130,6 +132,54 @@ def hitter_depth(con=None, seasons=(2023, 2024, 2025, 2026), level: str = "mlb")
         d.loc[d[f"n_{fam}"] < 100, f"rv100_{fam}"] = None  # < 100 pitches of a family: not shown
     d["xwoba_gap"] = d["woba"] - d["xwoba"]
     return d.sort_values(["id", "season"]).reset_index(drop=True)
+
+
+def pitcher_depth(con=None, seasons=(2023, 2024, 2025, 2026), level: str = "mlb") -> pd.DataFrame:
+    """The same roll-up from the mound (>= 50 batters faced): contact and bat tracking AGAINST him.
+    rv100 is flipped to pitcher-positive, like every pitcher run value on the site."""
+    con = con or mart.connect()
+    tbl = "pitches_aaa" if level == "aaa" else "pitches_all"
+    d = con.sql(SQL.format(tbl=tbl, who="pitcher", seasons=",".join(map(str, seasons)))).df()
+    pct = ["gb", "ld", "fb", "pu", "pull", "oppo", "pull_air", "sweet_spot", "squared_up", "blast", "hard_hit", "barrel"]
+    d[pct] = 100 * d[pct]
+    d.loc[d["n_tracked"].fillna(0) < 50, ["bat_speed", "squared_up", "blast"]] = None
+    rv = ["rv100", "rv100_fb", "rv100_ct", "rv100_br", "rv100_os"]
+    d[rv] = -d[rv]
+    for fam in ("fb", "ct", "br", "os"):
+        d.loc[d[f"n_{fam}"] < 100, f"rv100_{fam}"] = None
+    d["xwoba_gap"] = d["woba"] - d["xwoba"]
+    return d.sort_values(["id", "season"]).reset_index(drop=True)
+
+
+TREND_SQL = """
+SELECT {who} AS id, season, substr(CAST(game_date AS VARCHAR), 6, 5) AS d,
+       count(*) FILTER (WHERE events IS NOT NULL) AS pa,
+       coalesce(sum(woba_value) FILTER (WHERE woba_denom > 0), 0) AS wn,
+       coalesce(sum(CASE WHEN description = 'hit_into_play' AND estimated_woba_using_speedangle IS NOT NULL
+                    THEN estimated_woba_using_speedangle ELSE woba_value END) FILTER (WHERE woba_denom > 0), 0) AS xn,
+       coalesce(sum(woba_denom), 0) AS den, coalesce(sum(delta_run_exp), 0) AS rv
+FROM {tbl} WHERE game_type = 'R' AND season IN ({seasons}) AND {who} IS NOT NULL
+GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
+"""
+
+
+def trends(con=None, seasons=(2023, 2024, 2025, 2026), who: str = "batter", level: str = "mlb") -> dict:
+    """{(id, season): {"cols", "rows", "lg"}}: one row per game date, [mm-dd, PA, wOBA numerator, xwOBA
+    numerator, wOBA denominator, run value], RV signed good-for-him (batter-positive for hitters,
+    pitcher-positive for pitchers); "lg" is that season's league wOBA and xwOBA for the reference line."""
+    con = con or mart.connect()
+    tbl = "pitches_aaa" if level == "aaa" else "pitches_all"
+    g = con.sql(TREND_SQL.format(tbl=tbl, who=who, seasons=",".join(map(str, seasons)))).df()
+    sign = 1 if who == "batter" else -1
+    lg = {int(s): {"woba": round(float(x.wn.sum() / x.den.sum()), 3), "xwoba": round(float(x.xn.sum() / x.den.sum()), 3)}
+          for s, x in g.groupby("season") if x.den.sum() > 0}
+    out = {}
+    for (i, s), x in g.groupby(["id", "season"]):
+        out[(int(i), int(s))] = {
+            "cols": ["d", "pa", "wn", "xn", "den", "rv"], "lg": lg.get(int(s)),
+            "rows": [[r.d, int(r.pa), round(float(r.wn), 2), round(float(r.xn), 3), int(r.den), round(sign * float(r.rv), 3)]
+                     for r in x.itertuples()]}
+    return out
 
 
 def verify(d: pd.DataFrame, con) -> None:
@@ -160,8 +210,24 @@ def verify(d: pd.DataFrame, con) -> None:
                           f"mean ours {x[ours].mean():7.3f}  savant {(x[tcol] * k).mean():7.3f}")
 
 
+def demo(con) -> None:
+    """Self-check: trend rows sum back to the season roll-up, and the pitcher RV sign flips."""
+    h = hitter_depth(con, seasons=(2025,)).set_index("id")
+    t = trends(con, seasons=(2025,), who="batter")[(592450, 2025)]
+    wn, xn, den = (sum(r[k] for r in t["rows"]) for k in (2, 3, 4))
+    assert abs(wn / den - h.loc[592450, "woba"]) < 0.002 and abs(xn / den - h.loc[592450, "xwoba"]) < 0.002
+    p = pitcher_depth(con, seasons=(2025,)).set_index("id")
+    tp = trends(con, seasons=(2025,), who="pitcher")[(554430, 2025)]
+    rv = sum(r[5] for r in tp["rows"])
+    assert abs(100 * rv / p.loc[554430, "n_fb":"n_os"].sum() - p.loc[554430, "rv100"]) < 0.3, rv
+    print("demo ok")
+
+
 if __name__ == "__main__":
     con = mart.connect()
+    if "--demo" in sys.argv:
+        demo(con)
+        sys.exit()
     d = hitter_depth(con)
     print(d.groupby("season").size().to_dict())
     verify(d, con)

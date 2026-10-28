@@ -55,6 +55,9 @@ const PITCHER_LOWER_IS_BETTER = new Set([
   "bbPct", "era", "fip", "xwOBA_against", "xwOBACON_against",
   "adj_era", "adj_fip", "adj_xwoba_against",
   "relHeightSD", "relSideSD",
+  // D-35 contact and bat tracking against him
+  "xwobaAg", "xbaAg", "xslgAg", "xwobaconAg", "wobaAg", "evAg", "hardHitPctAg", "barrelPctAg",
+  "sweetSpotPctAg", "pullAirPctAg", "batSpeedAg", "squaredUpPctAg", "blastPctAg",
 ]);
 
 /**
@@ -78,7 +81,7 @@ const PITCHER_LOWER_IS_BETTER = new Set([
 const PITCHER_HIGHER_IS_BETTER = new Set([
   "kPct", "kBbPct",
   "stuffPlus", "stuffPlusShrunk", "abStuffPlus", "abStuffPlusShrunk", "locPlus", "pitchingPlus", "xrvPlus", "velo", "ivb",
-  "xrvPer100", "adj_xrv_per_100",
+  "xrvPer100", "adj_xrv_per_100", "rvPer100Fb", "rvPer100Br", "rvPer100Os",
   "gbPct", "contactSuppressionZ", "extension",
   "spin", "highLocPct",
 ]);

@@ -33,11 +33,13 @@ import { SituationalRunsPanel } from "@/components/ui/situational-runs-panel";
 import { LocationMixPanel } from "@/components/ui/location-mix-panel";
 import { ArsenalOverview } from "@/components/ui/arsenal-overview";
 import { RV100_TIP } from "@/lib/rv-cells";
+import { TrendPanel } from "@/components/ui/trend-panel";
 
 const int0 = (v: number) => Math.round(v).toString();
 const pct1 = (v: number) => v.toFixed(1) + "%";
 const dec2 = (v: number) => v.toFixed(2);
 const signed2 = (v: number) => (v > 0 ? "+" : "") + v.toFixed(2);
+const dec3 = (v: number) => v.toFixed(3).replace(/^0/, "");
 
 /** Balls in play below which a batted-ball row renders dim (marked thin, never dropped). */
 const THIN_BIP = 5;
@@ -659,6 +661,26 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               statRow("pitcher", "era", "RA/9", profile.era, dec2, pitcherBp?.era, thinBf),
               statRow("pitcher", "gbPct", "GB%", profile.gbPct, pct1, pitcherBp?.gbPct, thinBf),
             ]} />
+            <PercentileGroup title="Contact against" rows={[
+              statRow("pitcher", "xwobaAg", "xwOBA", profile.xwobaAg, dec3, pitcherBp?.xwobaAg, thinBf),
+              statRow("pitcher", "xbaAg", "xBA", profile.xbaAg, dec3, pitcherBp?.xbaAg, thinBf),
+              statRow("pitcher", "xslgAg", "xSLG", profile.xslgAg, dec3, pitcherBp?.xslgAg, thinBf),
+              statRow("pitcher", "xwobaconAg", "xwOBACON", profile.xwobaconAg, dec3, pitcherBp?.xwobaconAg, thinBf),
+              statRow("pitcher", "evAg", "Avg EV", profile.evAg, (v) => v.toFixed(1), pitcherBp?.evAg, thinBf),
+              statRow("pitcher", "hardHitPctAg", "Hard-hit%", profile.hardHitPctAg, pct1, pitcherBp?.hardHitPctAg, thinBf),
+              statRow("pitcher", "barrelPctAg", "Barrel%", profile.barrelPctAg, pct1, pitcherBp?.barrelPctAg, thinBf),
+              statRow("pitcher", "sweetSpotPctAg", "Sweet-spot%", profile.sweetSpotPctAg, pct1, pitcherBp?.sweetSpotPctAg, thinBf),
+            ]} />
+            <PercentileGroup title="Swings against (bat tracking)" rows={[
+              statRow("pitcher", "batSpeedAg", "Bat speed", profile.batSpeedAg, (v) => v.toFixed(1), pitcherBp?.batSpeedAg),
+              statRow("pitcher", "squaredUpPctAg", "Squared-up%", profile.squaredUpPctAg, pct1, pitcherBp?.squaredUpPctAg),
+              statRow("pitcher", "blastPctAg", "Blast%", profile.blastPctAg, pct1, pitcherBp?.blastPctAg),
+            ]} />
+            <PercentileGroup title="Run value by family" rows={[
+              statRow("pitcher", "rvPer100Fb", "Fastballs", profile.rvPer100Fb, signed2, pitcherBp?.rvPer100Fb),
+              statRow("pitcher", "rvPer100Br", "Breaking", profile.rvPer100Br, signed2, pitcherBp?.rvPer100Br),
+              statRow("pitcher", "rvPer100Os", "Offspeed", profile.rvPer100Os, signed2, pitcherBp?.rvPer100Os),
+            ]} />
             <PercentileGroup title="P7 value" rows={[
               statRow("pitcher", "kPlus", "K+", profile.kPlus, int0, pitcherBp?.kPlus, thinGrade),
               statRow("pitcher", "preventionPlus", "Prevention+", profile.preventionPlus, int0, pitcherBp?.preventionPlus, thinGrade),
@@ -674,6 +696,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
             ]} />
           </PercentilePanel>
         )}
+
+        <TrendPanel trend={profile.trend} role="pitcher" />
 
         {/* Raw plate discipline (P4): rates + descriptive season ranks. The EB
             shrinkage behind the college fork's sample-adjusted rankings does not
