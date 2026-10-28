@@ -271,8 +271,9 @@ export function HeaderStat({ label, value, rank, neutral, title, sub }: {
     <div className="min-w-[44px] text-center" title={title}>
       <div className="font-data text-lg font-bold leading-tight text-text-primary">{value}</div>
       <div className="text-[10px] text-text-dim">{label}</div>
-      <div className="flex h-[14px] items-center justify-center">
-        {rank != null ? <PercentileDot rank={rank} neutral={neutral} /> : sub}
+      <div className={sub ? "flex flex-col items-center gap-0.5" : "flex h-[14px] items-center justify-center"}>
+        {rank != null ? <PercentileDot rank={rank} neutral={neutral} /> : null}
+        {sub}
       </div>
     </div>
   );

@@ -22,6 +22,8 @@ import { DynamicStuffLab } from "@/components/3d/lab-dynamic";
 import { SharedGradeNote, GyroTag } from "@/components/ui/shared-grade-note";
 import { PitcherVisualsTab } from "@/components/ui/visuals-tab";
 import { CareerArsenal } from "@/components/ui/career-arsenal";
+import { YoYDelta } from "@/components/ui/yoy-delta";
+import { SeasonArc } from "@/components/ui/season-arc";
 import { TunnelPairs } from "@/components/ui/tunnel-pairs";
 import { baseCode, type PitchType, MovementPoint, ReleasePoint } from "@/types";
 import { DescriptiveChip, DESCRIPTIVE_LINE, PITCHING_TIP, K_TIP, PREVENTION_TIP, CONTROL_TIP, STUFF_TIP, gradeColor, confidenceBadge } from "@/lib/grades";
@@ -549,12 +551,19 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           </div>
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
             {[
-              { key: "kPct", label: "K%", value: profile.kPct, fmt: (v: number) => v.toFixed(1) + "%" },
-              { key: "bbPct", label: "BB%", value: profile.bbPct, fmt: (v: number) => v.toFixed(1) + "%" },
-              { key: "fip", label: "FIP", value: profile.fip, fmt: (v: number) => v.toFixed(2) },
-            ].filter((x) => typeof x.value === "number" && !isNaN(x.value)).map((x) => (
-              <HeaderStat key={x.key} label={x.label} value={x.fmt(x.value)} rank={headerRank(x.key, x.value)} />
-            ))}
+              { key: "kPct", label: "K%", value: profile.kPct, fmt: (v: number) => v.toFixed(1) + "%", good: 1, yoy: "kPct", min: 20, samp: "ip" },
+              { key: "bbPct", label: "BB%", value: profile.bbPct, fmt: (v: number) => v.toFixed(1) + "%", good: -1, yoy: "bbPct", min: 20, samp: "ip" },
+              { key: "fip", label: "FIP", value: profile.fip, fmt: (v: number) => v.toFixed(2), good: -1 },
+            ].filter((x) => typeof x.value === "number" && !isNaN(x.value)).map((x) => {
+              const prevRow = career?.seasons?.find((c: any) => c.s === profile.season - 1);
+              return (
+                <HeaderStat key={x.key} label={x.label} value={x.fmt(x.value)} rank={headerRank(x.key, x.value)}
+                  sub={x.yoy && prevRow ? (
+                    <YoYDelta prev={prevRow[x.yoy]} cur={x.value} goodDir={(x.good as 1 | -1)} fmt={x.fmt}
+                      minSample={x.min ?? 0} sample={x.samp === "ip" ? prevRow.ip : null} />
+                  ) : undefined} />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -673,7 +682,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
         </div>
       ) : (
       <div className="space-y-5">
-        {/* One percentile panel. Every rank on the page reads the same population. */}
+        <SeasonArc data={gameLog ?? null} />
+            {/* One percentile panel. Every rank on the page reads the same population. */}
         {percentiles?.pitchers && (
           <PercentilePanel
             peer={peerLine}

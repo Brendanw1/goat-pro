@@ -100,7 +100,7 @@ export async function PlayerPage({ id, season, level = "mlb", extra }: {
 {hitter ? (
         <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}
-          scoutingLeague={scoutingLeague} benchmarks={splitBench} visuals={visuals} level={level} />
+          scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} level={level} />
       ) : (
         <PlayerProfileView
           profile={profile}

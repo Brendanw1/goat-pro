@@ -686,7 +686,30 @@ def _visuals_payload(task: tuple):
 
 def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int | None, level: str = "mlb") -> dict:
     """One full pass. `only` limits the families baked (None = all); `player`
-    limits the per-player file loops. Returns a counts dict for the log."""
+    limits the per-player file loops. Returns a counts dict for the log.
+
+    Guarded by a lock file in the output directory: two agents share this
+    working tree, and overlapping bakes writing one export dir produced the
+    intermittent --check diffs of 2026-10-28. A stale lock (dead pid) breaks."""
+    lock_path = Path(out) / "BAKE_LOCK"
+    if lock_path.exists():
+        try:
+            other = int(lock_path.read_text().strip() or 0)
+            os.kill(other, 0)
+            raise SystemExit(f"another bake holds {lock_path} (pid {other}); if it is dead, delete the lock file")
+        except (ProcessLookupError, ValueError):
+            pass
+        except PermissionError:
+            raise SystemExit(f"another bake holds {lock_path} (pid belongs to another user)")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.write_text(str(os.getpid()))
+    try:
+        return _bake_inner(out, seasons, only, player, level)
+    finally:
+        lock_path.unlink(missing_ok=True)
+
+
+def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: int | None, level: str = "mlb") -> dict:
     t0 = time.time()
     pf = ROOT / "pipeline" / "results" / "park_factors.json"  # §70 (D-04): venue factors, any family's bake
     if level == "mlb" and pf.exists():
@@ -3415,7 +3438,11 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                         + CASE WHEN events IN {OUT_EVENTS_2} THEN 2 ELSE 0 END
                         + CASE WHEN events IN {OUT_EVENTS_3} THEN 3 ELSE 0 END) AS outs,
                    COUNT(DISTINCT (game_pk, at_bat_number)) AS bf,
-                   COUNT(*) AS np
+                   COUNT(*) AS np,
+                   SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS nk,
+                   SUM(CASE WHEN events IN ('walk','intentional_walk','intent_walk') THEN 1 ELSE 0 END) AS nbb,
+                   SUM(CASE WHEN description IN ('called_strike','swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS ncsw,
+                   SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS nwh
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL
               {DETAIL_GATE}
@@ -3446,6 +3473,10 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             total = sum(v[0] for v in mx.values())
             car_by.setdefault(int(t.id), []).append({
                 "s": int(t.season), "ip": f(t.outs / 3, 1), "bf": int(t.bf), "np": int(t.np),
+                "kPct": f(100 * t.nk / t.bf, 1) if t.bf else None,
+                "bbPct": f(100 * t.nbb / t.bf, 1) if t.bf else None,
+                "cswPct": f(100 * t.ncsw / t.np, 1) if t.np else None,
+                "whiffPct": f(100 * t.nwh / t.np, 1) if t.np else None,
                 "mix": [[k2, v2[0], v2[1], v2[2], v2[3]] for k2, v2 in sorted(mx.items(), key=lambda kv: -kv[1][0])],
                 "usage": {k2: round(100 * v2[0] / total, 1) for k2, v2 in mx.items()} if total else {},
             })
@@ -3464,7 +3495,17 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             SELECT batter AS id, season,
                    COUNT(DISTINCT (game_pk, at_bat_number)) AS pa,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
-                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS ev
+                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS ev,
+                   SUM(CASE WHEN events = 'single' THEN 1 ELSE 0 END) AS s1,
+                   SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
+                   SUM(CASE WHEN events = 'triple' THEN 1 ELSE 0 END) AS s3,
+                   SUM(CASE WHEN events = 'home_run' THEN 1 ELSE 0 END) AS hr,
+                   SUM(CASE WHEN events IN ('walk','intentional_walk','intent_walk') THEN 1 ELSE 0 END) AS bb,
+                   SUM(CASE WHEN events = 'hit_by_pitch' THEN 1 ELSE 0 END) AS hbp,
+                   SUM(CASE WHEN events IN ('sac_fly','sac_fly_double_play') THEN 1 ELSE 0 END) AS sf,
+                   SUM(CASE WHEN events = 'sac_bunt' THEN 1 ELSE 0 END) AS sh,
+                   SUM(CASE WHEN events = 'catcher_interf' THEN 1 ELSE 0 END) AS ci,
+                   SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND stand IN ('L','R') AND p_throws IN ('L','R')
@@ -3472,9 +3513,19 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         """).df()
         hcar_by: dict = {}
         for t in car_h.itertuples():
+            ab = t.pa - t.bb - t.hbp - t.sf - t.sh - t.ci
+            obp_den = ab + t.bb + t.hbp + t.sf + t.ci
+            tb = t.s1 + 2 * t.s2 + 3 * t.s3 + 4 * t.hr
             hcar_by.setdefault(int(t.id), []).append({
                 "s": int(t.season), "pa": int(t.pa), "bip": int(t.bip),
                 "ev": f(t.ev, 1) if t.ev is not None else None,
+                "avg": f((t.s1 + t.s2 + t.s3 + t.hr) / ab, 3) if ab else None,
+                "obp": f((t.s1 + t.s2 + t.s3 + t.hr + t.bb + t.hbp + t.ci) / obp_den, 3) if obp_den else None,
+                "slg": f(tb / ab, 3) if ab else None,
+                "ops": f(((t.s1 + t.s2 + t.s3 + t.hr + t.bb + t.hbp + t.ci) / obp_den if obp_den else 0)
+                          + (tb / ab if ab else 0), 3) if (obp_den and ab) else None,
+                "kPct": f(100 * t.k / t.pa, 1) if t.pa else None,
+                "bbPct": f(100 * t.bb / t.pa, 1) if t.pa else None,
             })
         del car_h
         n_hcar = 0

@@ -19,6 +19,8 @@ import { getStatPercentileRank, PROFILE_PCT_FLOOR } from "@/lib/percentiles";
 import { signedFixed } from "@/components/ui/shared-ui";
 import { useState } from "react";
 import { GameLogPanel } from "@/components/ui/game-log-panel";
+import { SeasonArc } from "@/components/ui/season-arc";
+import { YoYDelta } from "@/components/ui/yoy-delta";
 import { SprayPanel } from "@/components/ui/spray-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
@@ -33,7 +35,7 @@ const FAM_LABEL: Record<string, string> = {
   FB: "Fastballs (FF/SI)", CT: "Cutters", BR: "Breaking (SL/SW/CB/KC)", OS: "Offspeed (CH/FS/EP)",
 };
 
-export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, visuals, level }: {
+export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, career, visuals, level }: {
   profile: any;
   percentiles: any;
   playerId: string;
@@ -43,6 +45,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
   scouting?: any | null;
   scoutingLeague?: any | null;
   benchmarks?: any | null;
+  career?: any | null;
   visuals?: any | null;
   level?: string;
 }) {
@@ -300,6 +303,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
           </div>
         ) : (
           <div className="space-y-5">
+            <SeasonArc data={gameLog ?? null} />
             {seasonBp && (
               <PercentilePanel
                 peer={`vs ${profile.season} MLB hitters (50+ PA) · ${sampleLine}`}

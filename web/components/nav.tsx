@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/hitters", label: "Hitters" },
   { href: "/minors", label: "Minors" },
   { href: "/teams", label: "Teams" },
+  { href: "/tunneling", label: "Tunneling" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/scouting/savant", label: "Savant boards" },
   { href: "/glossary", label: "Glossary" },
