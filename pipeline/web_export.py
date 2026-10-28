@@ -900,7 +900,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         # knuckleballs, which undercounted K, BB, H, HR and PA); the pitch-quality rates stay on px.
         ev_c = con.sql(f"""
             SELECT pitcher AS id, season,
-                   COUNT(DISTINCT (game_pk, at_bat_number)) FILTER (WHERE events IS NOT NULL) AS pa,
+                   COUNT(DISTINCT (game_pk, at_bat_number)) FILTER (WHERE events IS NOT NULL AND events <> 'truncated_pa') AS pa,
                    COUNT(*) FILTER (WHERE events IN ('strikeout','strikeout_double_play')) AS k,
                    COUNT(*) FILTER (WHERE events IN ('walk','intent_walk')) AS bb,
                    COUNT(*) FILTER (WHERE events = 'intent_walk') AS ibb,
@@ -1058,8 +1058,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    AVG(release_pos_z) AS rel_h,
                    AVG(release_pos_x) AS rel_s,
                    AVG(CASE WHEN arm_angle IS NOT NULL THEN arm_angle END) AS arm_angle,
-                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS ev,
-                   AVG(CASE WHEN launch_angle IS NOT NULL THEN launch_angle END) AS la,
+                   AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS ev,
+                   AVG(launch_angle) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS la,
                    SUM(CASE WHEN bb_type = 'ground_ball' THEN 1 ELSE 0 END) AS gb,
                    SUM(CASE WHEN bb_type = 'fly_ball' THEN 1 ELSE 0 END) AS fb,
                    SUM(CASE WHEN bb_type = 'line_drive' THEN 1 ELSE 0 END) AS ld,
@@ -2425,7 +2425,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
 
         hag = con.sql(f"""
             SELECT batter AS id, season,
-                   COUNT(DISTINCT CASE WHEN events IS NOT NULL THEN (game_pk, at_bat_number) END) AS pa,
+                   COUNT(DISTINCT CASE WHEN events IS NOT NULL AND events <> 'truncated_pa' THEN (game_pk, at_bat_number) END) AS pa,
                    COUNT(*) AS pitches_seen,
                    SUM(CASE WHEN events = 'single' THEN 1 ELSE 0 END) AS s1,
                    SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
@@ -2454,12 +2454,12 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    SUM(CASE WHEN bb_type = 'fly_ball' THEN 1 ELSE 0 END) AS fb,
                    SUM(CASE WHEN bb_type = 'line_drive' THEN 1 ELSE 0 END) AS ld,
                    SUM(CASE WHEN bb_type = 'popup' THEN 1 ELSE 0 END) AS pu,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS n_hard,
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS n_hard,
                    SUM({BARREL_SQL}) AS n_barrel,
-                   AVG(launch_speed) AS avg_ev,
-                   AVG(launch_angle) AS avg_la,
-                   QUANTILE_CONT(launch_speed, 0.9) AS ev90,
-                   MAX(launch_speed) AS maxev
+                   AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS avg_ev,
+                   AVG(launch_angle) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS avg_la,
+                   QUANTILE_CONT(launch_speed, 0.9) FILTER (WHERE bb_type IS NOT NULL) AS ev90,
+                   MAX(launch_speed) FILTER (WHERE bb_type IS NOT NULL) AS maxev
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND description IS NOT NULL {HITTER_GATE}
@@ -2684,7 +2684,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         def split_rows(group_sql: str, label_fn):
             q = con.sql(f"""
                 SELECT batter AS id, season, {group_sql} AS grp,
-                       COUNT(DISTINCT CASE WHEN events IS NOT NULL THEN (game_pk, at_bat_number) END) AS pa,
+                       COUNT(DISTINCT CASE WHEN events IS NOT NULL AND events <> 'truncated_pa' THEN (game_pk, at_bat_number) END) AS pa,
                        SUM(CASE WHEN events = 'single' THEN 1 ELSE 0 END) AS s1,
                        SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
                        SUM(CASE WHEN events = 'triple' THEN 1 ELSE 0 END) AS s3,
@@ -2698,7 +2698,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                        SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k,
                        SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS whiffs,
                        SUM(CASE WHEN description IN {SWING} THEN 1 ELSE 0 END) AS swings,
-                       AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS avg_ev
+                       AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS avg_ev
                 FROM pitches_all
                 WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
                   AND description IS NOT NULL {HITTER_GATE}
@@ -2736,7 +2736,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         def league_splits(group_sql: str):
             q = con.sql(f"""
                 SELECT season, {group_sql} AS grp,
-                       COUNT(DISTINCT CASE WHEN events IS NOT NULL THEN (game_pk, at_bat_number) END) AS pa,
+                       COUNT(DISTINCT CASE WHEN events IS NOT NULL AND events <> 'truncated_pa' THEN (game_pk, at_bat_number) END) AS pa,
                        SUM(CASE WHEN events = 'single' THEN 1 ELSE 0 END) AS s1,
                        SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
                        SUM(CASE WHEN events = 'triple' THEN 1 ELSE 0 END) AS s3,
@@ -2748,7 +2748,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                        SUM(CASE WHEN events = 'sac_bunt' THEN 1 ELSE 0 END) AS sh,
                        SUM(CASE WHEN events = 'catcher_interf' THEN 1 ELSE 0 END) AS ci,
                        SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k,
-                       AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS avg_ev
+                       AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS avg_ev
                 FROM pitches_all
                 WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
                   AND description IS NOT NULL {HITTER_GATE}
@@ -2786,13 +2786,13 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         # per-type league rates for the faced table (same measures, league-wide)
         bm_type_q = con.sql(f"""
             SELECT season, {site_case_sql()} AS site,
-                   COUNT(DISTINCT CASE WHEN events IS NOT NULL THEN (game_pk, at_bat_number) END) AS pa,
+                   COUNT(DISTINCT CASE WHEN events IS NOT NULL AND events <> 'truncated_pa' THEN (game_pk, at_bat_number) END) AS pa,
                    COUNT(*) AS n,
                    SUM(CASE WHEN description IN {SWING} THEN 1 ELSE 0 END) AS swings,
                    SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS whiffs,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
-                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS avg_ev
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
+                   AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS avg_ev
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND description IS NOT NULL {HITTER_GATE}
@@ -2825,8 +2825,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    SUM(CASE WHEN description IN {SWING} THEN 1 ELSE 0 END) AS swings,
                    SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS whiffs,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
-                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS avg_ev
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
+                   AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS avg_ev
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND stand IN ('L','R') AND p_throws IN ('L','R')
@@ -3041,9 +3041,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    SUM(CASE WHEN events IN ('walk','intent_walk') THEN 1 ELSE 0 END) AS bb,
                    SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS n_hard,
-                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS avg_ev,
-                   MAX(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS max_ev,
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS n_hard,
+                   AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS avg_ev,
+                   MAX(launch_speed) FILTER (WHERE bb_type IS NOT NULL) AS max_ev,
                    mode(CASE WHEN inning_topbot = 'Top' THEN away_team ELSE home_team END) AS team,
                    mode(CASE WHEN inning_topbot = 'Top' THEN home_team ELSE away_team END) AS opp
             FROM pitches_all
@@ -3406,9 +3406,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    COUNT(*) AS n,
                    SUM(CASE WHEN description IN {SWING} THEN 1 ELSE 0 END) AS swings,
                    SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS whiffs,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
-                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS ev
+                   AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS ev
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND stand IN ('L','R') AND p_throws IN ('L','R')
@@ -3435,7 +3435,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    SUM(CASE WHEN description IN ('swinging_strike','swinging_strike_blocked','foul_tip') THEN 1 ELSE 0 END) AS whiffs,
                    SUM(CASE WHEN zone BETWEEN 10 AND 14 AND description IN {SWING} THEN 1 ELSE 0 END) AS chase,
                    SUM(CASE WHEN zone BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS ooz,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
@@ -3470,7 +3470,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    COUNT(*) AS n,
                    SUM(CASE WHEN description IN {SWING} THEN 1 ELSE 0 END) AS sw,
                    SUM(CASE WHEN description IN {WHIFF} THEN 1 ELSE 0 END) AS wh,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
@@ -3485,7 +3485,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    SUM(CASE WHEN description IN {WHIFF} THEN 1 ELSE 0 END) AS wh,
                    SUM(CASE WHEN zone BETWEEN 10 AND 14 AND description IN {SWING} THEN 1 ELSE 0 END) AS chase,
                    SUM(CASE WHEN zone BETWEEN 10 AND 14 THEN 1 ELSE 0 END) AS ooz,
-                   SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
+                   SUM(CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95 THEN 1 ELSE 0 END) AS hard,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
@@ -3621,7 +3621,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             SELECT batter AS id, season,
                    COUNT(DISTINCT (game_pk, at_bat_number)) AS pa,
                    SUM(CASE WHEN bb_type IS NOT NULL THEN 1 ELSE 0 END) AS bip,
-                   AVG(CASE WHEN launch_speed IS NOT NULL THEN launch_speed END) AS ev,
+                   AVG(launch_speed) FILTER (WHERE bb_type IS NOT NULL AND des NOT ILIKE '%bunt%') AS ev,
                    SUM(CASE WHEN events = 'single' THEN 1 ELSE 0 END) AS s1,
                    SUM(CASE WHEN events = 'double' THEN 1 ELSE 0 END) AS s2,
                    SUM(CASE WHEN events = 'triple' THEN 1 ELSE 0 END) AS s3,

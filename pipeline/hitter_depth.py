@@ -28,7 +28,7 @@ import mart  # noqa: E402
 
 SQL = """
 WITH p AS (
-  SELECT {who} AS id, season, stand, pitch_type, description, events, bb_type, launch_speed AS ev,
+  SELECT {who} AS id, season, stand, pitch_type, description, des, events, bb_type, launch_speed AS ev,
          launch_angle AS la, launch_speed_angle, hc_x, hc_y, release_speed, bat_speed,
          -- pitch speed at the front of the plate (y = 17/12 ft) from the 9-parameter fit: Savant's
          -- squared-up max EV uses the speed at contact; release speed ran squared-up 1.4 and blast 2 pts low
@@ -71,7 +71,7 @@ swa AS (
 ),
 a AS (
   SELECT id, season,
-         count(*) FILTER (WHERE events IS NOT NULL) AS pa,
+         count(*) FILTER (WHERE events IS NOT NULL AND events <> 'truncated_pa') AS pa,
          count(*) FILTER (WHERE bip) AS bip,
          avg((bb_type = 'ground_ball')::INT) FILTER (WHERE bip) AS gb,
          avg((bb_type = 'line_drive')::INT) FILTER (WHERE bip) AS ld,
@@ -82,14 +82,15 @@ a AS (
          avg((pull_ang < -15)::INT) FILTER (WHERE bip AND pull_ang IS NOT NULL) AS oppo,
          avg((pull_ang > 15 AND bb_type IN ('line_drive','fly_ball'))::INT) FILTER (WHERE bip AND pull_ang IS NOT NULL) AS pull_air,
          avg((la BETWEEN 8 AND 32)::INT) FILTER (WHERE bip AND la IS NOT NULL) AS sweet_spot,
-         avg(la) FILTER (WHERE bip) AS la_mean, stddev_samp(la) FILTER (WHERE bip) AS la_sd,
-         avg(ev) FILTER (WHERE bip) AS ev_mean,
+         avg(la) FILTER (WHERE bip AND des NOT ILIKE '%bunt%') AS la_mean, stddev_samp(la) FILTER (WHERE bip AND des NOT ILIKE '%bunt%') AS la_sd,  -- Savant drops bunts
+         avg(ev) FILTER (WHERE bip AND des NOT ILIKE '%bunt%') AS ev_mean,
          avg((ev >= 95)::INT) FILTER (WHERE bip AND ev IS NOT NULL) AS hard_hit,
          avg((launch_speed_angle = 6)::INT) FILTER (WHERE bip AND launch_speed_angle IS NOT NULL) AS barrel,
          sum(CASE WHEN bip AND xw IS NOT NULL THEN xw ELSE woba_value END) FILTER (WHERE woba_denom > 0)
            / nullif(sum(woba_denom), 0) AS xwoba,
          avg(xw) FILTER (WHERE bip) AS xwobacon,
-         sum(woba_value) FILTER (WHERE woba_denom > 0) / nullif(sum(woba_denom), 0) AS woba,
+         sum(CASE WHEN events IN ('field_error', 'fielders_choice') THEN 0 ELSE woba_value END) FILTER (WHERE woba_denom > 0)
+           / nullif(sum(woba_denom), 0) AS woba,  -- ROE / FC are outs in wOBA; Statcast's woba_value scores them
          100 * avg(rv) AS rv100,
          100 * avg(rv) FILTER (WHERE fam = 'fb') AS rv100_fb, 100 * avg(rv) FILTER (WHERE fam = 'ct') AS rv100_ct,
          100 * avg(rv) FILTER (WHERE fam = 'br') AS rv100_br, 100 * avg(rv) FILTER (WHERE fam = 'os') AS rv100_os,
@@ -159,8 +160,9 @@ def pitcher_depth(con=None, seasons=(2023, 2024, 2025, 2026), level: str = "mlb"
 
 TREND_SQL = """
 SELECT {who} AS id, season, substr(CAST(game_date AS VARCHAR), 6, 5) AS d,
-       count(*) FILTER (WHERE events IS NOT NULL) AS pa,
-       coalesce(sum(woba_value) FILTER (WHERE woba_denom > 0), 0) AS wn,
+       count(*) FILTER (WHERE events IS NOT NULL AND events <> 'truncated_pa') AS pa,
+       coalesce(sum(CASE WHEN events IN ('field_error', 'fielders_choice') THEN 0 ELSE woba_value END)
+                FILTER (WHERE woba_denom > 0), 0) AS wn,  -- same wOBA as the season roll-up
        coalesce(sum(CASE WHEN description = 'hit_into_play' AND estimated_woba_using_speedangle IS NOT NULL
                     THEN estimated_woba_using_speedangle ELSE woba_value END) FILTER (WHERE woba_denom > 0), 0) AS xn,
        coalesce(sum(woba_denom), 0) AS den, coalesce(sum(delta_run_exp), 0) AS rv,
