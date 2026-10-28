@@ -235,11 +235,11 @@ def f(x, nd=1):
     """None-safe round: the bake emits null rather than NaN the UI would read as 0."""
     if x is None or (isinstance(x, float) and not np.isfinite(x)):
         return None
-    return round(float(x), nd)
+    return round(round(float(x), 9), nd)  # snap float-sum order noise first: the same input must round the same
 
 
 def r(x):
-    return None if x is None or (isinstance(x, float) and not np.isfinite(x)) else int(round(float(x)))
+    return None if x is None or (isinstance(x, float) and not np.isfinite(x)) else int(round(round(float(x), 9)))
 
 
 # MLB Stats API club ids (stable public constants) -> Statcast abbreviation.
