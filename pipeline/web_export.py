@@ -3915,9 +3915,14 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             RECON_NULL = {None, "", "Office of the Commissioner"}
 
             def _clean_row(r: dict, hist_org: dict | None = None) -> dict:
-                org = ORG_ABBR.get(r["org"] or "", r["org"])
-                if org in RECON_NULL and hist_org and r["id"] in hist_org:
-                    org = hist_org[r["id"]]
+                # Membership first: a club list's own players are that club's, at
+                # list time — the current org (a trade, a coaching job, the
+                # Commissioner's pool) must never overwrite the historical one.
+                org = hist_org.get(r["id"]) if hist_org else None
+                if org is None:
+                    org = ORG_ABBR.get(r["org"] or "", r["org"])
+                if org in RECON_NULL:
+                    org = None
                 return {
                     "rank": int(r["rank"]), "id": str(r["id"]), "n": r["name"],
                     "pos": r["pos"], "org": org,
