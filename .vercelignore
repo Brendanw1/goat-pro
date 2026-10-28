@@ -1,9 +1,9 @@
-cache
-data
-pipeline/models
-pipeline/results
+# Anchored to the repo root: a bare "data" also matched web/app/api/data/ and 404ed every /api/data route.
+/cache
+/data
+/pipeline/models
+/pipeline/results
 node_modules
 .git
-web/.next
-web/node_modules
+/web/.next
 *.parquet
