@@ -176,8 +176,8 @@ export async function getHitterSkillIndex(): Promise<any | null> {
 }
 
 /** League per-split-cell lines + per-type rates (the Splits tab's benchmark rows). */
-export async function getHitterSplitBenchmarks(): Promise<any | null> {
-  return fetchFromR2<any>("benchmarks/hitter_splits.json", { shared: true }).catch(() => null);
+export async function getHitterSplitBenchmarks(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "benchmarks/hitter_splits.json"), { shared: true }).catch(() => null);
 }
 
 /** Home-strip data: the latest day's best lines + season Whiff+ movers. */

@@ -34,14 +34,14 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
     hitter ? getScoutingLeague(level) : Promise.resolve(null),
     detSeason ? getVisuals(id, detSeason, level) : Promise.resolve(null),
     getCareer(id, level),
-    hitter ? getHitterSplitBenchmarks() : Promise.resolve(null),
+    hitter ? getHitterSplitBenchmarks(level) : Promise.resolve(null),
     getProspectRank(id),
     hitter && detSeason ? getSwingProfile(id, detSeason, level) : Promise.resolve(null),
   ]);
   // Baserunning detail (Savant reference): slice this hitter's rows from the
   // league board files server-side, like zoneMix — the client gets 4 rows.
   let running: any = null;
-  if (hitter) {
+  if (hitter && level === "mlb") {  // Savant boards are MLB; an AAA page must not show his MLB rows
     const rs = String(hitter.season);
     const pick = (rows: any[] | undefined) =>
       (rows ?? []).find((rw: any) => String(rw.id) === String(id) && String(rw.season) === rs) ?? null;

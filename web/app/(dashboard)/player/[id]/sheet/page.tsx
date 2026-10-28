@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getHitterScouting } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
+import { getPitcherPercentileRank, getStatPercentileRank } from "@/lib/percentiles";
 import { GradeScopeToggle } from "@/components/ui/grade-pct";
 import { GradePctProvider } from "@/components/ui/grade-pct";
 import { PrintButton } from "@/components/ui/print-button";
@@ -44,14 +45,16 @@ export default async function PlayerSheetPage({ params, searchParams }: {
   const percentiles = await getPercentiles(season, level);
   const scouting = profile.position === "H" ? await getHitterScouting(id, season, level) : null;
   const crest = logoUrl(profile.team);
-  const seasonP = percentiles?.by_season?.[season]?.pitchers ?? percentiles?.by_season?.[season] ?? null;
   const isHitter = profile.position === "H" || !!scouting;
+  // the hitter or pitcher pool of his season, ranked the way the profile ranks (direction-aware)
+  const seasonP = isHitter
+    ? (await getHitterPercentiles(season, level))?.by_season?.[season] ?? null
+    : percentiles?.by_season?.[season]?.pitchers ?? null;
 
   const rankPct = (metric: string, v: unknown): string => {
-    if (typeof v !== "number" || !seasonP?.[metric]?.q) return "";
-    const q = seasonP[metric].q;
-    const p = Math.max(1, Math.min(99, Math.round((100 * q.filter((x: number) => x < v).length) / q.length)));
-    return `${p}th`;
+    const bp = seasonP?.[metric];
+    if (typeof v !== "number" || !bp) return "";
+    return `${Math.round(isHitter ? getStatPercentileRank(metric, v, bp) : getPitcherPercentileRank(metric, v, bp))}th`;
   };
 
   return (

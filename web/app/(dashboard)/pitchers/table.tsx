@@ -12,7 +12,7 @@ import {
 } from "@/lib/boards/pitchers";
 import { PITCHING_TIP, K_TIP, PREVENTION_TIP, CONTROL_TIP, STUFF_TIP, gradeColor } from "@/lib/grades";
 import { RV100_TIP } from "@/lib/rv-cells";
-import { percentileColor, getPitcherPercentileRank } from "@/lib/percentiles";
+import { percentileColor, getPitcherPercentileRank, isNeutralStat } from "@/lib/percentiles";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import type { FilterColumn } from "@/lib/column-filters";
 import { FilterBuilder, useUrlFilters } from "@/components/ui/filter-builder";
@@ -298,7 +298,7 @@ export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { met
                 const bp = pctBySeason?.[String(row.season)]?.[col.key];
                 const color = PLUS_KEYS.has(col.key) || GRADE_PCT_KEYS.has(col.key)
                   ? gradeColor(raw)
-                  : SCALED_KEYS.has(col.key) && typeof raw === "number" && bp
+                  : SCALED_KEYS.has(col.key) && !isNeutralStat("pitcher", col.key) && typeof raw === "number" && bp
                     ? percentileColor(getPitcherPercentileRank(col.key, raw, bp))
                     : undefined;
                 const isBorder = groupStarts.has(ci);

@@ -229,7 +229,9 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
         ) : tab === "swing" ? (
           <SwingTab swing={swing ?? null} name={profile.name} />
         ) : tab === "defense" ? (
-          <DefensePanel playerId={playerId} season={profile.season} />
+          level === "aaa"
+            ? <div className="glass-panel p-6 text-sm text-text-dim">Defense comes from MLB Statcast and Savant; there is no AAA version.</div>
+            : <DefensePanel playerId={playerId} season={profile.season} />
         ) : tab === "savant" ? (
           <PercentilePanel peer={`Baseball Savant's published numbers, ${profile.season} · percentiles among the players Savant lists`} toggle={null}>
                 <PercentileGroup title={<>Speed and baserunning <span className="font-normal text-text-dim">· Savant</span></>} rows={[

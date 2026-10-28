@@ -838,7 +838,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           <div className="space-y-4">
             <div className="glass-panel p-4" data-glow="slider">
               <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">Movement Profile</h2>
-              <MovementPlot data={movementProfile} cloud={profile.movementCloud} slot={slot} throws={profile.throws} height={330} />
+              <MovementPlot data={movementProfile} cloud={profile.movementCloud} slot={slot?.season === profile.season ? slot : null} throws={profile.throws} height={330} />
             </div>
           </div>
         </div>
