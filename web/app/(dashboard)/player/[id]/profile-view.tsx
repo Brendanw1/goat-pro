@@ -34,6 +34,7 @@ import { LocationMixPanel } from "@/components/ui/location-mix-panel";
 import { ArsenalOverview } from "@/components/ui/arsenal-overview";
 import { RV100_TIP } from "@/lib/rv-cells";
 import { TrendPanel } from "@/components/ui/trend-panel";
+import { ProjectionBand, LeagueScatter } from "@/components/ui/league-views";
 
 const int0 = (v: number) => Math.round(v).toString();
 const pct1 = (v: number) => v.toFixed(1) + "%";
@@ -697,7 +698,29 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           </PercentilePanel>
         )}
 
+        {(profile.kProjLo != null || profile.rvProjLo != null) && (() => {
+          const kBp = pitcherBp?.kProj ? Object.fromEntries(Object.entries(pitcherBp.kProj).map(([k, v]) => [k, 100 * (v as number)])) as any : null;
+          return (
+            <div className="glass-panel p-4">
+              <h2 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-dim">Next-season projection</h2>
+              {profile.kProj != null && <ProjectionBand label="K%" value={100 * profile.kProj}
+                lo={profile.kProjLo != null ? 100 * profile.kProjLo : null} hi={profile.kProjHi != null ? 100 * profile.kProjHi : null}
+                bp={kBp} fmt={(v) => v.toFixed(1) + "%"}
+                rank={pitcherBp?.kProj ? getPitcherPercentileRank("kProj", profile.kProj, pitcherBp.kProj) : null} />}
+              <ProjectionBand label="Run value / 100 (runs saved)" value={profile.rvProj} lo={profile.rvProjLo} hi={profile.rvProjHi}
+                bp={pitcherBp?.rvProj} fmt={signed2}
+                rank={pitcherBp?.rvProj && profile.rvProj != null ? getPitcherPercentileRank("rvProj", profile.rvProj, pitcherBp.rvProj) : null} />
+              <p className="mt-1 text-[10px] text-text-dim">
+                Point: the K+ and Prevention+ projections (Prevention+ shown in its own units, next-season RV/100). Shaded: the range 80% of
+                past pitchers projected from this many batters faced actually landed in, measured out of sample, not a model&apos;s error bar.
+                Grey: the league&apos;s middle 80% of the same projection; tick = median.
+              </p>
+            </div>
+          );
+        })()}
+
         <TrendPanel trend={profile.trend} role="pitcher" />
+        <LeagueScatter role="pitcher" season={Number(profile.season)} id={String(playerId)} level={level} />
 
         {/* Raw plate discipline (P4): rates + descriptive season ranks. The EB
             shrinkage behind the college fork's sample-adjusted rankings does not

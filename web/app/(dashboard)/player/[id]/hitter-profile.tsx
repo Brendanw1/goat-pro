@@ -22,6 +22,7 @@ import { SprayPanel } from "@/components/ui/spray-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
 import { TrendPanel } from "@/components/ui/trend-panel";
+import { LeagueScatter, RvFamilyBars } from "@/components/ui/league-views";
 
 const pct1 = (v: number) => v.toFixed(1);
 const dec3 = (v: number) => v.toFixed(3).replace(/^0/, "");
@@ -343,6 +344,15 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
             )}
 
             <TrendPanel trend={profile.trend} role="hitter" />
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <LeagueScatter role="hitter" season={Number(profile.season)} id={String(playerId)} level={level} />
+              <RvFamilyBars unit="Batting runs per 100 pitches seen" rows={[
+                { label: "Fastballs", v: profile.batRvPer100Fb },
+                { label: "Breaking", v: profile.batRvPer100Br },
+                { label: "Offspeed", v: profile.batRvPer100Os },
+              ]} />
+            </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="glass-panel p-4">

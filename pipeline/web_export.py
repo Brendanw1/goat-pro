@@ -163,6 +163,29 @@ def p_depth(level: str, seasons: tuple, con) -> tuple[dict, dict]:
     return depth, trends(con, seasons, who="pitcher", level=level)
 
 
+@functools.lru_cache(maxsize=1)
+def _proj_bands() -> dict | None:
+    path = ROOT / "pipeline" / "results" / "proj_bands.json"  # pipeline/proj_bands.py (D-36)
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def proj_band_fields(k_proj, prev_plus, bf) -> dict:
+    """D-36: 80% bands from measured out-of-fold misses at this batters-faced size. kProjLo/Hi in K/PA;
+    rvProj (next-season RV/100, Prevention+ inverted to its own units) with rvProjLo/Hi."""
+    b = _proj_bands()
+    if not b or bf is None:
+        return {}
+    from proj_bands import band_for
+    out = {}
+    kb, pb = band_for(b, "k", bf), band_for(b, "prev", bf)
+    if kb and k_proj is not None:
+        out.update(kProjLo=f(max(0.0, k_proj + kb["q10"]), 3), kProjHi=f(k_proj + kb["q90"], 3))
+    if pb and prev_plus is not None:
+        rv = b["prev_mean"] + (prev_plus - 100) * b["prev_sd"] / 10
+        out.update(rvProj=f(rv, 2), rvProjLo=f(rv + pb["q10"], 2), rvProjHi=f(rv + pb["q90"], 2))
+    return out
+
+
 def dense_q(values, n: int = 99) -> list[float] | None:
     v = np.asarray([x for x in values if x is not None and np.isfinite(x)], dtype=float)
     if v.size < 30:
@@ -889,6 +912,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             }
             discipline_fields(row, t, season=int(t["season"]), totals=totals)
             row.update(p_depth(level, tuple(seasons), con)[0].get((int(t["id"]), int(t["season"])), {}))
+            row.update(proj_band_fields(row.get("kProj"), row.get("preventionPlus"), int(t["pa"])))
             board_rows.append(row)
         board = pd.DataFrame(board_rows)
         print(f"board rows: {len(board)}")
@@ -906,7 +930,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                           "putawayPct", "swingPct",
                           "xwobaAg", "xbaAg", "xslgAg", "xwobaconAg", "wobaAg", "evAg", "hardHitPctAg",
                           "barrelPctAg", "sweetSpotPctAg", "pullAirPctAg", "batSpeedAg", "squaredUpPctAg",
-                          "blastPctAg", "rvPer100Fb", "rvPer100Br", "rvPer100Os"]
+                          "blastPctAg", "rvPer100Fb", "rvPer100Br", "rvPer100Os", "rvProj"]
 
         # per-pitch-type rows joined to their season's grades — the per_type population
         type_grades = bytype[(bytype["n"] >= SABR_FLOORS["type"])].copy()
@@ -1317,6 +1341,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             p_dep, p_tr = p_depth(level, tuple(seasons), con)
             doc.update(p_dep.get((pid, season), {}))
             doc["trend"] = p_tr.get((pid, season))
+            doc.update(proj_band_fields(doc.get("kProj"), doc.get("preventionPlus"), int(t["pa"])))
             rel_row = rel_stats.loc[(pid, season)] if (pid, season) in rel_stats.index else None
             if rel_row is not None:
                 doc["release"] = [{
@@ -2100,6 +2125,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         from hitter_depth import hitter_depth, trends
         HD = {"xwoba": ("xwoba", 3), "xba": ("xba", 3), "xslg": ("xslg", 3), "xwobacon": ("xwobacon", 3),
               "xwoba_gap": ("wobaMinusXwoba", 3), "rv100": ("batRvPer100", 2), "sweet_spot": ("sweetSpotPct", 1),
+              "woba": ("wobaSavant", 3), "rv100_fb": ("batRvPer100Fb", 2), "rv100_br": ("batRvPer100Br", 2),
+              "rv100_os": ("batRvPer100Os", 2),
               "pull": ("pullPct", 1), "oppo": ("oppoPct", 1), "pull_air": ("pullAirPct", 1), "la_sd": ("laSd", 1),
               "bat_speed": ("batSpeed", 1), "fast_swing": ("fastSwingPct", 1), "swing_length": ("swingLength", 2),
               "attack_angle": ("attackAngle", 1), "ideal_aa": ("idealAaPct", 1),
