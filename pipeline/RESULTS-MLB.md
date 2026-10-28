@@ -2218,3 +2218,19 @@ Calibration now passes every season: decile gaps .0045 / .0016 / .0023 / .0023 /
 - IF should rise, because positioning was the stated missing piece. If IF stays below the gate with start positions in, the remaining limit is per-play positioning and reaction or route data, which is still not public.
 - **Risk:** the averages are fielder-specific, so a fielder who positions well gets less credit for the same play. Savant's OAA conditions on start position too, so this matches the benchmark's definition.
 - **Shipping:** OF ships v3 only if it passes and r ≥ the §80 r; otherwise §80 OF stays.
+
+### §81 result (read once, 2026-10-28)
+
+Calibration passes every season (decile gaps ≤ .0043). AUC is .956–.957.
+
+| | r vs Savant OAA [95% CI] | §80 r | verdict | split-half rel / k | YoY ours / Savant |
+|---|---|---|---|---|---|
+| IF | .580 [.526, .630] | .495 | **CONFIRMED** | .23 / 1026 | .27 / .44 |
+| OF | .721 [.678, .757] | .679 | **CONFIRMED** (beats §80) | .40 / 418 | .38 / .64 |
+
+**Diagnosis.**
+- The §80 call holds. The IF limit was the missing start positions, which is a data gap and not our modeling: adding Savant's average starts lifted IF r by +.085 and cleared the gate.
+- IF reliability and YoY fell (k 683 → 1026; YoY .37 → .27). That is the expected cost of conditioning on a fielder's *own* average positioning: credit for standing in the right place is removed, and what remains is noisier range. Savant does the same; their YoY of .44 comes from per-play starts and measured routes, which are not public.
+- Scale against Savant 2025: slope IF .51, OF .61; SD IF 5.6 vs 6.9, OF 6.1 vs 7.4. Elite CFs remain compressed (Crow-Armstrong 2025: 5.3 vs Savant 24).
+- **Could this be our error?** Partly. The hang-time proxy is drag-only, so it runs about 1 s short on deep flies. The average start also hides per-play depth. Both understate the hardest catches, which are exactly the elite ones. A measured hang time is not public.
+- **Shipped:** IF and OF range from v3 (`defense_chances_v3.parquet`, `defense_v3_SEALED.json`). Framing is unchanged (§76).

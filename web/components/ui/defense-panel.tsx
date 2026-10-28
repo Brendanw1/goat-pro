@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Site defense (D-12/D-13, RESULTS-MLB §75/§76/§80), the college defense card + drill + plays + catcher zone
+ * Site defense (D-12/D-13, RESULTS-MLB §75/§76/§80/§81), the college defense card + drill + plays + catcher zone
  * adapted to Statcast. One card per graded position: runs vs an average fielder there (shrunk, 90% interval,
  * percentile within the position among qualified players), then "where it happened" and the graded plays.
  * Catchers: framing runs and Framing+ with a called-minus-expected grid (catcher's view) and per-game lines.
@@ -173,7 +173,7 @@ export function DefensePanel({ playerId, season }: { playerId: string; season: n
           </div>
         </div>
       ))}
-      <p className="text-[11px] text-text-dim">Site models refit on Statcast (RESULTS-MLB §75/§76/§80). Runs are vs an average fielder at the position, shrunk by measured reliability; Savant&apos;s own numbers sit on the Savant tab for comparison.</p>
+      <p className="text-[11px] text-text-dim">Site models refit on Statcast (RESULTS-MLB §75/§76/§80/§81). Runs are vs an average fielder at the position, shrunk by measured reliability; Savant&apos;s own numbers sit on the Savant tab for comparison.</p>
     </div>
   );
 }

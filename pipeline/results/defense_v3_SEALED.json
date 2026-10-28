@@ -1,0 +1,147 @@
+{
+ "meta": {
+  "2020": {
+   "range": {
+    "auc": 0.9425,
+    "decile_gap": 0.0051,
+    "n": 40590,
+    "out_rate": 0.6899,
+    "rv_diff": {
+     "0": 0.7654,
+     "1": 0.832
+    }
+   },
+   "framing": {}
+  },
+  "2021": {
+   "range": {
+    "auc": 0.9517,
+    "decile_gap": 0.0017,
+    "n": 112732,
+    "out_rate": 0.6919,
+    "rv_diff": {
+     "0": 0.7436,
+     "1": 0.8148
+    }
+   },
+   "framing": {}
+  },
+  "2022": {
+   "range": {
+    "auc": 0.9502,
+    "decile_gap": 0.0013,
+    "n": 116344,
+    "out_rate": 0.6956,
+    "rv_diff": {
+     "0": 0.725,
+     "1": 0.7941
+    }
+   },
+   "framing": {}
+  },
+  "2023": {
+   "range": {
+    "auc": 0.9557,
+    "decile_gap": 0.0015,
+    "n": 115918,
+    "out_rate": 0.6899,
+    "rv_diff": {
+     "0": 0.7534,
+     "1": 0.8187
+    }
+   },
+   "framing": {}
+  },
+  "2024": {
+   "range": {
+    "auc": 0.9563,
+    "decile_gap": 0.0026,
+    "n": 116110,
+    "out_rate": 0.6956,
+    "rv_diff": {
+     "0": 0.7403,
+     "1": 0.8075
+    }
+   },
+   "framing": {}
+  },
+  "2025": {
+   "range": {
+    "auc": 0.9565,
+    "decile_gap": 0.0043,
+    "n": 116394,
+    "out_rate": 0.6958,
+    "rv_diff": {
+     "0": 0.7377,
+     "1": 0.8037
+    }
+   },
+   "framing": {}
+  },
+  "2026": {
+   "range": {
+    "auc": 0.9574,
+    "decile_gap": 0.0019,
+    "n": 115830,
+    "out_rate": 0.6971,
+    "rv_diff": {
+     "0": 0.7424,
+     "1": 0.8076
+    }
+   },
+   "framing": {}
+  }
+ },
+ "range": {
+  "IF": {
+   "external_oaa": {
+    "r": 0.5798,
+    "ci": [
+     0.5255,
+     0.6301
+    ],
+    "n": 1138,
+    "verdict_ext": "PASS"
+   },
+   "calibration_pass": true,
+   "verdict": "CONFIRMED",
+   "reliability": {
+    "split_half_r": 0.1296,
+    "rel": 0.2294,
+    "k": 1026.2,
+    "n_players": 1172
+   },
+   "r_frp": 0.5795,
+   "yoy": {
+    "oaa": 0.2686,
+    "outs_above_average": 0.4427,
+    "n": 704
+   }
+  },
+  "OF": {
+   "external_oaa": {
+    "r": 0.7205,
+    "ci": [
+     0.6781,
+     0.7574
+    ],
+    "n": 665,
+    "verdict_ext": "PASS"
+   },
+   "calibration_pass": true,
+   "verdict": "CONFIRMED",
+   "reliability": {
+    "split_half_r": 0.248,
+    "rel": 0.3975,
+    "k": 417.6,
+    "n_players": 917
+   },
+   "r_frp": 0.7211,
+   "yoy": {
+    "oaa": 0.3801,
+    "outs_above_average": 0.6413,
+    "n": 358
+   }
+  }
+ }
+}

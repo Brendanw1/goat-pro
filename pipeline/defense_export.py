@@ -3,7 +3,7 @@
     python defense_export.py [--out DIR]   # default data/export/web
     python defense_export.py --demo        # self-check of the interval and the percentile
 
-Ships only what passed its gate: a range group (IF / OF) if its §80 (else §75) verdict is CONFIRMED, framing
+Ships only what passed its gate: a range group (IF / OF) if its §81 (else §80, else §75) verdict is CONFIRMED, framing
 if §76 is. Per card: runs and OAA (raw, shrunk by the measured k), a 90% interval, a within-position
 percentile among qualified players (reliability >= .25), and the chance list for the drill map. Catchers: framing
 runs, Framing+, a 0.25 ft called-minus-expected grid (shrunk, k 20) and per-game lines.
@@ -42,8 +42,8 @@ def pct_rank(v: pd.Series) -> pd.Series:
 
 
 def verdicts() -> tuple[set, bool, dict]:
-    v2 = RES / "defense_v2_SEALED.json"
-    rng = json.loads((v2 if v2.exists() else RES / "defense_SEALED.json").read_text())["range"]
+    sealed = next(p for p in (RES / f"defense_{v}SEALED.json" for v in ("v3_", "v2_", "")) if p.exists())
+    rng = json.loads(sealed.read_text())["range"]
     fr = json.loads((RES / "defense_SEALED.json").read_text())["framing"]
     ok = {g for g, r in rng.items() if r["verdict"] == "CONFIRMED"}
     return ok, fr["verdict"] == "CONFIRMED", {g: r["reliability"]["k"] for g, r in rng.items()} | {"C": fr["reliability"]["k"]}
@@ -58,7 +58,8 @@ def demo():
 
 def main(out: Path):
     ok, framing_ok, k = verdicts()
-    ch = pd.read_parquet(CACHE / "defense_chances.parquet")
+    v3 = CACHE / "defense_chances_v3.parquet"  # §81 fit when present
+    ch = pd.read_parquet(v3 if v3.exists() and (RES / "defense_v3_SEALED.json").exists() else CACHE / "defense_chances.parquet")
     ch = ch[ch["pos"].map(GROUP).isin(ok)].copy()
     rv = np.where(ch["oaa"] != 0, ch["runs"] / ch["oaa"].replace(0, np.nan), 0.78)
     ch["var_oaa"] = ch["chances"] * ch["p"] * (1 - ch["p"])
@@ -117,7 +118,7 @@ def main(out: Path):
                                            "strikesVsExp": rnd(g.sv - g.ex, 1)} for g in games.itertuples()]}
 
     for (pid, s), doc in files.items():
-        doc.update(_comment="D-12/D-13 (RESULTS-MLB §75/§76/§80): site defense models refit on Statcast; runs vs an "
+        doc.update(_comment="D-12/D-13 (RESULTS-MLB §75/§76/§80/§81): site defense models refit on Statcast; runs vs an "
                             "average fielder at the position; framing vs an average catcher on the same pitches",
                    id=str(pid), season=s)
         jwrite_gz(out / "defense" / f"{pid}-{s}.json.gz", doc)
