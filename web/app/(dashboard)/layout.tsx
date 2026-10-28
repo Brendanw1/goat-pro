@@ -1,7 +1,7 @@
 import { Nav } from "@/components/nav";
 import { PlayerTransitionOverlay } from "@/components/ui/player-transition";
 import { SnapshotTool } from "@/components/ui/snapshot";
-import { GradePctProvider } from "@/components/ui/grade-pct";
+import { GradePctProvider, GradeScopeProvider, GradeScopeToggle } from "@/components/ui/grade-pct";
 import { fetchFromR2 } from "@/lib/r2";
 import type { StuffPercentiles } from "@/lib/percentiles";
 
@@ -33,7 +33,14 @@ export default async function DashboardLayout({
       */}
       {/* pb-24: room to scroll past the fixed Snapshot button (bottom-5 right-5), so it never covers a pager. */}
       <main className="flex-1 min-w-0 px-4 sm:px-6 pt-4 pb-24 print:pb-4 max-w-[1440px] mx-auto w-full page-content">
-        <GradePctProvider data={stuffPcts}>{children}</GradePctProvider>
+        <GradePctProvider data={stuffPcts}>
+          <GradeScopeProvider>
+            <div className="flex justify-end mb-1 -mt-1">
+              <GradeScopeToggle />
+            </div>
+            {children}
+          </GradeScopeProvider>
+        </GradePctProvider>
       </main>
       <PlayerTransitionOverlay />
       <SnapshotTool />

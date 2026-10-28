@@ -91,6 +91,12 @@ export async function PlayerPage({ id, season, level = "mlb", extra }: {
         </div>
       )}
       <SeasonSelector id={id} seasons={career?.seasons ?? null} current={detSeason} level={level} />
+      <div className="no-print">
+        <Link href={`/player/${id}/sheet?season=${detSeason}${level === "aaa" ? "&level=aaa" : ""}`}
+          className="text-[11px] text-text-dim hover:text-text-secondary underline-offset-2 hover:underline">
+          Printable sheet →
+        </Link>
+      </div>
 {hitter ? (
         <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}

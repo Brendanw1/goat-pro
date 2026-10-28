@@ -62,6 +62,23 @@ export default async function GameReportPage({ params, searchParams }: {
   const [hs, as_] = Array.isArray(g.final) ? g.final : [0, 0];
   const awayWon = as_ > hs;
 
+  // D-22: who faced whom — per batter × per pitcher, PAs and hits from the PA
+  // table (1B/2B/3B/HR are the hits; a sacrifice still counts as a PA).
+  const HITS = new Set(["1B", "2B", "3B", "HR"]);
+  const matchup: Record<string, Record<string, { pa: number; h: number }>> = {};
+  for (const pa of g.pas ?? []) {
+    const bk = String(pa.bt), pk = String(pa.pt);
+    matchup[bk] ??= {};
+    matchup[bk][pk] ??= { pa: 0, h: 0 };
+    matchup[bk][pk].pa += 1;
+    if (HITS.has(pa.r)) matchup[bk][pk].h += 1;
+  }
+  const pitchersFaced = (g.p ?? []).filter((p: any) => Object.values(matchup).some((m) => m[p.id]));
+  const battersByTeam = new Map<string, any[]>();
+  for (const b of g.b ?? []) {
+    battersByTeam.get(b.tm)?.push(b) ?? battersByTeam.set(b.tm, [b]);
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -114,30 +131,70 @@ export default async function GameReportPage({ params, searchParams }: {
           <div className="px-4 py-2.5 border-b border-border-subtle">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Batting</span>
           </div>
-          <div className="overflow-x-auto"><div className="min-w-max">
-            <div className="flex items-center px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-dim border-b border-border-subtle">
-              <div className="w-[150px]">Hitter</div><div className="w-[36px] text-right">TM</div>
-              <div className="w-[36px] text-right">PA</div><div className="w-[32px] text-right">H</div>
-              <div className="w-[32px] text-right">HR</div>
-              <div className="w-[36px] text-right">BB</div><div className="w-[32px] text-right">K</div>
-              <div className="w-[52px] text-right">Avg EV</div>
+          {[...battersByTeam.entries()].map(([tm, rows]) => (
+            <div key={tm}>
+              <div className="px-4 py-1 bg-white/[0.02] text-[10px] font-semibold uppercase tracking-wider text-usf-gold/80">{tm}</div>
+              <div className="overflow-x-auto"><div className="min-w-max">
+                {rows.map((b: any) => (
+                  <div key={b.id} className="flex items-center px-4 border-b border-white/[0.025]" style={{ height: "30px" }}>
+                    <div className="w-[150px] text-xs">
+                      <Link href={`/player/${b.id}?season=${String(g.d).slice(0, 4)}`} className="text-text-primary hover:underline">{b.n ?? b.id}</Link>
+                    </div>
+                    <div className="w-[36px] text-right text-xs font-data text-text-primary">{b.pa}</div>
+                    <div className="w-[32px] text-right text-xs font-data text-text-secondary">{b.h}</div>
+                    <div className="w-[32px] text-right text-xs font-data text-text-primary">{b.hr}</div>
+                    <div className="w-[36px] text-right text-xs font-data text-text-secondary">{b.bb}</div>
+                    <div className="w-[32px] text-right text-xs font-data text-text-secondary">{b.k}</div>
+                    <div className="w-[52px] text-right text-xs font-data text-text-dim">{b.ev ?? "—"}</div>
+                  </div>
+                ))}
+              </div></div>
             </div>
-            {(g.b ?? []).map((b: any) => (
-              <div key={b.id} className="flex items-center px-4 border-b border-white/[0.025]" style={{ height: "30px" }}>
-                <div className="w-[150px] text-xs">
-                  <Link href={`/player/${b.id}?season=${String(g.d).slice(0, 4)}`} className="text-text-primary hover:underline">{b.n ?? b.id}</Link>
-                </div>
-                <div className="w-[36px] text-right text-xs font-data text-text-dim">{b.tm}</div>
-                <div className="w-[36px] text-right text-xs font-data text-text-primary">{b.pa}</div>
-                <div className="w-[32px] text-right text-xs font-data text-text-secondary">{b.h}</div>
-                <div className="w-[32px] text-right text-xs font-data text-text-primary">{b.hr}</div>
-                <div className="w-[36px] text-right text-xs font-data text-text-secondary">{b.bb}</div>
-                <div className="w-[32px] text-right text-xs font-data text-text-secondary">{b.k}</div>
-                <div className="w-[52px] text-right text-xs font-data text-text-dim">{b.ev ?? "—"}</div>
-              </div>
-            ))}
-          </div></div>
+          ))}
+          <div className="px-4 py-1.5 text-[9px] text-text-dim border-t border-border-subtle">
+            columns: PA · H · HR · BB · K · avg EV
+          </div>
         </div>
+      </div>
+
+      <div className="glass-panel overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border-subtle flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Matchup matrix</span>
+          <span className="text-[10px] text-text-dim">each hitter against each pitcher he faced — PA, hits</span>
+        </div>
+        <div className="overflow-x-auto"><div className="min-w-max px-4 py-2">
+          <table className="text-[10px] font-data border-collapse">
+            <thead>
+              <tr>
+                <th className="text-left pr-3 text-text-dim uppercase tracking-wider text-[9px] font-semibold">Hitter</th>
+                {pitchersFaced.map((p: any) => (
+                  <th key={p.id} className="px-1.5 pb-1 font-data" style={{ color: "var(--text-secondary)" }} title={p.n ?? p.id}>
+                    {p.n?.split(" ").pop() ?? p.id}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(g.b ?? []).map((b: any) => (
+                <tr key={b.id}>
+                  <td className="pr-3 text-text-secondary truncate max-w-[130px]">{b.n ?? b.id}</td>
+                  {pitchersFaced.map((p: any) => {
+                    const m = matchup[b.id]?.[p.id];
+                    return (
+                      <td key={p.id} className="px-0.5 py-0.5">
+                        <div title={`${b.n ?? b.id} vs ${p.n ?? p.id}: ${m?.pa ?? 0} PA, ${m?.h ?? 0} for ${m?.h ?? 0}`}
+                          className="flex items-center justify-center rounded-[3px] min-w-[40px] h-[20px]"
+                          style={{ background: m ? (m.h > 0 ? "rgba(63,191,95,0.25)" : "rgba(255,255,255,0.03)") : "transparent" }}>
+                          {m ? <span className={m.h > 0 ? "text-usf-green" : "text-text-dim"}>{m.pa}{m.h > 0 ? `·${m.h}` : ""}</span> : null}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div></div>
       </div>
 
       <div className="glass-panel overflow-hidden">

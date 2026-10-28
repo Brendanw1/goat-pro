@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPitchers, getHitters, getParks } from "@/lib/data";
+import { getPitchers, getHitters, getParks , getRecentGames } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 
@@ -206,7 +206,7 @@ export default async function TeamPage({ params, searchParams }: {
   const { abbr: raw } = await params;
   const abbr = decodeURIComponent(raw).toUpperCase();
   const q = (await searchParams) ?? {};
-  const [pitchers, hitters, parks] = await Promise.all([getPitchers(), getHitters(), getParks()]);
+  const [pitchers, hitters, parks, recent] = await Promise.all([getPitchers(), getHitters(), getParks(), getRecentGames()]);
   const prows = (pitchers ?? []).filter((r: any) => r.team === abbr);
   const hrows = (hitters ?? []).filter((r: any) => r.team === abbr);
   if (!prows.length && !hrows.length) notFound();
@@ -248,6 +248,59 @@ export default async function TeamPage({ params, searchParams }: {
       <div className="grid gap-5 lg:grid-cols-2">
         <TeamSummary title={`Pitching staff, ${season}`} aggs={P_AGG} team={abbr} rows={allP} />
         <TeamSummary title={`Lineup, ${season}`} aggs={H_AGG} team={abbr} rows={allH} />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        {(() => {
+          // D-25 role depth: the staff split at GS >= 10 — a rotation and a
+          // bullpen are different jobs, and one staff mean hides both.
+          const starters = prows.filter((r: any) => r.season === season && (r.gs ?? 0) >= 10);
+          const relivers = prows.filter((r: any) => r.season === season && (r.gs ?? 0) < 10);
+          const wavg = (rows: any[], key: string, wkey: string) => {
+            let num = 0, den = 0;
+            for (const r of rows) { const x = r[key], w = r[wkey]; if (typeof x === "number" && typeof w === "number") { num += x * w; den += w; } }
+            return den ? num / den : null;
+          };
+          const ipOf = (rows: any[]) => Math.round(rows.reduce((a, r) => a + (r.ip ?? 0), 0));
+          const row = (label: string, rows: any[]) => (
+            <div className="flex items-baseline justify-between gap-2 py-1 border-b border-white/[0.03] text-[11px]">
+              <span className="text-text-secondary">{label}</span>
+              <span className="font-data text-text-primary">
+                {ipOf(rows)} IP · K% {wavg(rows, "kPct", "battersFaced")?.toFixed(1) ?? "—"} · BB% {wavg(rows, "bbPct", "battersFaced")?.toFixed(1) ?? "—"}
+              </span>
+            </div>
+          );
+          return (
+            <div className="glass-panel p-4">
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-1.5">Role depth, {season}</h2>
+              {row("Rotation (GS 10+)", starters)}
+              {row("Bullpen", relivers)}
+              <p className="mt-2 text-[10px] text-text-dim leading-[1.5]">
+                IP-weighted. The split is the read: a rotation carrying innings at one K-BB profile and a bullpen at
+                another are two staffs, not one mean.
+              </p>
+            </div>
+          );
+        })()}
+        <div className="glass-panel p-4">
+          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-1.5">Latest games</h2>
+          <ul className="space-y-1">
+            {(recent?.games ?? []).filter((g: any) => g.home === abbr || g.away === abbr).slice(0, 6).map((g: any) => {
+              const [hh, aa] = Array.isArray(g.final) ? g.final : [0, 0];
+              const won = (g.home === abbr && hh > aa) || (g.away === abbr && aa > hh);
+              return (
+                <li key={g.g}>
+                  <Link href={`/games/${g.g}`} className="flex items-baseline justify-between gap-2 text-[11px] hover:bg-white/[0.03] rounded px-1 py-0.5">
+                    <span className="font-data text-text-secondary truncate">{g.away} {aa} @ {g.home} {hh}</span>
+                    <span className={`font-data ${won ? "text-usf-green" : "text-[#e0654f]"}`}>{won ? "W" : "L"}</span>
+                  </Link>
+                </li>
+              );
+            })}
+            {!(recent?.games ?? []).some((g: any) => g.home === abbr || g.away === abbr) && (
+              <li className="text-[11px] text-text-dim">No recent games in the bake.</li>
+            )}
+          </ul>
+        </div>
       </div>
       <ParkPanel parks={parks} team={abbr} />
       <div className="grid gap-5 xl:grid-cols-2">
