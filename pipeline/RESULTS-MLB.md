@@ -1925,3 +1925,25 @@ Pooled Δr over pairs S = 2022…2025 (the windows need S−2), player-clustered
 Stayers, reported: hitters −.003, pitchers −.002, both about 0 as expected. The largest 2025 moves are about .01 of wOBA (PHI and LAD hitters down; AZ and SEA up). Coors does not lead them, because singles, the component Coors inflates most, failed §70 and are not adjusted. With only 2B, 3B, HR and SO factors, the adjustment is too small to sharpen year-to-year signal.
 
 **Shipped:** nothing, per the pre-registration. The venue factors stay on team pages (§70).
+
+## §73 Platoon Whiff+ splits (D-07), pre-registered 2026-10-28 before any read
+
+**Method.** The input is the cross-fit, pitcher-grouped per-pitch Whiff+ prediction (`cache/pred_s4_bb.parquet`), which already comes from separate models per batter hand (`train_mlb.py`). For each pitcher × season × site type × batter hand:
+- **Raw split:** the mean prediction, scaled on the type's frozen TRAIN mean and sd (`type_grades.type_table`). Both hands share one scale, so the league platoon edge stays in the number.
+- **Shrunk split:** pulled toward the pitcher's own all-hands type prediction, with a weight of 150 pitches (K_SHRINK).
+- **CI:** 95% normal interval over this season's pitches (mean ± 1.96·sd/√n).
+- **Also:** usage vs each hand. `platoon_splits.py`.
+
+**Claim (read once).** Unit: pitcher × site type, with ≥ 50 swings from each hand in both S and S+1. The predicted gap (Whiff+ vs LHH minus vs RHH, shrunk) in S forecasts the **observed** whiff/swing gap in S+1 better than the observed gap in S does:
+- Δr = r(pred gap_S, obs gap_S+1) − r(obs gap_S, obs gap_S+1);
+- pairs S = 2021…2025;
+- `stack.pooled_dr`, pitcher-clustered, 2,000 draws, seed 13.
+
+CONFIRMED if the 95% CI lower bound is > 0.
+
+**Reported, not judged:**
+- r(raw pred gap_S, obs gap_S+1);
+- YoY r of the shrunk predicted gap;
+- the n.
+
+**What it means either way.** If CONFIRMED, the per-hand grades ship as the better forecast of a pitch's platoon split. If NOT CONFIRMED, they still ship, labelled descriptive (shape-based, this season), because usage by hand and the per-hand grades describe the arsenal either way. Nothing gets coloured as a forecast. Pitching+ by hand is not in scope: its per-pitch cache has no batter-hand column.
