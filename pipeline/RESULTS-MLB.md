@@ -2065,3 +2065,53 @@ Positions 3–9 are graded; the pitcher and catcher take responsibility mass but
 - YoY r of ours vs Savant's on the same catchers.
 
 **Ships if it passes:** `framingRunsOurs`, `framingPlus` and reliability on MLB hitter rows/docs, beside Savant's.
+
+## Failure diagnosis of §68, §71, §73 (owner rule 2026-10-28: a failed gate gets a data vs handling vs modeling diagnosis)
+
+These checks are descriptive. None re-reads a sealed claim.
+- **§68 (xwOBA), likely our error (handling).**
+  - **The input:** spray came from `hc_x/hc_y`, which marks where the ball was **fielded**. On ground balls, outs cluster at fielders' positions and hits at the gaps they got through, so the input partly encodes the outcome.
+  - **The signature:** same-season r with wOBA .878 vs Savant's .826, but a worse next-season forecast.
+  - **Not the cause:** sprint speed was already a feature.
+- **§71 (xRV), partly a data-handling error.**
+  - **The data:** in 2026 Statcast changed the zone. Mean `sz_top` was 3.36–3.44 ft for 2020–25 and is 3.215 in 2026 (ABS definition); called-strike z_norm moves .446 → .462.
+  - **Our handling:** the pooled model has no season term, so 2026 location inputs are miscalibrated. §69 Decision+ has the same exposure.
+  - **The rest** (+.009 overall) looks like a genuine near-tie.
+- **§73 (platoon), a modeling mismatch.** The predicted gap came from a **shape-only** Whiff+ model. The observed whiff gap depends heavily on where each hand is attacked, which a shape model cannot see.
+  - Ruled out: a rate mismatch. The prediction is whiff per swing (mean .230 on swings, .227 on takes; observed .234).
+
+The three re-tests below reuse season pairs whose v1 results were already seen. Each makes one diagnosis-driven change, fixed here before any read.
+
+## §77 xwOBA v2: no fielded-location spray on ground balls (re-test of §68), pre-registered 2026-10-28
+
+**The change.** Same model, folds and roll-up as §68, except that spray is set to missing when LA < 10° (ground balls, where `hc` is the fielded spot). Air-ball spray stays, since there `hc` is close to the landing spot. Run with `xwoba_model.py --v2`.
+
+**Judged (read once):**
+1. **Diagnosis test:** Δr(v2 − v1) on S+1 wOBA, pooled over §68's pairs, hitter-clustered bootstrap, seed 13. The leak hypothesis is CONFIRMED if the CI lower bound is > 0.
+2. **Against Savant, as §68:**
+   - **headline:** CI lower bound > 0 and v2 wins at least 5 of 6 pairs. Our xwOBA becomes the headline, with Savant's beside it.
+   - **non-inferior:** CI lower bound > −.010. Ours ships beside Savant's, labelled as our model.
+   - **otherwise:** ours is not shipped.
+
+**Reported:** same-season r (the leak signature should fall toward Savant's), BIP log loss.
+
+## §78 xRV v2: season term for the 2026 zone change (re-test of §71), pre-registered 2026-10-28
+
+**The change.** Same model as §71, plus a `season` feature in both legs. The per-pitch class probabilities are saved to `cache/xrv_v2_pitches.parquet` for §79. Run with `xrv_model.py --v2`.
+
+**Judged (read once):** the §71 claim unchanged (xRV/100 beats RV/100 at forecasting RV/100 in S+1; CI lower bound > 0 and ≥ 5 of 6 pairs).
+
+**Reported:** Δr(v2 − v1), and the 2025→26 pair on its own.
+
+**Ships:** xRV/100 v2 replaces v1 on the site either way, because it is the corrected model. It is labelled forecast-gated only if CONFIRMED.
+
+## §79 Location-aware platoon gap (re-test of §73), pre-registered 2026-10-28
+
+**The change.**
+- Predicted whiff per swing for each pitch = p_whiff / (p_whiff + p_foul + p_bip), from the §78 outcome model. That model includes location relative to the hitter, count and same-hand.
+- Per pitcher × site type × hand, average it over the pitches thrown, then shrink toward the pitcher's all-hands type mean with k = 150.
+- The predicted gap is L minus R. Script: `platoon_splits.py --v2`.
+
+**Judged (read once):** the §73 claim unchanged. Δr = r(pred gap_S, obs gap_S+1) − r(obs gap_S, obs gap_S+1); ≥ 50 swings each hand in both seasons; S = 2021…2025; CI lower bound > 0.
+
+**Ships:** if CONFIRMED, location-aware expected whiff% vs LHH/RHH goes on the arsenal rows as the forecast. Otherwise it ships descriptively beside the shape split.
