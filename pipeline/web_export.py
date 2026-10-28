@@ -177,7 +177,28 @@ def p_depth(level: str, seasons: tuple, con) -> tuple[dict, dict]:
         for r in pd.read_csv(xf).itertuples():
             depth.setdefault((int(r.mlbam), int(r.season)), {}).update(
                 {"xrvPer100": f(r.xrv100, 2), "rvLuck": f(r.luck, 2)})
+    tf = ROOT / "pipeline" / "results" / "tunnel_pitchers.csv"  # §74 (D-06) Tunnel+: descriptive, MLB only
+    if level == "mlb" and tf.exists():
+        for r in pd.read_csv(tf).itertuples():
+            depth.setdefault((int(r.mlbam), int(r.season)), {}).update(
+                {"tunnelPlus": int(r.tunnel_plus), "tunnelPairsN": int(r.n_pairs),
+                 "tunnelReliability": f(r.reliability, 2), "tunnelRankable": bool(r.rankable)})
     return depth, trends(con, seasons, who="pitcher", level=level)
+
+
+@functools.lru_cache(maxsize=1)
+def tunnel_pairs() -> dict:
+    """§74 (D-06): {(mlbam, season): pairing rows, most-thrown first}, MLB only."""
+    tf = ROOT / "pipeline" / "results" / "tunnel_pairs.csv"
+    out: dict = {}
+    if tf.exists():
+        for r in pd.read_csv(tf).sort_values(["n", "from_code", "to_code"], ascending=[False, True, True]).itertuples():
+            out.setdefault((int(r.mlbam), int(r.season)), []).append({
+                "from": r.from_code, "to": r.to_code, "tunnelPlus": int(r.tunnel_plus), "n": int(r.n),
+                "commitSepIn": f(r.commit_sep_in, 1), "plateSepIn": f(r.plate_sep_in, 1),
+                "chaseLiftPts": f(r.chase_lift_pts, 2), "reliability": f(r.reliability, 2),
+                "rankable": bool(r.rankable)})
+    return out
 
 
 @functools.lru_cache(maxsize=1)
@@ -1570,6 +1591,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             discipline_fields(doc, t, season=season, totals=totals)
             p_dep, p_tr = p_depth(level, tuple(seasons), con)
             doc.update(p_dep.get((pid, season), {}))
+            doc["tunnelPairs"] = tunnel_pairs().get((pid, season)) if level == "mlb" else None
             doc["trend"] = p_tr.get((pid, season))
             doc.update(proj_band_fields(doc.get("kProj"), doc.get("preventionPlus"), int(t["pa"])))
             rel_row = rel_stats.loc[(pid, season)] if (pid, season) in rel_stats.index else None

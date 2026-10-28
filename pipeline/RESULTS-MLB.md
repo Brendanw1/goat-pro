@@ -1993,3 +1993,17 @@ The model's gap is a very stable property of shape, but some platoon skill sits 
 - per-season AUC, incremental AUC, k, the reconstruction error.
 
 **What it means either way.** Tunnel+ ships descriptive, as the college does: pitcher grade plus a pairing table on profiles and a board. If CONFIRMED, the glossary says it adds information beyond prior chase. If NOT CONFIRMED, it says it does not. Nothing is coloured as a forecast.
+
+**Result (read once, 2026-10-28): CONFIRMED.**
+- **Δr = +.091, 95% CI [+.026, +.156], n = 1,311 pitcher pairs.** All 5 pairs were positive: r with the residualized next-season chase .06, .10, .02, .17, .10.
+- **Head-on** (reported): −.266 [−.329, −.204]. Prior chase is far the better forecast of chase, the same pattern as college.
+- **YoY:**
+  - pitcher Tunnel+ .64 vs chase rate .49 on the same pitchers;
+  - pairing grade .68 (11,042 pairing pairs at ≥ 15 both seasons). College was .25, because MLB samples are larger.
+- **Chase model, per season:**
+  - AUC .645–.657, incremental AUC from commit separation +.017 to +.021;
+  - k ≈ 11 pairs (pairing) and 40–59 (pitcher);
+  - pairing SD 1.6–1.9 chase points.
+- **Reconstruction at release:** median 0.03 in for 2020–25. In 2026 it was 0.24 in horizontal and 0.94 in vertical, which is under the 2 in gate; the 2026 `release_pos` values appear to be measured differently.
+
+**Shipped:** `tunnelPlus` on pitcher rows/docs and a `tunnelPairs` table on profiles, labelled descriptive (it does not forecast chase head-on), with the added-information finding stated in the glossary. Artifacts: `results/tunnel_pitchers.csv`, `tunnel_pairs.csv`, `tunnel_SEALED.json`.

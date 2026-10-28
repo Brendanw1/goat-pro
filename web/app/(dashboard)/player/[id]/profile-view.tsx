@@ -22,6 +22,7 @@ import { DynamicStuffLab } from "@/components/3d/lab-dynamic";
 import { SharedGradeNote, GyroTag } from "@/components/ui/shared-grade-note";
 import { PitcherVisualsTab } from "@/components/ui/visuals-tab";
 import { CareerArsenal } from "@/components/ui/career-arsenal";
+import { TunnelPairs } from "@/components/ui/tunnel-pairs";
 import { baseCode, type PitchType, MovementPoint, ReleasePoint } from "@/types";
 import { DescriptiveChip, DESCRIPTIVE_LINE, PITCHING_TIP, K_TIP, PREVENTION_TIP, CONTROL_TIP, STUFF_TIP, gradeColor, confidenceBadge } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
@@ -589,6 +590,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
             </div>
           </div>
           {arsenalCard(false)}
+          <TunnelPairs pairs={profile.tunnelPairs} tunnelPlus={profile.tunnelPlus} nPairs={profile.tunnelPairsN} rankable={profile.tunnelRankable} />
           {/* Per-type percentiles beside VAA by zone: two mid-height cards in one row. */}
           <div className={`grid grid-cols-1 gap-4 ${vaaByZone && vaaByZone.length > 0 ? "lg:grid-cols-[1fr_360px]" : ""}`}>
             {/* Per-pitch percentiles, same row component, ranked against that pitch type */}
