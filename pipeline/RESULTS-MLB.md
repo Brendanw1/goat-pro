@@ -1827,3 +1827,14 @@ Every estimate is cross-fit: 5 folds grouped by **batter**, so no hitter's own b
 - the r of each PF with S+1, by hand;
 - τ per component;
 - a cross-check that Coors (COL) and Great American (CIN) rank top-3 in HR and Coors leads 3B. These are the known extremes.
+
+**Result (read once, 2026-10-27): NOT CONFIRMED.** Cross-fit BIP log loss is .4305. The run used 2,054 hitter-pairs.
+
+| | pooled Δr ours − Savant on S+1 wOBA [95% CI] | pairs won | same-season r with wOBA (ours / Savant) |
+|---|---|---|---|
+| hitters (judged) | **−.027 [−.041, −.012]** | 1/6 | .878 / .826 |
+| pitchers (reported) | −.027 [−.041, −.012] | 0/6 | .865 / .811 |
+
+Per pair, hitters, Savant → ours: .429→.418, .482→.483, .510→.475, .492→.445, .503→.488, .403→.348.
+
+**Read:** spray angle and sprint speed make xwOBA **more descriptive and less predictive**. They explain more of the same season's wOBA, but they forecast the next season worse than Savant's EV/LA estimate, on both sides of the ball. That fits a story in which pull-side air contact turns into hits partly through park and placement luck that does not repeat, while EV/LA carries the repeatable part. This is not tested further here. **Decision:** the site keeps Savant's xwOBA (attributed) as the expected stat. Ours is not shipped. D-01 closes on this negative result, and `results/xwoba_own_*.csv` stays for the record.
