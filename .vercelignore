@@ -1,0 +1,9 @@
+cache
+data
+pipeline/models
+pipeline/results
+node_modules
+.git
+web/.next
+web/node_modules
+*.parquet

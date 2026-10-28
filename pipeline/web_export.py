@@ -863,7 +863,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         # FIP is scaled to ERA: the official league ERA per season where the lines exist
         oer = pd.DataFrame([(s, e, o) for (_, s), (e, o) in official_er(level).items()], columns=["season", "er", "o"])
         lg_era = (27 * oer.groupby("season")["er"].sum() / oer.groupby("season")["o"].sum()) if len(oer) else pd.Series(dtype=float)
-        lg["ra9"] = [lg_era.get(s, r) for s, r in zip(lg["season"], lg["ra9"])]
+        lg["ra9"] = [lg_era.get(s, rr) for s, rr in zip(lg["season"], lg["ra9"])]
         lg["fip_raw"] = (13 * lg["hr"] + 3 * (lg["bb"] + lg["hbp"]) - 2 * lg["k"]) / (lg["outs"] / 3)
         lg["c"] = lg["ra9"] - lg["fip_raw"]
         fip_c = dict(zip(lg["season"], lg["c"]))
@@ -1383,13 +1383,17 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             if _r2["n"] >= SABR_FLOORS["row"] and not (pd.isna(_r2["velo"]) or pd.isna(_r2["ivb"]) or pd.isna(_r2["hb"])):
                 _pool_rows.append((int(_pid2), int(_s2), _r2["site"],
                                    float(_r2["velo"]), float(_r2["ivb"]), float(_r2["hb"])))
-        _names_by_id = {int(r.mlbam): r.name for r in grades[["mlbam", "name"]].drop_duplicates("mlbam").itertuples() if r.name}
+        _names_by_id = {int(gr2.mlbam): gr2.name for gr2 in grades[["mlbam", "name"]].drop_duplicates("mlbam").itertuples() if gr2.name}
         _pool_by_site: dict = {}
         for _i, _p in enumerate(_pool_rows):
-            _pool_by_site.setdefault(_p[2], [[], []])[0].append(_i)
+            _pool_by_site.setdefault(_p[2], [[], [], []])
+            _pool_by_site[_p[2]][0].append(_i)
             _pool_by_site[_p[2]][1].append([_p[3], _p[4], _p[5]])
-        _pool_arr = {site: (_np.array(ix), _np.array(vs))
-                     for site, (ix, vs) in _pool_by_site.items()}
+            _pool_by_site[_p[2]][2].append(_p[0])
+        # (indices, shape vectors, pitcher ids) — pids as an array so the
+        # self-exclusion mask is one vectorized compare per query
+        _pool_arr = {site: (_np.array(ix), _np.array(vs), _np.array(pids))
+                     for site, (ix, vs, pids) in _pool_by_site.items()}
         _pool_sd = {site: _pool_arr[site][1].std(axis=0) for site in _pool_arr}
         _pool_sd = {site: _np.where(sd == 0, 1.0, sd) for site, sd in _pool_sd.items()}
 
@@ -1399,8 +1403,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             entry = _pool_arr.get(site)
             if entry is None or len(entry[0]) < 5:
                 return None
-            ix, vs = entry
-            mask = _np.array([_pool_rows[i][0] != pid for i in ix])
+            ix, vs, pids = entry
+            mask = pids != pid
             if not mask.any():
                 return None
             d = _np.sqrt((((vs[mask] - [velo, ivb, hb]) / _pool_sd[site]) ** 2).sum(axis=1))
@@ -2257,7 +2261,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             GROUP BY 1, 2
         """).df()
         zw_map = {(int(row.id), int(row.season)): int(row.n_zone_whiff) for row in zw.itertuples()}
-        hag["n_zone_whiff"] = [zw_map.get((int(r.id), int(r.season)), 0) for r in hag.itertuples()]
+        hag["n_zone_whiff"] = [zw_map.get((int(rr.id), int(rr.season)), 0) for rr in hag.itertuples()]
 
         # the scale: league average reads .310, everything moves proportionally
         league_rows = hag[hag["pa"] >= 100]
@@ -2315,12 +2319,12 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         dec_f = ROOT / "pipeline" / "results" / "decisions_hitters.csv"
         h_dec = {}
         if level == "mlb" and dec_f.exists():
-            for r in pd.read_csv(dec_f).itertuples():
-                h_dec[(int(r.mlbam), int(r.season))] = {
-                    "drvPer100": f(r.drv100, 2), "izaPer100": f(r.iza, 2), "ozaPer100": f(r.oza, 2),
-                    "decisionPlus": f(r.decision_plus, 0) if pd.notna(r.decision_plus) else None}
-        h_depth = {(int(r["id"]), int(r["season"])): {k: f(r[c], nd) for c, (k, nd) in HD.items() if c in r}
-                   for r in hd.to_dict("records")}
+            for decr in pd.read_csv(dec_f).itertuples():
+                h_dec[(int(decr.mlbam), int(decr.season))] = {
+                    "drvPer100": f(decr.drv100, 2), "izaPer100": f(decr.iza, 2), "ozaPer100": f(decr.oza, 2),
+                    "decisionPlus": f(decr.decision_plus, 0) if pd.notna(decr.decision_plus) else None}
+        h_depth = {(int(rr["id"]), int(rr["season"])): {k: f(rr[c], nd) for c, (k, nd) in HD.items() if c in rr}
+                   for rr in hd.to_dict("records")}
         hboard = []
         for t in hag.itertuples():
             key = (int(t.id), int(t.season))
@@ -2366,7 +2370,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             FROM pitches_all WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
             GROUP BY 1, 2
         """).df()
-        bats_map = {(int(r.id), int(r.season)): r.bats for r in hj.itertuples()}
+        bats_map = {(int(rr.id), int(rr.season)): rr.bats for rr in hj.itertuples()}
         for row in hboard:
             row["bats"] = bats_map.get((int(row["id"]), row["season"]))
 
@@ -2613,7 +2617,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         h_written_pairs = set()
         h_written_latest = set()
         h_latest = {}
-        pairs = sorted({(int(r.id), int(r.season)) for r in hboard_df.itertuples()})
+        pairs = sorted({(int(rr.id), int(rr.season)) for rr in hboard_df.itertuples()})
         for pid in {p for p, _ in pairs}:
             h_latest[pid] = max(s for p2, s in pairs if p2 == pid)
         for pid, season in pairs:
@@ -2677,8 +2681,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         # index + prune
         if player is None:
             h_index = {str(pid): {"n": h_names.get(pid), "t": "H", "tm": hteam_map.get((pid, h_latest[pid])),
-                                  "pa": next((int(r.pa) for r in hboard_df.itertuples()
-                                              if int(r.id) == pid and r.season == h_latest[pid]), None),
+                                  "pa": next((int(rr.pa) for rr in hboard_df.itertuples()
+                                              if int(rr.id) == pid and rr.season == h_latest[pid]), None),
                                   "season": h_latest[pid]}
                        for pid in h_latest}
             # merge into player_index if it exists in this run; otherwise leave a sidecar merge to the pitchers family
@@ -2794,7 +2798,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             GROUP BY 1, 2
             HAVING COUNT(DISTINCT (game_pk, at_bat_number)) >= 50
         """).df()
-        h_pop = {(int(r.id), int(r.season)) for r in hpop.itertuples()}
+        h_pop = {(int(rr.id), int(rr.season)) for rr in hpop.itertuples()}
         hg = con.sql(f"""
             SELECT batter AS id, season, game_pk, MAX(game_date) AS game_date,
                    COUNT(DISTINCT (game_pk, at_bat_number)) AS pa,
@@ -2841,8 +2845,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         # season's biggest Whiff+ movers. Measured lines; the movers are a
         # descriptive model change, labelled as one.
         latest_date = str(pg["game_date"].max())[:10] if len(pg) else None
-        p_names = {int(r.mlbam): r.name for r in grades[["mlbam", "name"]].drop_duplicates("mlbam").itertuples()
-                   if r.name}
+        p_names = {int(rr.mlbam): rr.name for rr in grades[["mlbam", "name"]].drop_duplicates("mlbam").itertuples()
+                   if rr.name}
         starts = []
         if latest_date:
             day = pg[pg["game_date"].astype(str).str.startswith(latest_date)]
@@ -2868,7 +2872,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             latest_season = int(grades["season"].max())
             prev = grades[grades["season"] == latest_season - 1]
             cur = grades[grades["season"] == latest_season]
-            pm = {int(r.mlbam): (float(r.grade), int(r.pitches_graded or 0), getattr(r, "name", None)) for r in prev.itertuples()}
+            pm = {int(rr.mlbam): (float(rr.grade), int(rr.pitches_graded or 0), getattr(rr, "name", None)) for rr in prev.itertuples()}
             for t in cur.itertuples():
                 p = pm.get(int(t.mlbam))
                 if not p or (p[1] < 300) or int(t.pitches_graded or 0) < 300:
@@ -3115,7 +3119,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             GROUP BY 1, 2
             HAVING COUNT(DISTINCT (game_pk, at_bat_number)) >= 50
         """).df()
-        sc_pop = {(int(r.id), int(r.season)) for r in hpop2.itertuples()}
+        sc_pop = {(int(rr.id), int(rr.season)) for rr in hpop2.itertuples()}
 
         # season populations for the three skill axes (self-contained: this
         # family must bake alone, without the hitters block's tables)
@@ -3589,9 +3593,9 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         if pool_size >= 2 and len(tasks) >= 16:
             from concurrent.futures import ProcessPoolExecutor
             with ProcessPoolExecutor(max_workers=pool_size) as ex:
-                payloads = [r for r in ex.map(_visuals_payload, tasks, chunksize=16) if r is not None]
+                payloads = [rr for rr in ex.map(_visuals_payload, tasks, chunksize=16) if rr is not None]
         else:
-            payloads = [r for r in map(_visuals_payload, tasks) if r is not None]
+            payloads = [rr for rr in map(_visuals_payload, tasks) if rr is not None]
         for pid, season, payload in payloads:
             lat, seq, hand_rows = cheap[(pid, season)]
             payload["seq"] = seq
