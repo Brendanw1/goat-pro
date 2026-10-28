@@ -1024,6 +1024,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
 
     # ------------------------------------------------------------- /pitchers
     board = None
+    print(f"[{time.time() - t0:.0f}s] pitchers", flush=True)  # per-family timing
     if "pitchers" in fams:
         board_rows = []
         for _, t in totals.iterrows():
@@ -1173,6 +1174,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
 
     # ------------------------------------------------------ arsenal board rows
     arsenal_rows = {}
+    print(f"[{time.time() - t0:.0f}s] arsenal", flush=True)  # per-family timing
     if "arsenal" in fams:
         card_pool = {}
         for _, t in bytype.iterrows():
@@ -1310,6 +1312,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
 
     # ----------------------------------------------------------- slot board
     slot_pitchers = {}
+    print(f"[{time.time() - t0:.0f}s] slot", flush=True)  # per-family timing
     if "slot" in fams:
         latest = grades.sort_values("season").groupby("mlbam").tail(1).set_index("mlbam")
         for pid, sub in bytype.groupby("id"):
@@ -1335,6 +1338,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             }
 
     # -------------------------------------------------------- player files
+    print(f"[{time.time() - t0:.0f}s] players", flush=True)  # per-family timing
     if "players" in fams:
         # movement cloud: a deterministic 1-in-8 pitch subsample per player-season
         # (hash of game_pk+pitch_number, so re-bakes pick the same pitches), for the
@@ -1754,6 +1758,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     # the season-mean deltas of every kept pitcher in that cell for the ranks.
     # Descriptive — the college expected-shapes study found the distance adds
     # nothing beyond Stuff+ — so the UI ranks it, never verdict-colours it.
+    print(f"[{time.time() - t0:.0f}s] slot", flush=True)  # per-family timing
     if "slot" in fams:
         BAND_SQL = """CASE WHEN arm_angle >= 60 THEN 'ott' WHEN arm_angle >= 45 THEN 'high34'
                    WHEN arm_angle >= 30 THEN '34' WHEN arm_angle >= 15 THEN 'low34'
@@ -1997,6 +2002,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
 
     # ------------------------------------------------------ Savant reference
     savant_meta = []
+    print(f"[{time.time() - t0:.0f}s] savant", flush=True)  # per-family timing
     if "savant" in fams:
         def savant_rows(table: str, cols: dict, sort_desc: str | None) -> list[dict]:
             names = ", ".join(f'"{src}" AS {dst}' for src, dst in cols.items())
@@ -2140,6 +2146,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     # gross data-error gates apply here (speed sanity band, hands known) — the
     # pitcher-side movement gates must not thin a hitter's plate-discipline
     # denominators.
+    print(f"[{time.time() - t0:.0f}s] hitters", flush=True)  # per-family timing
     if "hitters" in fams:
         from pathlib import Path as _P
         ROSTERS = f"{MART_DIR}/data/daily/rosters_*.parquet"
@@ -3109,6 +3116,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     # model. Cells mirror plate_x by the BATTER's hand so "inside" is his
     # inside; values under 5 pitches are the panel's job to thin-mark — the
     # bake ships every cell with its n.
+    print(f"[{time.time() - t0:.0f}s] scouting", flush=True)  # per-family timing
     if "scouting" in fams:
         from statistics import NormalDist
         hpop2 = con.sql(f"""
@@ -3323,6 +3331,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     # can offer season switching and show how an arsenal evolved ("added the
     # sweeper in 2025") without fetching every season's full doc. Level-scoped:
     # the MLB bake and the AAA bake write into different directories.
+    print(f"[{time.time() - t0:.0f}s] career", flush=True)  # per-family timing
     if "career" in fams:
         car_p = con.sql(f"""
             SELECT pitcher AS id, season,
@@ -3405,6 +3414,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     # lattice, usage vs batter hand. The college computed these client-side from
     # per-pitch events; here the densities/aggregates are computed IN THE BAKE
     # so each payload stays a few KB. All measured, all descriptive.
+    print(f"[{time.time() - t0:.0f}s] visuals", flush=True)  # per-family timing
     if "visuals" in fams:
         import numpy as _np
 
@@ -3700,6 +3710,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     jwrite(out / "meta.json", meta, sort_keys=True)
 
     # ------------------------------------------------------------ write rest
+    print(f"[{time.time() - t0:.0f}s] pitchers", flush=True)  # per-family timing
     if "pitchers" in fams:
         n_bytes = jwrite(out / "pitchers.json", board.to_dict(orient="records"))
         # keep the other sections (hitters, hitters_dense, shrunk_by_season): a pitchers-only bake used to
@@ -3717,6 +3728,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             "confidence_floors": conf_floor,
         })
         print(f"pitchers.json {n_bytes / 1e6:.1f} MB")
+    print(f"[{time.time() - t0:.0f}s] arsenal", flush=True)  # per-family timing
     if "arsenal" in fams:
         jwrite(out / "arsenal_cards.json", arsenal_cards)
         for site, rows in arsenal_rows.items():
@@ -3737,9 +3749,11 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             "nRef": len(ref_latest),
             "pitchers": mix_latest,
         }, sort_keys=True)
+    print(f"[{time.time() - t0:.0f}s] slot", flush=True)  # per-family timing
     if "slot" in fams:
         jwrite(out / "slot_board.json", {"season": season_csv, "source": "goat-pro pipeline/web_export.py",
                                          "pitchers": slot_pitchers})
+    print(f"[{time.time() - t0:.0f}s] vaa", flush=True)  # per-family timing
     if "vaa" in fams:
         jwrite(out / "vaa_zone_pct.json", vaa_file)
     if hitter_pct_out or pitcher_shrunk_out:
