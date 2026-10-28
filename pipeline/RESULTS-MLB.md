@@ -2190,3 +2190,31 @@ Calibration now passes every season: decile gaps .0045 / .0016 / .0023 / .0023 /
   - Δr = −.105 [−.148, −.061], worse than §73's shape gap (−.058).
   - YoY of the predicted gap .71.
   - **Diagnosis:** at ≥ 50 swings per side, the observed gap is reliable enough (r .37–.47 with next season) that a league-average model, which never sees the pitcher, cannot beat it. The forecast should be an EB blend of the observed gap shrunk toward the model gap, and that is a new claim. The shape split stays on the site as descriptive.
+
+## §81 Range v3: Savant fielder start positions + physics hang time (re-test of §80 IF), pre-registered 2026-10-28 before any read
+
+**Why.** §80 left IF validity at .495 and called the cause a data limit: there are no fielder start positions. Savant publishes each fielder's *average* start position, per season × batter hand × runner on first × shift (`/visuals/position_data`; feet, x < 0 toward third, y = depth from home). Per-play start positions and measured hang time remain private.
+
+**The change** (`defense_mlb.py --v3`; this also implies the §80 recalibration):
+- **Start position per play, per fielder 3–9:**
+  - the fielder's season average for that batter hand;
+  - the runner-on-first subset when r1 = 1;
+  - the shifted mean when `ifa` is "Infield shift", backed out as (n_all·m_all − n_std·m_std)/(n_all − n_std).
+  - **Fallbacks:** the position's league mean for that hand where the fielder has fewer than 10 plays in the cell.
+- **New features:**
+  - **OF:** for each of 7/8/9, the distance from that start to the ball's fielded point (fx, fy), and the minimum of the three.
+  - **IF:** for each of 3–6, the lateral distance from the start to the ball's path (start distance × |sin(start angle − spray)|), and the minimum of the four.
+  - **Hang time** for air balls (la ≥ 10): flight time from a drag-only trajectory. Drag is solved per ball so that the range matches `hit_distance_sc`; NaN for grounders.
+  - **Required speed** for OF = min distance / hang time.
+- **Nothing else changes:** folds, OUTS, credit, runs, gates.
+
+**Judged (read once), per group, gates as §75/§80:**
+- decile gap ≤ .03 in every season;
+- r vs Savant OAA, CI lower bound > .50.
+
+**Reported:** Δr vs §80 per group; YoY; split-half k.
+
+**Expected:**
+- IF should rise, because positioning was the stated missing piece. If IF stays below the gate with start positions in, the remaining limit is per-play positioning and reaction or route data, which is still not public.
+- **Risk:** the averages are fielder-specific, so a fielder who positions well gets less credit for the same play. Savant's OAA conditions on start position too, so this matches the benchmark's definition.
+- **Shipping:** OF ships v3 only if it passes and r ≥ the §80 r; otherwise §80 OF stays.
