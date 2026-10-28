@@ -2336,8 +2336,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             ab = rates["pa"] - rates["bb"] - rates["hbp"] - rates["sf"] - rates["sh"] - rates["ci"]
             tb = rates["s1"] + 2 * rates["s2"] + 3 * rates["s3"] + 4 * rates["hr"]
             row["avg"] = f((rates["s1"] + rates["s2"] + rates["s3"] + rates["hr"]) / ab, 3) if ab else None
-            obp_den = ab + rates["bb"] + rates["hbp"] + rates["sf"] + rates["ci"]
-            row["obp"] = f((rates["s1"] + rates["s2"] + rates["s3"] + rates["hr"] + rates["bb"] + rates["hbp"] + rates["ci"]) / obp_den, 3) if obp_den else None
+            obp_den = ab + rates["bb"] + rates["hbp"] + rates["sf"]  # official OBP: catcher's interference is in neither term
+            row["obp"] = f((rates["s1"] + rates["s2"] + rates["s3"] + rates["hr"] + rates["bb"] + rates["hbp"]) / obp_den, 3) if obp_den else None
             row["slg"] = f(tb / ab, 3) if ab else None
             row["ops"] = f((row["obp"] or 0) + (row["slg"] or 0), 3) if (row["obp"] is not None and row["slg"] is not None) else None
             row["iso"] = f((row["slg"] or 0) - (row["avg"] or 0), 3) if (row["slg"] is not None and row["avg"] is not None) else None
@@ -2622,14 +2622,14 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             raw = (wt["walk"] * (t.bb - t.ibb) + wt["hit_by_pitch"] * t.hbp
                    + wt["single"] * t.s1 + wt["double"] * t.s2
                    + wt["triple"] * t.s3 + wt["home_run"] * t.hr) if wt else None
-            obp_den = ab + t.bb + t.hbp + t.sf + t.ci
+            obp_den = ab + t.bb + t.hbp + t.sf
             doc = {
                 "id": str(pid), "name": h_names.get(pid), "position": "H", "age": season_age(pid, season),
                 "team": hteam_map.get((pid, season)), "bats": bats_map.get((pid, season)),
                 "season": season,
                 "pa": int(t.pa), "pitchesSeen": int(t.pitches_seen),
                 "avg": f((t.s1 + t.s2 + t.s3 + t.hr) / ab, 3) if ab else None,
-                "obp": f((t.s1 + t.s2 + t.s3 + t.hr + t.bb + t.hbp + t.ci) / obp_den, 3) if obp_den else None,
+                "obp": f((t.s1 + t.s2 + t.s3 + t.hr + t.bb + t.hbp) / obp_den, 3) if obp_den else None,
                 "slg": f(tb / ab, 3) if ab else None,
                 "woba": f(raw / den * hfactor.get(season, 1.0), 3) if raw is not None and den else None,
                 "kPct": f(100 * t.k / t.pa, 1) if t.pa else None,
