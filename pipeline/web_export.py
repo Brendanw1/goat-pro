@@ -89,7 +89,8 @@ TAKEN = ("called_strike", "ball", "hit_by_pitch", "swinging_strike", "foul",
 OUT_EVENTS_1 = ("field_out", "force_out", "fielders_choice_out", "strikeout",
                 "sac_fly", "sac_bunt", "caught_stealing", "pickoff_1b",
                 "pickoff_2b", "pickoff_3b", "other_out")
-OUT_EVENTS_2 = ("double_play", "strikeout_double_play", "sac_fly_dp",
+OUT_EVENTS_2 = ("double_play", "grounded_into_double_play", "strikeout_double_play", "sac_fly_double_play",
+                "sac_bunt_double_play", "sac_fly_dp",
                 "caught_stealing_2b", "caught_stealing_3b", "pickoff_caught_stealing_2b",
                 "pickoff_caught_stealing_3b")
 OUT_EVENTS_3 = ("triple_play",)
@@ -782,6 +783,28 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             FROM agg LEFT JOIN runs_by_p r ON r.pitcher = agg.id AND r.season = agg.season
         """).df()
         totals["id"] = totals["id"].astype(int)
+        # Counting stats from every PA, ungated (the px gate drops automatic IBBs, untracked pitches and
+        # knuckleballs, which undercounted K, BB, H, HR and PA); the pitch-quality rates stay on px.
+        ev_c = con.sql(f"""
+            SELECT pitcher AS id, season,
+                   COUNT(DISTINCT (game_pk, at_bat_number)) FILTER (WHERE events IS NOT NULL) AS pa,
+                   COUNT(*) FILTER (WHERE events IN ('strikeout','strikeout_double_play')) AS k,
+                   COUNT(*) FILTER (WHERE events IN ('walk','intent_walk')) AS bb,
+                   COUNT(*) FILTER (WHERE events = 'intent_walk') AS ibb,
+                   COUNT(*) FILTER (WHERE events = 'hit_by_pitch') AS hbp,
+                   COUNT(*) FILTER (WHERE events IN {BB_EVENTS}) AS h,
+                   COUNT(*) FILTER (WHERE events = 'home_run') AS hr
+            FROM pitches_all WHERE game_type = 'R' AND season IN ({season_csv}) AND pitcher IS NOT NULL
+            GROUP BY 1, 2""").df()
+        ev_c["id"] = ev_c["id"].astype(int)
+        totals = totals.drop(columns=[c for c in ev_c.columns if c not in ("id", "season")]).merge(
+            ev_c, on=["id", "season"], how="left")
+        # IP: official outs from the Stats API lines where they exist. Statcast events never carry outs on
+        # the bases (caught stealing, pickoffs, runners thrown out), so event outs run short (Valdez 2024
+        # 147.7 IP vs 176.1 official).
+        oo = official_er(level)
+        totals["outs"] = [oo[k][1] if k in oo and oo[k][1] > 0 else o
+                          for k, o in zip(zip(totals["id"], totals["season"].astype(int)), totals["outs"])]
         totals = totals.sort_values(["id", "season"])
         team_mode = con.sql(f"""
             SELECT pitcher AS id, season,
@@ -854,11 +877,17 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                    SUM(CASE WHEN events = 'intent_walk' THEN 1 ELSE 0 END) AS ibb,
                    SUM(CASE WHEN events = 'hit_by_pitch' THEN 1 ELSE 0 END) AS hbp,
                    SUM(CASE WHEN events IN ('strikeout','strikeout_double_play') THEN 1 ELSE 0 END) AS k
-            FROM px GROUP BY season
+            FROM pitches_all  -- every PA, ungated: automatic IBBs and untracked pitches have no pitch data
+            WHERE game_type = 'R' AND season IN ({season_csv}) AND pitcher IS NOT NULL
+            GROUP BY season
             )
             SELECT agg.*, COALESCE(r.runs, 0) AS runs
             FROM agg LEFT JOIN (SELECT season, SUM(runs) AS runs FROM runs_by_p GROUP BY 1) r USING (season)
         """).df()
+        lg_oo: dict = {}  # official league outs, as for players
+        for (_, lg_s), (_, lg_o) in official_er(level).items():
+            lg_oo[lg_s] = lg_oo.get(lg_s, 0) + lg_o
+        lg["outs"] = [lg_oo.get(s, o) for s, o in zip(lg["season"], lg["outs"])]
         lg["ra9"] = 9 * lg["runs"] / (lg["outs"] / 3)
         # FIP is scaled to ERA: the official league ERA per season where the lines exist
         oer = pd.DataFrame([(s, e, o) for (_, s), (e, o) in official_er(level).items()], columns=["season", "er", "o"])
