@@ -19,9 +19,9 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   }
   const [vaaFile, slot, pitchRv, situational] = await Promise.all([
     getVaaZonePct(level),
-    hitter ? Promise.resolve(null) : getArmSlot(id, level),
+    hitter ? Promise.resolve(null) : getArmSlot(id, profile?.season ?? season, level),
     hitter ? Promise.resolve(null) : getPitchRv(id, level),
-    hitter ? Promise.resolve(null) : getSituational(id, level),
+    hitter ? Promise.resolve(null) : getSituational(id, profile?.season ?? season, level),
   ]);
   // Percentiles in the profile's OWN season; a season param that mismatches
   // the file falls back to the file's season.
