@@ -2115,3 +2115,44 @@ The three re-tests below reuse season pairs whose v1 results were already seen. 
 **Judged (read once):** the §73 claim unchanged. Δr = r(pred gap_S, obs gap_S+1) − r(obs gap_S, obs gap_S+1); ≥ 50 swings each hand in both seasons; S = 2021…2025; CI lower bound > 0.
 
 **Ships:** if CONFIRMED, location-aware expected whiff% vs LHH/RHH goes on the arsenal rows as the forecast. Otherwise it ships descriptively beside the shape split.
+
+### §75 / §76 results (read once, 2026-10-28)
+
+**§76 framing: CONFIRMED.**
+- r with Savant `rv_tot` = **.950 [.935, .963]**, n = 414 catcher-seasons.
+- Model: AUC .981–.991, decile gap ≤ .009 every season.
+- Split-half rel .79, k = 1,385 taken pitches.
+- YoY: ours .53 vs Savant's .57.
+
+**Ships:** `framingRunsOurs` and `framingPlus`.
+
+**§75 range: NOT CONFIRMED, both groups.**
+
+| | r vs Savant OAA [95% CI] | n | calibration | split-half rel / k | YoY ours / Savant |
+|---|---|---|---|---|---|
+| IF | .498 [.434, .563] (fails > .50) | 1,138 | fails | .32 / 676 | .37 / .44 |
+| OF | .691 [.645, .730] (passes) | 665 | fails | .37 / 442 | .36 / .64 |
+
+AUC .907–.919. Decile gaps .020 / .042 / .034 / .035 / .036 / .041 / .043 (2020–26).
+
+**Failure diagnosis (owner rule):**
+- **Calibration, our error (modeling).**
+  - A raw LightGBM out-probability is miscalibrated by ~.04 at the tails.
+  - The college model hit the same thing and shipped an isotonic recalibration (hit-chance amendment 1, DEFENSE_METHODS "models chosen on calibration"). I did not port that step.
+  - Fixable without touching the gate.
+- **IF validity, mostly a data limit, partly ours.**
+  - Public Statcast has no fielder starting positions or time to ball, and those are the core of Savant's infield OAA. Our credit therefore mixes positioning into skill. That is a real limit of the data, not the thing we are measuring.
+  - Our part: responsibility is learned only from outs, and alignment is coarse (Standard / Strategic / Shade).
+- **OF YoY .36 vs Savant .64, partly ours.** No hang time is used. Distance + LA + EV stand in for it, and Statcast's catch probability uses hang time and the fielder's distance to the ball.
+
+## §80 Range v2: isotonic recalibration (re-test of §75), pre-registered 2026-10-28
+
+**The change.** Within each season, the out-of-fold P(out) is mapped through an isotonic regression. The map is itself cross-fit: it is fit on the other 4 game folds' OOF predictions and applied to the held-out fold. Credit and runs are recomputed from the recalibrated p. Nothing else changes. Run with `defense_mlb.py --v2`.
+
+**Judged (read once):** the §75 gates unchanged, per group:
+- decile gap ≤ .03 in every season;
+- r vs Savant OAA, CI lower bound > .50.
+
+**Reported:** Δ YoY vs §75.
+
+**Expected:** calibration should pass. IF validity is likely still near .50, because the limit is mostly the data. If IF fails again, the IF numbers are not shipped, and the OF numbers ship if OF passes.
