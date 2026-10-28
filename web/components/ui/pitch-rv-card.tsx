@@ -15,6 +15,7 @@ interface RvRow {
   rv100: number | null;
   lo: number | null;
   hi: number | null;
+  xrv100?: number | null;
 }
 
 const signed = (v: number | null | undefined, dp = 2): string =>
@@ -29,6 +30,7 @@ export function PitchRvCard({ data, season }: { data: any | null; season?: numbe
   const hide = data.floors?.rv?.hide ?? 50;
   const rows: RvRow[] = (data.rows || []).filter((r: RvRow) => r.n >= hide);
   if (!rows.length) return null;
+  const hasX = rows.some((r) => r.xrv100 != null);
   const ranked = [...rows].filter((r) => typeof r.rv100 === "number").sort((a, b) => (b.rv100 ?? 0) - (a.rv100 ?? 0));
   const best = ranked[0];
   const worst = ranked.length > 1 ? ranked[ranked.length - 1] : null;
@@ -45,6 +47,7 @@ export function PitchRvCard({ data, season }: { data: any | null; season?: numbe
           <div className="w-[64px] text-right">PA reach</div>
           <div className="w-[72px] text-right border-l border-border-subtle" title="What happened, per 100 pitches. Results, not skill — never coloured.">RV/100</div>
           <div className="w-[64px] text-right" title="League average RV/100 for this pitch type, same season">Lg avg</div>
+          {hasX && <div className="w-[72px] text-right border-l border-border-subtle" title="Expected RV/100 from what the pitch was and where it went (RESULTS-MLB §71). Descriptive, not a forecast.">xRV/100</div>}
         </div>
         {rows.map((r) => {
           const mu = data.league?.[r.type]?.mu;
@@ -59,6 +62,7 @@ export function PitchRvCard({ data, season }: { data: any | null; season?: numbe
               <div className="w-[64px] text-right text-xs font-data text-text-dim">{r.nPa.toLocaleString()}</div>
               <div className="w-[72px] text-right text-xs font-data text-text-secondary border-l border-border-subtle">{signed(r.rv100)}</div>
               <div className="w-[64px] text-right text-xs font-data text-text-dim">{signed(mu)}</div>
+              {hasX && <div className="w-[72px] text-right text-xs font-data text-text-secondary border-l border-border-subtle">{signed(r.xrv100)}</div>}
             </div>
           );
         })}
@@ -73,8 +77,8 @@ export function PitchRvCard({ data, season }: { data: any | null; season?: numbe
       )}
       <p className="px-4 py-2.5 text-[10px] leading-relaxed text-text-dim border-t border-border-subtle">
         RV/100 is pitcher-positive (runs saved per 100 pitches). These are results: on a sample this size most of the
-        gap between pitchers is the bounce of the ball, so the column never colours and never ranks a grade. The
-        expected-value half of this card (xRV/100, locations, xwOBA) needs the run-value model and does not ship yet.
+        gap between pitchers is the bounce of the ball, so the column never colours and never ranks a grade.
+        {hasX && " xRV/100 prices each pitch by its shape, location and count instead of its result: stable year to year, but not a better forecast than RV/100 itself (RESULTS-MLB §71), so it is descriptive too."}
       </p>
     </div>
   );

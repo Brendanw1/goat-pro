@@ -1589,6 +1589,13 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         """).df().set_index("site")
         RV_HIDE = 50  # matches the type-grade floor: under this the cell hides
         rv_written: set[int] = set()
+        xrv_type: dict = {}  # §71 (D-03): xRV/100 per site code, descriptive, MLB only
+        xtf = ROOT / "pipeline" / "results" / "xrv_pitch_types.csv"
+        if level == "mlb" and xtf.exists():
+            xt = pd.read_csv(xtf).assign(site=lambda d: d["pitch_type"].map(lambda t: SC_TO_SITE.get(t, t)))
+            xt["w"] = xt["xrv100"] * xt["n"]
+            for (m, s_, site), g_ in xt.groupby(["mlbam", "season", "site"]):
+                xrv_type[(int(m), int(s_), site)] = float(g_["w"].sum() / g_["n"].sum())
         bt_latest = bytype[(bytype["season"] == max(seasons))]
         for (pid, season), sub0 in bt_latest.groupby(["id", "season"]):
             if not keep_row(int(pid), int(season)) or season != latest_season.get(pid):
@@ -1604,6 +1611,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 rows_rv.append({
                     "type": b.site, "n": int(b.n), "nPa": int(b.n_pa),
                     "rv100": f(rv100, 2), "lo": f(rv100 - half, 2), "hi": f(rv100 + half, 2),
+                    "xrv100": f(xrv_type.get((int(pid), int(season), b.site)), 2),
                 })
             if not rows_rv:
                 continue
