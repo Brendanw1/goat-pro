@@ -1959,3 +1959,37 @@ Reported:
 The model's gap is a very stable property of shape, but some platoon skill sits outside shape: release angle, deception, sequencing.
 
 **Shipped:** per-hand Whiff+ (raw, shrunk, CI) and usage on profile arsenal rows, labelled descriptive. Not coloured as a forecast (`results/platoon_splits.csv`, `platoon_SEALED.json`).
+
+## §74 Tunnel+ on MLB (D-06), pre-registered 2026-10-28 before any read
+
+**Method.** A port of the college `compute_tunnel_plus.py`: method only, refit on Statcast, with no TrackMan data or coefficients. Script: `tunnel_plus.py`.
+- **Unit:** consecutive pitches of different site types in one plate appearance (`game_pk` + `at_bat_number`, `pitch_number` n and n+1, same pitcher).
+- **Geometry:**
+  - Position from Statcast's nine-parameter fit. x0 and z0 at y = 50 ft are backed out from `plate_x`/`plate_z` at y = 17/12 ft.
+  - Commit point at 23.8 ft (Baseball Prospectus, ≈175 ms; the same constant the college uses).
+  - Separations at commit and at the plate, in inches.
+  - Gate: the reconstruction at `release_pos_y` must match `release_pos_x/z` to a median ≤ 2 in, or nothing is graded.
+- **Chase model, per season:** logistic on out-of-zone second pitches (Statcast zone 11–14; swing = the bake's SWING set). Features:
+  - stuff of the second pitch: the pitcher-season-type mean of the cross-fit Whiff+ prediction, on the pooled scale (the analog of the college `abs_grade`);
+  - velo, velo drop, balls, strikes, platoon, to-type dummies;
+  - plate separation;
+  - commit separation.
+
+  AUC and incremental AUC are measured on 30% of games held out (crc32).
+- **Lift:** predicted chase at the actual commit separation minus predicted chase at the separation implied by the plate separation (a per-season linear fit).
+- **Shrinkage:** EB per (pitcher, from → to), with k deconvolved on cells ≥ 15.
+- **Pitcher grade:** pairing type removed, then shrunk once with its own k. Scale: 100 + 10 × lift / pairing SD, clipped 70–130.
+- **Floors:** the college's own. 3 pairs shown, reliability ≥ .25 ranked, pitcher ranked at ≥ 150 pairs.
+
+**Claim (read once).** Pitchers with ≥ 150 pairs in S and S+1, pairs S = 2021…2025. Let resid = next-season chase rate (all out-of-zone pitches) residualized on this-season chase rate, OLS within each season.
+- Δr = r(Tunnel+ lift_S, resid) − r(chase_S, resid).
+- `stack.pooled_dr`, pitcher-clustered, 2,000 draws, seed 13.
+- CONFIRMED (adds information beyond prior chase) if the 95% CI lower bound is > 0. The college finding was +.016 added R², CI above 0.
+
+**Reported, not judged:**
+- head-on Δr = r(Tunnel+_S, chase_S+1) − r(chase_S, chase_S+1);
+- pitcher grade YoY vs chase YoY on the same pitchers;
+- pairing grade YoY (≥ 15 pairs both seasons);
+- per-season AUC, incremental AUC, k, the reconstruction error.
+
+**What it means either way.** Tunnel+ ships descriptive, as the college does: pitcher grade plus a pairing table on profiles and a board. If CONFIRMED, the glossary says it adds information beyond prior chase. If NOT CONFIRMED, it says it does not. Nothing is coloured as a forecast.
