@@ -31,8 +31,9 @@ WITH p AS (
   SELECT {who} AS id, season, stand, pitch_type, description, events, bb_type, launch_speed AS ev,
          launch_angle AS la, launch_speed_angle, hc_x, hc_y, release_speed, bat_speed, swing_length, attack_angle,
          attack_direction, swing_path_tilt, intercept_ball_minus_batter_pos_y_inches AS depth,
-         estimated_ba_using_speedangle AS xba, estimated_slg_using_speedangle AS xslg,
-         estimated_woba_using_speedangle AS xw, woba_value, woba_denom, delta_run_exp AS rv,
+         CAST(estimated_ba_using_speedangle AS DECIMAL(9, 4)) AS xba, CAST(estimated_slg_using_speedangle AS DECIMAL(9, 4)) AS xslg,
+         CAST(estimated_woba_using_speedangle AS DECIMAL(9, 4)) AS xw, CAST(woba_value AS DECIMAL(9, 4)) AS woba_value, woba_denom,
+         CAST(delta_run_exp AS DECIMAL(18, 6)) AS rv,  -- exact sums: parallel DOUBLE sums flipped a 3-dp rounding between bakes
          description = 'hit_into_play' AS bip,
          description IN ('swinging_strike','swinging_strike_blocked','foul','foul_tip','hit_into_play') AS swing,
          CASE WHEN hc_x IS NOT NULL THEN degrees(atan2(hc_x - 125.42, 198.27 - hc_y))
