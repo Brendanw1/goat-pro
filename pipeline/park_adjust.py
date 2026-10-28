@@ -35,7 +35,10 @@ def factor_table(con, shipped) -> pd.DataFrame:
     g = counts(con, seasons).merge(venues(seasons)[["game_pk", "venue_id"]], on="game_pk")
     out = []
     for s in seasons:
-        r = shrink(ratios(g, range(s - 2, s + 1)))
+        raw = ratios(g, range(s - 2, s + 1))
+        if not (raw["home_pa"] >= MIN_HOME_PA).any():  # 2020's window is the 60-game season alone: factor 1
+            continue
+        r = shrink(raw)
         r = r[(r["home_pa"] >= MIN_HOME_PA) & r["comp"].isin(shipped)]
         out.append(r.assign(season=s, pf=np.exp(r["eb"]))[["season", "team", "venue_id", "stand", "comp", "pf"]])
     return pd.concat(out, ignore_index=True)

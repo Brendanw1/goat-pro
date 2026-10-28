@@ -1917,3 +1917,11 @@ Pooled Δr over pairs S = 2022…2025 (the windows need S−2), player-clustered
 **Reported, not judged:** the same Δr among players who stayed with one team (expected ≈ 0); the largest raw-to-adjusted moves (sanity: Coors and Petco hitters).
 
 **What it means either way.** A confirmed stat ships on rows, docs and percentiles as `wobaParkAdj` / `fipParkAdj`. An unconfirmed one is not shown.
+
+**Result (read once, 2026-10-28): NOT CONFIRMED, both.** Among players who changed teams:
+- **Hitters** (adjusted wOBA): Δr = +.002, 95% CI [−.016, .022], n = 249.
+- **Pitchers** (adjusted FIP): Δr = −.008, [−.028, .013], n = 265.
+
+Stayers, reported: hitters −.003, pitchers −.002, both about 0 as expected. The largest 2025 moves are about .01 of wOBA (PHI and LAD hitters down; AZ and SEA up). Coors does not lead them, because singles, the component Coors inflates most, failed §70 and are not adjusted. With only 2B, 3B, HR and SO factors, the adjustment is too small to sharpen year-to-year signal.
+
+**Shipped:** nothing, per the pre-registration. The venue factors stay on team pages (§70).
