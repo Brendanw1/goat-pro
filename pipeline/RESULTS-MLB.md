@@ -1838,3 +1838,20 @@ Every estimate is cross-fit: 5 folds grouped by **batter**, so no hitter's own b
 Per pair, hitters, Savant → ours: .429→.418, .482→.483, .510→.475, .492→.445, .503→.488, .403→.348.
 
 **Read:** spray angle and sprint speed make xwOBA **more descriptive and less predictive**. They explain more of the same season's wOBA, but they forecast the next season worse than Savant's EV/LA estimate, on both sides of the ball. That fits a story in which pull-side air contact turns into hits partly through park and placement luck that does not repeat, while EV/LA carries the repeatable part. This is not tested further here. **Decision:** the site keeps Savant's xwOBA (attributed) as the expected stat. Ours is not shipped. D-01 closes on this negative result, and `results/xwoba_own_*.csv` stays for the record.
+
+**Result (read once, 2026-10-27).** Floors were set in code before the read: a window needs ≥ 2,000 home PA (this drops neutral-site one-offs), and S+1 needs ≥ 1,000 home PA.
+
+| component | pooled Δr EB(3-yr) − raw(S) on S+1 [95% CI] | r(EB, S+1) > 0 every pair | r by hand L / R | verdict |
+|---|---|---|---|---|
+| 1B | +.044 [−.034, +.106] | yes | .35 / .49 | NOT CONFIRMED |
+| 2B | **+.173 [+.089, +.245]** | yes | .40 / .41 | **CONFIRMED** |
+| 3B | **+.144 [+.051, +.218]** | yes | .48 / .26 | **CONFIRMED** |
+| HR | **+.102 [+.012, +.183]** | yes | .38 / .40 | **CONFIRMED** |
+| BB | −.039 [−.169, +.104] | no | .07 / −.13 | NOT CONFIRMED |
+| SO | **+.059 [+.007, +.110]** | yes | .62 / .53 | **CONFIRMED** |
+
+Between-venue SD of the log ratio (τ), L/R: 1B .03/.06, 2B .10/.09, 3B .38/.28, HR .12/.13, BB .03/.01, SO .06/.06.
+
+**Sanity check, reported honestly: half right.** On triples, the top 3 are AZ, COL and KC (expected). On HR, the top 5 for 2024–26 are LAD, PHI, NYY, CIN and MIL. CIN is 4th, but **COL is not in the top 5**. The pre-registered expectation was stale: recent Statcast-era park factors also put Dodger Stadium first for HR, and Coors' edge is in hits in play, not home runs. The method is not changed after the read.
+
+**Read:** 1B and BB factors are mostly noise year to year; the 3-year EB does not beat a single season reliably. They are not shown. **Shipped:** PF for 2B, 3B, HR and SO, by hand, 2024–26 window, `results/park_factors.json`. They are descriptive venue effects; nothing on the site is park-adjusted with them yet (that is D-04's second half, after this read).
