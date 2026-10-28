@@ -108,6 +108,7 @@ export async function PlayerPage({ id, season, level = "mlb", extra }: {
           gameLog={gameLog}
           situational={situational}
           visuals={visuals}
+          career={career}
           careerArsenal={career?.kind === "P" ? career.seasons : null}
           backHref={level === "aaa" ? "/minors" : undefined}
           level={level}

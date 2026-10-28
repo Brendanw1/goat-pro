@@ -68,7 +68,154 @@ function UsageVsHand({ rows }: { rows: { t: string; n: number; lhb: number | nul
   );
 }
 
-export function PitcherVisualsTab({ visuals }: { visuals: any | null }) {
+/**
+ * D-10: release tells — how far apart his types LEAVE the hand, in standardized
+ * and raw units, from the release clouds the bake already ships. Two types that
+ * overlap at release are hard to tell apart out of the hand; a type that drops
+ * a couple of inches is a tell, in the scouting sense of the word.
+ */
+function ReleaseTells({ release }: { release: any }) {
+  const types = Object.entries<any>(release?.types ?? {}).filter(([, v]) => v.n >= 20) as [string, any][];
+  if (types.length < 2) return <p className="text-xs text-text-dim">Needs two tracked pitch types.</p>;
+  const rows: { a: string; b: string; ds: number; dh: number; z: number }[] = [];
+  for (let i = 0; i < types.length; i++) {
+    for (let j = i + 1; j < types.length; j++) {
+      const [a, va] = types[i], [b, vb] = types[j];
+      const ds = Math.abs(va.rs - vb.rs), dh = Math.abs(va.rh - vb.rh);
+      const z = Math.sqrt((ds / Math.max(0.05, Math.hypot(va.sds, vb.sds))) ** 2 +
+                          (dh / Math.max(0.05, Math.hypot(va.sdh, vb.sdh))) ** 2);
+      rows.push({ a, b, ds, dh, z });
+    }
+  }
+  rows.sort((x, y) => y.z - x.z);
+  const read = (z: number) => (z < 2 ? "nearly the same slot" : z < 4 ? "distinguishable out of the hand" : "a clear release difference");
+  return (
+    <div className="space-y-1.5 mt-1">
+      {rows.slice(0, 6).map((r) => (
+        <div key={`${r.a}-${r.b}`} className="flex items-baseline justify-between gap-3 text-[11px]">
+          <span className="text-text-secondary">
+            <span className="font-data" style={{ color: colorOf(r.a) }}>{r.a}</span>
+            <span className="text-text-dim"> vs </span>
+            <span className="font-data" style={{ color: colorOf(r.b) }}>{r.b}</span>
+          </span>
+          <span className="text-text-secondary">
+            {r.ds.toFixed(2)}" side · {r.dh.toFixed(2)}" high — <span className="text-text-dim">{read(r.z)}</span>
+          </span>
+        </div>
+      ))}
+      <p className="text-[10px] text-text-dim leading-[1.5] pt-1">
+        Release-side and height gaps between his types, ranked by how separated they are in standard deviations of his
+        own spread. The §7 release file carries the full clouds; this is the read a scouting opinion would state.
+      </p>
+    </div>
+  );
+}
+
+/** D-11: what he goes to next — consecutive type pairs within a plate appearance. */
+function TransitionMatrix({ seq }: { seq: [string, number][] | null }) {
+  if (!seq?.length) return <p className="text-xs text-text-dim">No sequences for this season.</p>;
+  const types = [...new Set(seq.flatMap(([k]) => k.split(">")))];
+  const fromTotals: Record<string, number> = {};
+  for (const [k, n] of seq) fromTotals[k.split(">")[0]] = (fromTotals[k.split(">")[0]] ?? 0) + n;
+  const cell = (a: string, b: string) => {
+    const n = seq.find(([k]) => k === `${a}>${b}`)?.[1] ?? 0;
+    return n / Math.max(1, fromTotals[a] ?? 1);
+  };
+  const max = Math.max(...seq.map(([, n]) => n));
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="text-[10px] font-data">
+          <thead>
+            <tr>
+              <th className="pr-2 text-left text-text-dim font-semibold uppercase tracking-wider text-[9px]">from ↓ to →</th>
+              {types.map((t) => (
+                <th key={t} className="px-1.5 py-1 font-data" style={{ color: colorOf(t) }}>{t}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {types.map((a) => (
+              <tr key={a}>
+                <td className="pr-2 font-data" style={{ color: colorOf(a) }}>{a}</td>
+                {types.map((b) => {
+                  const n = seq.find(([k]) => k === `${a}>${b}`)?.[1] ?? 0;
+                  const f = cell(a, b);
+                  return (
+                    <td key={b} className="px-0.5 py-0.5">
+                      <div title={`${a} then ${b}: ${n} times (${Math.round(f * 100)}% of his ${a}s followed by another pitch)`}
+                        className="flex items-center justify-center rounded-[3px] min-w-[34px] h-[22px] font-data"
+                        style={{ background: n ? `rgba(232,119,34,${0.06 + 0.55 * (n / max)})` : "rgba(255,255,255,0.02)",
+                                 color: n > max * 0.55 ? "#1a1208" : "var(--text-secondary)" }}>
+                        {n ? `${Math.round(f * 100)}%` : ""}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-text-dim mt-2 leading-[1.5]">
+        Of every pitch that ended in him throwing another, the share that went to each type next. Same-type repeats
+        (the diagonal he does not have) are left out — a repeat is the absence of a decision.
+      </p>
+    </div>
+  );
+}
+
+/** D-10: how his shapes moved across the seasons he has at this level. */
+function MovementBySeason({ career }: { career: any | null }) {
+  const seasons = (career?.seasons ?? []).filter((s: any) => (s.mix ?? []).some((m: any) => m[2] != null));
+  if (seasons.length < 1) return null;
+  const types: string[] = [...new Set<string>(seasons.flatMap((s: any) => s.mix.filter((m: any) => m[2] != null).map((m: any) => m[0] as string)))];
+  const W = 420, H = 340, PAD = 34;
+  const pts: any[] = seasons.flatMap((s: any, si: number) => s.mix.filter((m: any) => m[2] != null).map((m: any) => ({ s: s.s, si, t: m[0], v: m[2], ivb: m[3], hb: m[4] })));
+  const ivbLo = Math.min(-25, ...pts.map((p) => p.ivb)) - 2, ivbHi = Math.max(25, ...pts.map((p) => p.ivb)) + 2;
+  const hbLo = Math.min(-25, ...pts.map((p) => p.hb)) - 2, hbHi = Math.max(25, ...pts.map((p) => p.hb)) + 2;
+  const sx = (v: number) => PAD + ((v - hbLo) / (hbHi - hbLo)) * (W - 2 * PAD);
+  const sy = (v: number) => H - PAD - ((v - ivbLo) / (ivbHi - ivbLo)) * (H - 2 * PAD);
+  const latest = seasons[seasons.length - 1].s;
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[520px] h-auto" role="img" aria-label="Average break by pitch type, season by season">
+        <line x1={sx(hbLo)} y1={sy(0)} x2={sx(hbHi)} y2={sy(0)} stroke="currentColor" className="text-border-subtle" />
+        <line x1={sx(0)} y1={sy(ivbLo)} x2={sx(0)} y2={sy(ivbHi)} stroke="currentColor" className="text-border-subtle" />
+        {types.map((t) => {
+          const path = seasons.map((s: any) => {
+            const m = (s.mix ?? []).find((x: any) => x[0] === t && x[2] != null);
+            return m ? { s: s.s, x: sx(m[4]), y: sy(m[3]), v: m[2], ivb: m[3], hb: m[4] } : null;
+          }).filter(Boolean) as any[];
+          if (path.length < 1) return null;
+          return (
+            <g key={t}>
+              {path.length > 1 && (
+                <path d={`M ${path.map((p) => `${p.x} ${p.y}`).join(" L ")}`} fill="none"
+                  stroke={colorOf(t)} strokeOpacity={0.35} strokeDasharray="3 3" />
+              )}
+              {path.map((p) => (
+                <circle key={p.s} cx={p.x} cy={p.y} r={p.s === latest ? 4.5 : 3}
+                  fill={colorOf(t)} fillOpacity={p.s === latest ? 0.9 : 0.35}>
+                  <title>{`${t} ${p.s}: ${p.v} mph · ${p.ivb > 0 ? "+" : ""}${p.ivb} IVB · ${p.hb > 0 ? "+" : ""}${p.hb} HB`}</title>
+                </circle>
+              ))}
+            </g>
+          );
+        })}
+        <text x={W / 2} y={H - 6} textAnchor="middle" className="fill-text-dim" fontSize="9" letterSpacing="0.08em">GLOVE ← HB (IN) → ARM</text>
+        <text x={12} y={H / 2} className="fill-text-dim" fontSize="9" transform={`rotate(-90 12 ${H / 2})`} textAnchor="middle">← IVB</text>
+        <text x={PAD} y={PAD - 14} className="fill-text-dim" fontSize="9">large dot = latest season</text>
+      </svg>
+      <p className="text-[10px] text-text-dim mt-2 leading-[1.5]">
+        Each dot is a season&apos;s average shape for the type; dashed lines connect it across years. A dot that moves
+        is a shape that changed — a new grip, a new seam, a new pitch wearing an old name.
+      </p>
+    </div>
+  );
+}
+
+export function PitcherVisualsTab({ visuals, career }: { visuals: any | null; career: any | null }) {
   if (!visuals) {
     return (
       <div className="glass-panel p-4">
@@ -95,6 +242,17 @@ export function PitcherVisualsTab({ visuals }: { visuals: any | null }) {
       </div>
       <Panel title="The count lattice" note="what each count gets">
         <CountLattice counts={visuals.counts ?? null} colorOf={colorOf} />
+      </Panel>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel title="Release tells" note="how far apart his types leave the hand">
+          <ReleaseTells release={visuals.release ?? null} />
+        </Panel>
+        <Panel title="What he goes to next" note="consecutive pairs within a plate appearance">
+          <TransitionMatrix seq={visuals.seq ?? null} />
+        </Panel>
+      </div>
+      <Panel title="Shapes across seasons" note="average break per type, season by season">
+        <MovementBySeason career={career} />
       </Panel>
       <Panel title="Usage by batter hand" note="share of his pitches">
         <UsageVsHand rows={visuals.hand ?? []} />

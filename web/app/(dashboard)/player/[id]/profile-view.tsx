@@ -58,6 +58,7 @@ type ProfileViewProps = {
   zoneMix?: any | null;
   gameLog?: any | null;
   visuals?: any | null;
+  career?: any | null;
   careerArsenal?: any[] | null;
   level?: string;
   situational?: any | null;
@@ -253,7 +254,7 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
   );
 }
 
-export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, careerArsenal, backHref = "/pitchers", level }: ProfileViewProps) {
+export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, backHref = "/pitchers", level }: ProfileViewProps) {
   const [vaaPitchFilter, setVaaPitchFilter] = useState<string>("all");
   const [percentilePitchTab, setPercentilePitchTab] = useState<string | null>(null);
   const [tab, setTab] = useState<any>("overview");
@@ -414,6 +415,30 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
         {/* Sits inside the arsenal panel on purpose: it is a caveat about the
             rows directly above it, not a finding of its own. */}
         <SharedGradeNote pitches={rows} />
+        {(() => {
+          const twins = rows.filter((p: any) => p.twin?.n);
+          if (!twins.length) return null;
+          return (
+            <div className="px-4 py-2.5 border-t border-border-subtle">
+              <p className="text-[10px] leading-relaxed text-text-dim">
+                Shaped nearest to, among every qualified MLB pitch of the same type that season:{" "}
+                {twins.map((p: any, i: number) => (
+                  <span key={p.pitchType}>
+                    {i > 0 && "; "}
+                    <span className="font-data text-text-secondary">{p.pitchType}</span> ≈{" "}
+                    <Link href={`/player/${p.twin.id}?season=${p.twin.s}`} className="text-text-secondary hover:underline">
+                      {p.twin.n}
+                    </Link>
+                    <span className="text-text-dim">
+                      {" "}({p.twin.dv[0] > 0 ? "+" : ""}{p.twin.dv[0]} mph, {p.twin.dv[1] > 0 ? "+" : ""}{p.twin.dv[1]}" IVB, {p.twin.dv[2] > 0 ? "+" : ""}{p.twin.dv[2]}" HB)
+                    </span>
+                  </span>
+                ))}
+                . A reference point for the eye, not a claim — the shape is his neighbour&apos;s, the results are his own.
+              </p>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -520,7 +545,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
 
       <ProfileTabPanel role="pitcher" tab={tab}>
       {tab === "visuals" ? (
-          <PitcherVisualsTab visuals={visuals ?? null} />
+          <PitcherVisualsTab visuals={visuals ?? null} career={career} />
         ) : tab === "gamelog" ? (
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "arsenal" ? (

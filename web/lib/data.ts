@@ -108,6 +108,11 @@ export async function getPaLog(id: string, season: string | number, level: Level
   return fetchGzippedJson<any>(lv(level, `pa_log/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** The latest day's games, for the home page's report links. */
+export async function getRecentGames(): Promise<any | null> {
+  return fetchFromR2<any>("recent_games.json", { shared: true }).catch(() => null);
+}
+
 /** One game's box score + PA table (wave 10). */
 export async function getGameReport(gid: string, level: Level = "mlb"): Promise<any | null> {
   return fetchGzippedJson<any>(lv(level, `games/${gid}.json.gz`)).catch(() => null);

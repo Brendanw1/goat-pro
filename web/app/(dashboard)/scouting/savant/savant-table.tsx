@@ -39,6 +39,21 @@ export function SavantTable({ board }: { board: SavantBoard }) {
     });
   }, [board.rows, board.columns, q, sortBy, sortDir]);
 
+  function exportCsv() {
+    const cols = board.columns;
+    const esc = (v: unknown) => {
+      const s2 = v == null ? "" : String(v);
+      return /[",\n]/.test(s2) ? `"${s2.replace(/"/g, '""')}"` : s2;
+    };
+    const csv = [cols.map((c) => esc(c.label)).join(","), ...rows.map((r) => cols.map((c) => esc(r[c.key])).join(","))].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `savant-${board.source?.split("/").pop()?.replace(/\.[a-z]+$/, "") || "board"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const nameKey = board.columns.find((c) => c.key === "player" || c.key === "name")?.key;
@@ -108,7 +123,12 @@ export function SavantTable({ board }: { board: SavantBoard }) {
         </table>
       </div>
       <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-subtle">
-        <p className="text-[11px] text-text-dim">Page {page} of {totalPages} · {rows.length} rows</p>
+        <div className="flex items-center gap-3">
+          <button onClick={exportCsv} className="px-2.5 py-1 text-[11px] rounded bg-white/[0.04] text-text-secondary hover:bg-white/[0.08] transition-all press-scale">
+            Export CSV
+          </button>
+          <p className="text-[11px] text-text-dim">Page {page} of {totalPages} · {rows.length} rows</p>
+        </div>
         <div className="flex items-center gap-1.5">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-2.5 py-1 text-[11px] rounded bg-white/[0.04] text-text-secondary hover:bg-white/[0.08] disabled:opacity-30 transition-all press-scale">← Prev</button>
           <span className="px-2.5 py-1 text-[11px] rounded bg-usf-green/20 text-usf-gold border border-usf-green/30 font-data">{page}</span>

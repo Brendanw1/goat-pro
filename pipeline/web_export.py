@@ -36,6 +36,17 @@ nothing new.
 """
 
 import argparse
+import os
+
+# numpy's elementwise/BLAS threading oversubscribes catastrophically inside the
+# visuals worker pool (8 workers × N internal threads = pure system-time churn:
+# measured 755s of sys on a 141s bake). The bake's parallelism is the explicit
+# process pool; numpy stays single-threaded everywhere.
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
+import argparse
 import functools
 import hashlib
 import json
@@ -525,6 +536,125 @@ def aaa_population(seasons: list[int]) -> pd.DataFrame:
     for c in ("stuff_by_class", "stuff_by_type", "pitching_by_class"):
         df[c] = [[] for _ in range(len(df))]
     return df
+
+
+# ---- visuals bake helpers (module level: the heavy per-player fits run in a
+# worker pool; pure functions of their inputs, so results are byte-identical
+# regardless of worker count — DuckDB's threads=1 determinism rule is about the
+# database scans, not these in-memory fits).
+VIS_GRID_N = 44
+VIS_LOC_X = (-1.9, 1.9)
+VIS_LOC_Z = (0.4, 4.6)
+
+
+def _kde_curve(vals: list[float], lo: float, hi: float, bw_min: float = 0.4,
+               samples: int = 240) -> tuple[list[float], list[float], dict]:
+    """Usage-scaled 1D gaussian KDE on a shared grid. Silverman's window with
+    the college's 0.4-mph floor: below it a curve would draw measurement noise
+    as arsenal structure."""
+    import numpy as _np
+    x = _np.asarray(vals, dtype=float)
+    n = len(x)
+    sd = float(x.std())
+    iqr = float(_np.subtract(*_np.percentile(x, [75, 25]))) if n > 3 else 0.0
+    scale = min(sd, iqr / 1.34) if iqr > 0 else sd
+    bw = max(bw_min, 0.9 * scale * n ** (-0.2))
+    grid = _np.linspace(lo, hi, samples)
+    z = (grid[:, None] - x[None, :]) / bw
+    dens = _np.exp(-0.5 * z ** 2).sum(axis=1) / (n * bw * float(_np.sqrt(2 * _np.pi)))
+    peak = int(dens.argmax())
+    return ([float(v) for v in grid], [round(float(v), 5) for v in dens],
+            {"peak_x": round(float(grid[peak]), 2), "peak_y": round(float(dens[peak]), 5)})
+
+
+def _stride(points: list, cap: int) -> list:
+    """Deterministic thinning for dot clouds: keep the order, cap the count."""
+    if len(points) <= cap:
+        return points
+    return points[:: len(points) // cap + 1]
+
+
+def _loc_grid(px: list, pz: list) -> dict | None:
+    """Per-type density grid over the zone frame, max-normalised. Under 40
+    pitches a density is a picture of the bandwidth — the panel falls back to
+    the raw points instead."""
+    if len(px) < 40:
+        pts = _stride(list(zip(px, pz)), 120)
+        return {"n": len(px), "pts": [[a, b] for a, b in pts]}
+    try:
+        from scipy.stats import gaussian_kde
+        import numpy as _np
+        vals = _np.vstack([_np.asarray(px[:800], dtype=float), _np.asarray(pz[:800], dtype=float)])
+        kde = gaussian_kde(vals)
+        gx = _np.linspace(*VIS_LOC_X, VIS_GRID_N)
+        gz = _np.linspace(*VIS_LOC_Z, VIS_GRID_N)
+        mesh_x, mesh_z = _np.meshgrid(gx, gz)
+        dens = kde(_np.vstack([mesh_x.ravel(), mesh_z.ravel()])).reshape(VIS_GRID_N, VIS_GRID_N)
+        top = float(dens.max())
+        if top <= 0:
+            return None
+        return {"n": len(px), "max": round(top, 3),
+                "cells": [[round(float(v) / top, 4) for v in row] for row in dens]}
+    except Exception:
+        return None
+
+
+def _visuals_payload(task: tuple):
+    """The expensive half of one pitcher-season's visuals file: velocity KDEs,
+    spin dots, release cloud, location grids. Everything here is a pure
+    function of `b` (the pitch bucket); the cheap aggregates (count lattice,
+    handedness mix) are joined by the caller."""
+    import numpy as _np
+    pid, season, b, zone = task
+    all_v = [v for col in b.values() for v in col["v"]]
+    if len(all_v) < 50:
+        return None
+    lo = round(min(all_v) - 1.0, 1)
+    hi = round(max(all_v) + 1.0, 1)
+    total_tracked = len(all_v)
+    series = []
+    for site, col in sorted(b.items(), key=lambda kv: -len(kv[1]["v"])):
+        vals = col["v"]
+        if not vals:
+            continue
+        share = len(vals) / total_tracked
+        if len(vals) >= 15:
+            grid, dens, pk = _kde_curve(vals, lo, hi)
+            series.append({"t": site, "n": len(vals), "share": round(share, 4),
+                           "mean": round(float(_np.mean(vals)), 1),
+                           "points": [[round(x, 2), y] for x, y in zip(grid, dens)], **pk})
+        else:
+            series.append({"t": site, "n": len(vals), "share": round(share, 4),
+                           "mean": round(float(_np.mean(vals)), 1),
+                           "points": [], "ticks": [round(v, 1) for v in sorted(vals)]})
+    dots = []
+    for site, col in b.items():
+        for axis, rpm in zip(col["ax"], col["rpm"]):
+            dots.append([site, round(axis / 5.0) * 5, round((rpm or 0) / 10.0) * 10])
+    dots = _stride(sorted(dots, key=lambda d: (d[0], d[1], d[2])), 1200)
+    rel_pts, rel_types = [], {}
+    for site, col in b.items():
+        n_rel = len(col["rx"])
+        if n_rel < 5:
+            continue
+        rel_types[site] = {
+            "n": n_rel,
+            "rh": round(float(_np.mean(col["rz"])), 2), "rs": round(float(_np.mean(col["rx"])), 2),
+            "sdh": round(float(_np.std(col["rz"])), 2), "sds": round(float(_np.std(col["rx"])), 2),
+        }
+        rel_pts.extend(_stride([[site, col["rz"][i], col["rx"][i]] for i in range(n_rel)], 400))
+    loc = {}
+    for site, col in b.items():
+        g2 = _loc_grid(col["px"], col["pz"])
+        if g2:
+            loc[site] = g2
+    return (pid, season, {
+        "id": str(pid), "side": "P", "season": season, "zone": zone,
+        "velo": {"domain": [lo, hi], "total": total_tracked, "series": series},
+        "spin": {"dots": dots},
+        "release": {"points": rel_pts, "types": rel_types},
+        "loc": {"x": VIS_LOC_X, "z": VIS_LOC_Z, "n": VIS_GRID_N, "types": loc},
+    })
 
 
 def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int | None, level: str = "mlb") -> dict:
@@ -1228,6 +1358,44 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
 
         bytype_g = bytype.set_index(["id", "season"])
         cells_g = cells.set_index(["id", "season"])
+
+        # D-10 shape twins: the nearest league pitch by shape within the same
+        # type, excluding the pitcher himself — a reference point a coach can
+        # picture ("his slider is Zebby Matthews' slider"), not a claim. The
+        # pool is every qualified player-season-type mean; distance is
+        # standardized per dimension so velo can't swamp break.
+        import numpy as _np
+        _pool_rows = []
+        for (_pid2, _s2), _r2 in bytype_g.iterrows():
+            if _r2["n"] >= SABR_FLOORS["row"] and not (pd.isna(_r2["velo"]) or pd.isna(_r2["ivb"]) or pd.isna(_r2["hb"])):
+                _pool_rows.append((int(_pid2), int(_s2), _r2["site"],
+                                   float(_r2["velo"]), float(_r2["ivb"]), float(_r2["hb"])))
+        _names_by_id = {int(r.mlbam): r.name for r in grades[["mlbam", "name"]].drop_duplicates("mlbam").itertuples() if r.name}
+        _pool_by_site: dict = {}
+        for _i, _p in enumerate(_pool_rows):
+            _pool_by_site.setdefault(_p[2], [[], []])[0].append(_i)
+            _pool_by_site[_p[2]][1].append([_p[3], _p[4], _p[5]])
+        _pool_arr = {site: (_np.array(ix), _np.array(vs))
+                     for site, (ix, vs) in _pool_by_site.items()}
+        _pool_sd = {site: _pool_arr[site][1].std(axis=0) for site in _pool_arr}
+        _pool_sd = {site: _np.where(sd == 0, 1.0, sd) for site, sd in _pool_sd.items()}
+
+        def twin_of(pid: int, site: str, velo, ivb, hb):
+            if not _pool_arr or velo is None or pd.isna(velo) or pd.isna(ivb) or pd.isna(hb):
+                return None
+            entry = _pool_arr.get(site)
+            if entry is None or len(entry[0]) < 5:
+                return None
+            ix, vs = entry
+            mask = _np.array([_pool_rows[i][0] != pid for i in ix])
+            if not mask.any():
+                return None
+            d = _np.sqrt((((vs[mask] - [velo, ivb, hb]) / _pool_sd[site]) ** 2).sum(axis=1))
+            j = int(d.argmin())
+            src = _pool_rows[ix[mask][j]]
+            return {"id": str(src[0]), "n": _names_by_id.get(src[0]), "s": src[1],
+                    "d": round(float(d[j]), 2),
+                    "dv": [round(velo - src[3], 1), round(ivb - src[4], 1), round(hb - src[5], 1)]}
         player_index = {}
         written_pairs: set[tuple[int, int]] = set()
         written_latest: set[int] = set()
@@ -1283,6 +1451,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                     "nStuffPitches": int(sn),
                     "stuffGradeFrom": None if (pid, season, site) in type_grade else p_host.get(site),
                     "gyro": site == "SL" and (pid, season, "SL") in type_gyro or None,
+                    "twin": twin_of(pid, site, b["velo"], b["ivb"], b["hb"]),
                     "pitchingPlus": f(pg, 1) if pg is not None else None,
                     "abStuffPlus": f(gr_row["stuff_plus_abs"], 1),
                 })
@@ -2839,6 +3008,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "ev": f(t.avg_ev, 1),
             })
         n_games = 0
+        recent_games = []
         for gpk, gmeta in games_pas.items():
             pas = gmeta["pas"]
             if not pas:
@@ -2852,7 +3022,11 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 "b": sorted(hlines.get(gpk, []), key=lambda x: (-x["pa"],)),
                 "pas": pas,
             }, sort_keys=True)
+            recent_games.append({"g": int(gpk), "d": gmeta["d"], "home": gmeta["home"],
+                                 "away": gmeta["away"], "final": final})
             n_games += 1
+        recent_games.sort(key=lambda x: (x["d"], x["g"]), reverse=True)
+        jwrite(out / "recent_games.json", {"games": recent_games[:20]}, sort_keys=True)
         counts["game_report_files"] = n_games
         print(f"game report files: {n_games}")
 
@@ -3142,7 +3316,8 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             GROUP BY 1, 2
         """).df()
         mix_p = con.sql(f"""
-            SELECT pitcher AS id, season, {site_case_sql()} AS site, COUNT(*) AS n
+            SELECT pitcher AS id, season, {site_case_sql()} AS site, COUNT(*) AS n,
+                   AVG(release_speed) AS v, AVG(pfx_z) AS ivb, AVG(pfx_x) AS hb
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL
               {DETAIL_GATE}
@@ -3150,18 +3325,20 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         """).df()
         mixes: dict = {}
         for t in mix_p.itertuples():
-            mixes.setdefault((int(t.id), int(t.season)), {}).setdefault(t.site, 0)
-            mixes[(int(t.id), int(t.season))][t.site] += int(t.n)
+            mixes.setdefault((int(t.id), int(t.season)), {})[t.site] = [
+                int(t.n), round(float(t.v), 1) if t.v is not None else None,
+                round(float(t.ivb), 1) if t.ivb is not None else None,
+                round(float(t.hb), 1) if t.hb is not None else None]
         del mix_p
         car_by: dict = {}
         for t in car_p.itertuples():
             key = (int(t.id), int(t.season))
             mx = mixes.get(key, {})
-            total = sum(mx.values())
+            total = sum(v[0] for v in mx.values())
             car_by.setdefault(int(t.id), []).append({
                 "s": int(t.season), "ip": f(t.outs / 3, 1), "bf": int(t.bf), "np": int(t.np),
-                "mix": [[k2, v2] for k2, v2 in sorted(mx.items(), key=lambda kv: -kv[1])],
-                "usage": {k2: round(100 * v2 / total, 1) for k2, v2 in mx.items()} if total else {},
+                "mix": [[k2, v2[0], v2[1], v2[2], v2[3]] for k2, v2 in sorted(mx.items(), key=lambda kv: -kv[1][0])],
+                "usage": {k2: round(100 * v2[0] / total, 1) for k2, v2 in mx.items()} if total else {},
             })
         del car_p, mixes
         n_car = 0
@@ -3253,14 +3430,18 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         # from their own GROUP BYs. Ordered so the stride thinning is stable.
         pv = con.sql(f"""
             SELECT pitcher AS id, season, {site_case_sql()} AS site,
+                   game_pk, at_bat_number, pitch_number,
                    release_speed, spin_axis, release_spin_rate,
                    release_pos_x, release_pos_z, plate_x, plate_z
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL
               {DETAIL_GATE}
-            ORDER BY id, season
+            ORDER BY id, season, game_pk, at_bat_number, pitch_number
         """).df()
         buckets: dict = {}
+        seqs: dict = {}
+        prev_pa = None
+        prev_site = None
         for t in pv.itertuples():
             key = (int(t.id), int(t.season))
             b = buckets.get(key)
@@ -3269,6 +3450,13 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             col = b.get(t.site)
             if col is None:
                 b[t.site] = col = {"v": [], "ax": [], "rpm": [], "rx": [], "rz": [], "px": [], "pz": []}
+            # D-11: consecutive type pairs within a PA — what he goes to next
+            pa_key = (int(t.game_pk), int(t.at_bat_number))
+            if prev_pa == pa_key and prev_site and prev_site != t.site:
+                sk_key = f"{prev_site}>{t.site}"
+                seqs.setdefault(key, {})
+                seqs[key][sk_key] = seqs[key].get(sk_key, 0) + 1
+            prev_pa, prev_site = pa_key, t.site
             if t.release_speed is not None:
                 col["v"].append(float(t.release_speed))
             if t.spin_axis is not None:
@@ -3321,9 +3509,6 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             hand_by.setdefault(key, []).append(t)
         del hv
 
-        GRID_N = 44
-        LOC_X = (-1.9, 1.9)
-        LOC_Z = (0.4, 4.6)
         # League-average rulebook zone for the surfaces' dashed outline (the
         # player's own zone varies night to night; the league frame is the
         # reference a reader expects).
@@ -3336,81 +3521,16 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
         """).df()
         zone_by = {int(t.season): [round(float(t.sb), 2), round(float(t.st), 2)] for t in zq.itertuples()}
 
-        def _loc_grid(px: list, pz: list) -> dict | None:
-            """Per-type density grid over the zone frame, max-normalised. Under
-            40 pitches a density is a picture of the bandwidth — the panel
-            falls back to the raw points instead."""
-            if len(px) < 40:
-                pts = _stride(list(zip(px, pz)), 120)
-                return {"n": len(px), "pts": [[a, b] for a, b in pts]}
-            try:
-                from scipy.stats import gaussian_kde
-                vals = _np.vstack([_np.asarray(px[:800], dtype=float), _np.asarray(pz[:800], dtype=float)])
-                kde = gaussian_kde(vals)
-                gx = _np.linspace(*LOC_X, GRID_N)
-                gz = _np.linspace(*LOC_Z, GRID_N)
-                mesh_x, mesh_z = _np.meshgrid(gx, gz)
-                dens = kde(_np.vstack([mesh_x.ravel(), mesh_z.ravel()])).reshape(GRID_N, GRID_N)
-                top = float(dens.max())
-                if top <= 0:
-                    return None
-                return {"n": len(px), "max": round(top, 3),
-                        "cells": [[round(float(v) / top, 4) for v in row] for row in dens]}
-            except Exception:
-                return None
-
         n_vis = 0
+        tasks: list = []
+        cheap: dict = {}
         for (pid, season), b in sorted(buckets.items()):
             if (pid, season) not in pitcher_pop:
                 continue
             all_v = [v for col in b.values() for v in col["v"]]
             if len(all_v) < 50:
                 continue
-            # -- velocity distribution: shared domain, usage-scaled curves
-            lo = round(min(all_v) - 1.0, 1)
-            hi = round(max(all_v) + 1.0, 1)
-            total_tracked = len(all_v)
-            series = []
-            for site, col in sorted(b.items(), key=lambda kv: -len(kv[1]["v"])):
-                vals = col["v"]
-                if not vals:
-                    continue
-                share = len(vals) / total_tracked
-                if len(vals) >= 15:
-                    grid, dens, pk = _kde_curve(vals, lo, hi)
-                    series.append({"t": site, "n": len(vals), "share": round(share, 4),
-                                   "mean": round(float(_np.mean(vals)), 1),
-                                   "points": [[round(x, 2), y] for x, y in zip(grid, dens)], **pk})
-                else:
-                    series.append({"t": site, "n": len(vals), "share": round(share, 4),
-                                   "mean": round(float(_np.mean(vals)), 1),
-                                   "points": [], "ticks": [round(v, 1) for v in sorted(vals)]})
-            # -- spin clock: angle = Statcast spin_axis (180 = 12:00 backspin,
-            #    same clock the college chart drew TrackMan with), radius = rpm
-            dots = []
-            for site, col in b.items():
-                for axis, rpm in zip(col["ax"], col["rpm"]):
-                    dots.append([site, round(axis / 5.0) * 5, round((rpm or 0) / 10.0) * 10])
-            dots = _stride(sorted(dots, key=lambda d: (d[0], d[1], d[2])), 1200)
-            # -- release cloud + per-type spread
-            rel_pts, rel_types = [], {}
-            for site, col in b.items():
-                n_rel = len(col["rx"])
-                if n_rel < 5:
-                    continue
-                rel_types[site] = {
-                    "n": n_rel,
-                    "rh": round(float(_np.mean(col["rz"])), 2), "rs": round(float(_np.mean(col["rx"])), 2),
-                    "sdh": round(float(_np.std(col["rz"])), 2), "sds": round(float(_np.std(col["rx"])), 2),
-                }
-                rel_pts.extend(_stride([[site, col["rz"][i], col["rx"][i]] for i in range(n_rel)], 400))
-            # -- location surfaces per type
-            loc = {}
-            for site, col in b.items():
-                g = _loc_grid(col["px"], col["pz"])
-                if g:
-                    loc[site] = g
-            # -- count lattice nodes
+            # -- count lattice nodes (cheap: pre-aggregated rows)
             lat = {}
             for (bb, ss), rows in counts_by.get((pid, season), {}).items():
                 mix = {}
@@ -3428,7 +3548,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                     "b": nb, "s": ns,
                     "k": nk, "bb": nbb, "hbp": nhbp,
                 }
-            # -- usage vs batter hand
+            seq = sorted((seqs.get((pid, season)) or {}).items(), key=lambda kv: -kv[1])[:40]
             hand_rows = []
             hrows = hand_by.get((pid, season), [])
             tot = {"L": 0, "R": 0}
@@ -3442,17 +3562,27 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
                 rhb = round(100 * d.get("R", 0) / tot["R"], 1) if tot["R"] else None
                 hand_rows.append({"t": site, "n": n_site, "lhb": lhb, "rhb": rhb,
                                   "delta": round(lhb - rhb, 1) if lhb is not None and rhb is not None else None})
-            jwrite_gz(out / "visuals" / f"{pid}-{season}.json.gz", {
-                "id": str(pid), "side": "P", "season": season,
-                "zone": zone_by.get(season),
-                "velo": {"domain": [lo, hi], "total": total_tracked, "series": series},
-                "spin": {"dots": dots},
-                "release": {"points": rel_pts, "types": rel_types},
-                "loc": {"x": LOC_X, "z": LOC_Z, "n": GRID_N, "types": loc},
-                "counts": lat,
-                "hand": hand_rows,
-            }, sort_keys=True)
+            cheap[(pid, season)] = (lat, [[k2, v2] for k2, v2 in seq], hand_rows)
+            tasks.append((pid, season, b, zone_by.get(season)))
+        # The KDE/grid fits are pure per-player numpy — run them in a process
+        # pool (deterministic: every task is independent and results are written
+        # in key order). GOAT_POOL=0 falls back to serial.
+        pool_size = 0 if os.environ.get("GOAT_POOL") == "0" else min(8, (os.cpu_count() or 4))
+        payloads: list = []
+        if pool_size >= 2 and len(tasks) >= 16:
+            from concurrent.futures import ProcessPoolExecutor
+            with ProcessPoolExecutor(max_workers=pool_size) as ex:
+                payloads = [r for r in ex.map(_visuals_payload, tasks, chunksize=16) if r is not None]
+        else:
+            payloads = [r for r in map(_visuals_payload, tasks) if r is not None]
+        for pid, season, payload in payloads:
+            lat, seq, hand_rows = cheap[(pid, season)]
+            payload["seq"] = seq
+            payload["counts"] = lat
+            payload["hand"] = hand_rows
+            jwrite_gz(out / "visuals" / f"{pid}-{season}.json.gz", payload, sort_keys=True)
             n_vis += 1
+        del buckets, tasks
         counts["pitcher_visuals"] = n_vis
         print(f"pitcher visuals: {n_vis}")
 
@@ -3496,7 +3626,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
             jwrite_gz(out / "visuals" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "side": "H", "season": season, "stand": h["stand"],
                 "zone": zone_by.get(season),
-                "loc": {"x": LOC_X, "z": LOC_Z, "n": GRID_N, "types": loc},
+                "loc": {"x": VIS_LOC_X, "z": VIS_LOC_Z, "n": VIS_GRID_N, "types": loc},
             }, sort_keys=True)
             n_hvis += 1
         counts["hitter_visuals"] = n_hvis
