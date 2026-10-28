@@ -2156,3 +2156,20 @@ AUC .907–.919. Decile gaps .020 / .042 / .034 / .035 / .036 / .041 / .043 (202
 **Reported:** Δ YoY vs §75.
 
 **Expected:** calibration should pass. IF validity is likely still near .50, because the limit is mostly the data. If IF fails again, the IF numbers are not shipped, and the OF numbers ship if OF passes.
+
+### §80 result (read once, 2026-10-28)
+
+Calibration now passes every season: decile gaps .0045 / .0016 / .0023 / .0023 / .0035 / .0029 / .0016.
+
+| | r vs Savant OAA [95% CI] | calibration | verdict | split-half rel / k | YoY ours / Savant |
+|---|---|---|---|---|---|
+| IF | .495 [.429, .560] | pass | **NOT CONFIRMED** | .31 / 683 | .37 / .44 |
+| OF | .679 [.632, .719] | pass | **CONFIRMED** | .37 / 458 | .35 / .64 |
+
+**Diagnosis, as expected:** recalibration fixed the part that was our error (calibration). IF validity did not move (.498 → .495), which points to the data limit: public Statcast has no fielder starting positions. That is not a fixable modeling error with these inputs.
+
+**Shipped:** OF range (LF/CF/RF) and framing, in `defense/{id}-{season}.json.gz` and a Defense tab on profiles. IF range is not shipped.
+
+**Still worth a future attempt (not tested here):**
+- infield starting-position proxies from `if_fielding_alignment` × batter spray history;
+- responsibility learned from all chances, not only outs.
