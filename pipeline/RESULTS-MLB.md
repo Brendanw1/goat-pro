@@ -1868,3 +1868,28 @@ Between-venue SD of the log ratio (τ), L/R: 1B .03/.06, 2B .10/.09, 3B .38/.28,
 | cross-fit RMSE, swing / take / count-only | .310 / .042 / .223 |
 
 **Read:** decision value is a stable, measurable trait. Its reliability is high and it holds year to year. It agrees moderately with Savant's swing/take runs, which also price execution. It does **not** forecast next-season BB% − K% better than chase rate alone: BB − K carries contact skill, which the decision metric leaves out by design, and chase rate is the decision component most tied to strikeouts. **Shipped, under the pre-registered fail rule** (reliability ≥ .3): dRV/100, IZA, OZA and Decision+ on hitter rows and profiles, labelled **descriptive, not a forecast**.
+
+## §71 xRV per pitch: xRV/100, xRV+, luck (D-03), pre-registered 2026-10-27 before any read
+
+**Model.** Every pitch's expected run value, pitcher-positive (−`delta_run_exp`), given what the pitch was and where it went, not what the hitter did with it. `xrv_model.py`.
+- **Outcome leg:** a LightGBM multiclass over {ball, called strike, whiff, foul, HBP, ball in play}.
+- **Contact leg:** a LightGBM regression of the ball in play's xwOBA-valued run value: Savant `estimated_woba_using_speedangle` mapped to runs by the count-specific line used in judge.py, fit on the training folds.
+- **Features:** release speed; pfx_z; pfx_x and release_pos_x mirrored so + is arm side; spin rate; extension; release height; plate_x mirrored so + is inside to the batter; plate_z normalized to his zone; balls; strikes; same-hand flag.
+- **Run values:** each class's mean −`delta_run_exp` by count, from the training folds.
+- **Per pitch:** xRV = Σ p(class) × RV(class, count), with the ball-in-play term taken from the contact leg.
+- **Cross-fit:** 5 folds grouped by **pitcher** (the memorization rule). Every pitch is scored by models that never saw its pitcher.
+
+**Per pitcher-season:**
+- xRV/100 = 100 × mean xRV.
+- xRV+ = 100 + 10 z of xRV/100 among MLB pitcher-seasons with ≥ 100 batters faced.
+- Luck = RV/100 − xRV/100.
+
+**Claim (read once).** xRV/100 in S beats **RV/100 in S** at predicting **RV/100 in S+1**. Pooled Δr over pairs S = 2020…2025, ≥ 100 batters faced in both seasons. Pitcher-clustered bootstrap, 2,000 draws, seed 13. CONFIRMED if the 95% CI lower bound is > 0 **and** xRV/100 wins ≥ 5 of 6 pairs.
+
+**Reported, not judged:**
+- the same Δr against judge.py's observed xRV/100 (actual outcomes, balls in play valued by xwOBA) as the stronger baseline;
+- per-pitch r of xRV with the actual run value (the college bar is .563);
+- year-to-year r of xRV/100;
+- multiclass log loss against a count-only baseline.
+
+**What it means either way.** A pass ships xRV/100, xRV+ and luck on pitcher rows, docs and percentiles as forecast-gated. A fail ships xRV/100 and luck descriptively under the "descriptive, not a forecast" label, and xRV+ not at all.
