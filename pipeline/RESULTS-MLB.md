@@ -2173,3 +2173,20 @@ Calibration now passes every season: decile gaps .0045 / .0016 / .0023 / .0023 /
 **Still worth a future attempt (not tested here):**
 - infield starting-position proxies from `if_fielding_alignment` × batter spray history;
 - responsibility learned from all chances, not only outs.
+
+### §77 / §78 / §79 results (read once, 2026-10-28)
+
+- **§77 xwOBA v2 (no ground-ball spray): NOT SHIPPED.**
+  - Diagnosis test, hitters: v2 − v1 = +.004 [−.002, +.010], NOT CONFIRMED. Pitchers (reported): +.010 [+.003, +.017].
+  - vs Savant: −.022 [−.035, −.009], 0 of 6 pairs.
+  - Same-season r .864 (v1 .878, Savant .826).
+  - **Diagnosis:** the fielded-location leak was real but explains only a small part of the gap. Spray-aware xwOBA stays more descriptive and less predictive than Savant's EV/LA (+ sprint on weak contact) estimate. The site keeps Savant's xwOBA.
+- **§78 xRV v2 (+ season): NOT CONFIRMED.**
+  - Δr vs RV/100 = +.008 [−.043, +.061], 2 of 6 pairs.
+  - v2 − v1 = −.001 [−.010, +.008], so the 2026 zone change was not the cause.
+  - vs observed xRV: −.085.
+  - **Diagnosis:** a genuine near-tie with actual run value. The validated forecast of run prevention remains Prevention+ (§52). xRV v2 replaces v1 on the site, labelled descriptive.
+- **§79 location-aware platoon gap: NOT CONFIRMED.**
+  - Δr = −.105 [−.148, −.061], worse than §73's shape gap (−.058).
+  - YoY of the predicted gap .71.
+  - **Diagnosis:** at ≥ 50 swings per side, the observed gap is reliable enough (r .37–.47 with next season) that a league-average model, which never sees the pitcher, cannot beat it. The forecast should be an EB blend of the observed gap shrunk toward the model gap, and that is a new claim. The shape split stays on the site as descriptive.
