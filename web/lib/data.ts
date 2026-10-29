@@ -17,10 +17,25 @@ type PitcherRowAny = Record<string, any>;
 export type Level = "mlb" | "aaa";
 const lv = (level: Level, path: string) => (level === "aaa" ? `aaa/${path}` : path);
 
+/** (id, season) -> value from a {seasons: {season: rows[]}} index file, for joining onto board rows. */
+async function seasonIndex(path: string, pick: (rows: any[]) => Record<string, any>): Promise<Map<string, any>> {
+  const doc = await fetchFromR2<any>(path, { shared: true }).catch(() => null);
+  const out = new Map<string, any>();
+  for (const [s, rows] of Object.entries<any[]>(doc?.seasons ?? {})) {
+    const byId = new Map<string, any[]>();
+    for (const r of rows ?? []) byId.set(String(r.id), [...(byId.get(String(r.id)) ?? []), r]);
+    for (const [id, rs] of byId) out.set(`${id}|${s}`, pick(rs));
+  }
+  return out;
+}
+
 export async function getPitchers(level: Level = "mlb"): Promise<PitcherRowAny[]> {
   try {
-    const data = await fetchFromR2<PitcherRowAny[]>(lv(level, "pitchers.json"));
-    return data || [];
+    const data = (await fetchFromR2<PitcherRowAny[]>(lv(level, "pitchers.json"))) || [];
+    if (level !== "mlb") return data;
+    // Deception+ (bat-tracking seasons) lives in its own family; joined here so every board and page sees it
+    const dec = await seasonIndex("deception_index.json", (rs) => ({ deceptionPlus: rs[0].plus ?? null }));
+    return data.map((r) => ({ ...r, ...(dec.get(`${r.id}|${r.season}`) ?? { deceptionPlus: null }) }));
   } catch {
     return [];
   }
@@ -93,8 +108,18 @@ export async function getMixBoard(): Promise<any | null> {
 /** The hitters leaderboard (H1/H3/H4): slash + derived wOBA + batted-ball + discipline. */
 export async function getHitters(level: Level = "mlb"): Promise<HitterRowAny[]> {
   try {
-    const data = await fetchFromR2<HitterRowAny[]>(lv(level, "hitters.json"));
-    return data || [];
+    const data = (await fetchFromR2<HitterRowAny[]>(lv(level, "hitters.json"))) || [];
+    if (level !== "mlb") return data;
+    // the site's own fielding models, from their own families: range runs (all positions summed, the
+    // position with the most chances) and Framing+ for catchers
+    const [range, framing] = await Promise.all([
+      seasonIndex("defense_index.json", (rs) => ({
+        rangeRuns: Math.round(rs.reduce((a, r) => a + (r.runs ?? 0), 0) * 10) / 10,
+        rangePos: [...rs].sort((a, b) => (b.chances ?? 0) - (a.chances ?? 0))[0]?.pos ?? null,
+      })),
+      seasonIndex("framing_plus.json", (rs) => ({ framingPlus: rs[0].plus ?? null })),
+    ]);
+    return data.map((r) => ({ ...r, ...range.get(`${r.id}|${r.season}`), ...framing.get(`${r.id}|${r.season}`) }));
   } catch {
     return [];
   }

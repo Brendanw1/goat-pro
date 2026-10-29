@@ -28,7 +28,7 @@ import { useBoardPage } from "@/lib/boards/use-board-page";
  * A new plus column goes in this set or it does not get the plus treatment,
  * and that is visible here rather than implied.
  */
-const PLUS_KEYS = new Set(["stuffPlus", "pitchingPlus", "kPlus", "preventionPlus", "controlPlus"]);
+const PLUS_KEYS = new Set(["stuffPlus", "pitchingPlus", "kPlus", "preventionPlus", "controlPlus", "deceptionPlus"]);
 
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
@@ -133,7 +133,7 @@ export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { met
     if (key === "preventionPlus") return PREVENTION_TIP;
     if (key === "controlPlus") return CONTROL_TIP;
     if (key === "rvPer100") return RV100_TIP;
-    return (DISCIPLINE_COLUMNS as readonly { key: string; tip?: string }[]).find((c) => c.key === key)?.tip;
+    return ([...MODEL_COLUMNS, ...DISCIPLINE_COLUMNS] as readonly { key: string; tip?: string }[]).find((c) => c.key === key)?.tip;
   };
 
   return (

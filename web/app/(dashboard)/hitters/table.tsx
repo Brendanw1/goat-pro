@@ -5,9 +5,9 @@ import { PlayerLink } from "@/components/ui/player-transition";
 import { BorderBeam } from "border-beam";
 import { FilterPanel } from "@/components/filter-panel";
 import { useUrlRecord } from "@/lib/use-url-record";
-import { PctChip } from "@/components/ui/shared-ui";
+import { PctChip, Signed } from "@/components/ui/shared-ui";
 import {
-  HITTER_DEFAULTS, HITTER_FILTER_COLUMNS, HITTER_QUALITY_COLUMNS, HITTER_RESULT_COLUMNS,
+  HITTER_DEFAULTS, HITTER_FILTER_COLUMNS, HITTER_MODEL_COLUMNS, HITTER_QUALITY_COLUMNS, HITTER_RESULT_COLUMNS,
   shrunkSortKey, type HittersMeta, type HittersPage,
 } from "@/lib/boards/hitters";
 import { getStatPercentileRank } from "@/lib/percentiles";
@@ -20,6 +20,9 @@ import { useBoardPage } from "@/lib/boards/use-board-page";
 
 const CHIP_KEYS = new Set(["woba", "obp", "slg", "ev90", "hardHitPct", "barrelPct", "whiffPct", "oSwingPct", "xwoba", "batSpeed", "squaredUpPct", "sprintSpeed"]);
 
+/** Run-value columns: green when good for him, red when bad (the shared Signed rule). */
+const SIGNED_KEYS = new Set(["rangeRuns", "frvRuns", "bsrRuns"]);
+
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
   if (key === "name" || key === "team" || key === "bats" || key === "season") return String(value);
@@ -28,6 +31,8 @@ function fmt(value: any, key: string): string {
   if (key === "avg" || key === "obp" || key === "slg" || key === "ops" || key === "iso" || key === "woba") return value.toFixed(3).replace(/^0/, "");
   if (key.endsWith("Pct")) return value.toFixed(1);
   if (["ev90", "maxEv"].includes(key)) return value.toFixed(1);
+  if (key === "decisionPlus" || key === "framingPlus") return Math.round(value).toString();
+  if (key === "rangeRuns" || key === "frvRuns" || key === "bsrRuns") return (value > 0 ? "+" : "") + value.toFixed(1);
   return String(value);
 }
 
@@ -66,8 +71,8 @@ export function HittersTable({ meta, initial, percentiles }: {
   const totalPages = res?.totalPages ?? 0;
   const pageData = (res?.rows ?? []) as any[];
   const rankBase = ((res?.page ?? page) - 1) * PAGE_SIZE;
-  const columns = [...HITTER_RESULT_COLUMNS, ...HITTER_QUALITY_COLUMNS];
-  const groupStarts = new Set<number>([HITTER_RESULT_COLUMNS.length]);
+  const columns = [...HITTER_RESULT_COLUMNS, ...HITTER_QUALITY_COLUMNS, ...HITTER_MODEL_COLUMNS];
+  const groupStarts = new Set<number>([HITTER_RESULT_COLUMNS.length, HITTER_RESULT_COLUMNS.length + HITTER_QUALITY_COLUMNS.length]);
 
   function handleSort(key: string) {
     if (sortBy === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -79,7 +84,7 @@ export function HittersTable({ meta, initial, percentiles }: {
   }
 
   const tipOf = (key: string): string | undefined =>
-    (HITTER_QUALITY_COLUMNS as readonly { key: string; tip?: string }[]).find((c) => c.key === key)?.tip;
+    ([...HITTER_QUALITY_COLUMNS, ...HITTER_MODEL_COLUMNS] as readonly { key: string; tip?: string }[]).find((c) => c.key === key)?.tip;
 
   const chipFor = (row: any, key: string, value: any) => {
     if (!CHIP_KEYS.has(key) || typeof value !== "number") return null;
@@ -176,7 +181,7 @@ export function HittersTable({ meta, initial, percentiles }: {
                           </PlayerLink>
                         ) : col.key === "team" && multiTeam(row) ? (
                       <TeamCountButton row={row} open={openTeams.has(`${row.id}-${row.season}`)} onToggle={() => toggleTeams(`${row.id}-${row.season}`)} />
-                    ) : value}
+                    ) : SIGNED_KEYS.has(col.key) && typeof raw === "number" ? <Signed v={raw} dp={1} /> : value}
                         {chipFor(row, col.key, raw)}
                       </Tag>
                     );

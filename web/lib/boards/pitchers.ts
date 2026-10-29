@@ -35,6 +35,7 @@ export const MODEL_COLUMNS = [
   { key: "kPlus", label: "K+", w: "w-[56px]", align: "right", tip: K_TIP },
   { key: "preventionPlus", label: "Prevention+", w: "w-[96px]", align: "right", tip: PREVENTION_TIP },
   { key: "controlPlus", label: "Control+", w: "w-[80px]", align: "right", tip: CONTROL_TIP },
+  { key: "deceptionPlus", label: "Deception+", w: "w-[88px]", align: "right", tip: "How much slower and later batters swing against him than against everyone else (bat speed and contact point vs each batter's own norm), 100 = average, 10 = one SD. Bat tracking, 2023 on; 200+ tracked swings. Descriptive (passed its stability gates)." },
   { key: "pitchingPlus", label: "Pitching+", w: "w-[84px]", align: "right", tip: PITCHING_TIP },
   // The previous Stuff+ model on one scale across all pitch types.
   // Measured (P10), on this board because the reader who sorts models by

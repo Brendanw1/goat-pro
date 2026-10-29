@@ -39,6 +39,16 @@ export const HITTER_QUALITY_COLUMNS = [
   { key: "oSwingPct", label: "O-Swg%", w: "w-[54px]", align: "right", tip: "Swings at pitches out of the zone — chasing; lower is better.", asc: true },
 ] as const;
 
+/** The site's models and value columns (Decision+ from the decision model; range runs and Framing+ joined from
+ * their own families in getHitters; Savant's fielding and baserunning run values, labelled theirs). */
+export const HITTER_MODEL_COLUMNS = [
+  { key: "decisionPlus", label: "Decision+", w: "w-[76px]", align: "right", tip: "Swing decisions: run value of his swing/take choices vs an average hitter given each pitch's location and count. 100 = average, 10 = one SD (hitters with 100+ PA)." },
+  { key: "rangeRuns", label: "Range", w: "w-[58px]", align: "right", tip: "Site range model: runs saved vs an average fielder at the position on the balls he had a chance at (all positions summed; 30+ chances). See the Defense board." },
+  { key: "framingPlus", label: "Framing+", w: "w-[70px]", align: "right", tip: "Catchers: strikes stolen above a called-strike model, 100 = average, 10 = one SD (2,500+ taken pitches)." },
+  { key: "frvRuns", label: "Sav FRV", w: "w-[62px]", align: "right", tip: "Savant's fielding run value (their number, shown for reference)." },
+  { key: "bsrRuns", label: "Sav BsR", w: "w-[62px]", align: "right", tip: "Savant's baserunning run value (their number, shown for reference)." },
+] as const;
+
 export const HITTER_DEFAULTS: BoardState = {
   search: "", filters: { team: "", season: "", bats: "", minPA: 100, minEv90: 0 }, colFilters: [],
   sortBy: "woba", sortDir: "desc", page: 1,
@@ -47,12 +57,13 @@ export const HITTER_DEFAULTS: BoardState = {
 export const HITTER_FILTER_COLUMNS: FilterColumn[] = [
   ...HITTER_RESULT_COLUMNS.filter((c) => c.key !== "name").map((c) => ({ key: c.key, label: c.label, group: "Results" })),
   ...HITTER_QUALITY_COLUMNS.map((c) => ({ key: c.key, label: c.label, group: "Contact quality" })),
+  ...HITTER_MODEL_COLUMNS.map((c) => ({ key: c.key, label: c.label, group: "Models & value" })),
   { key: "bats", label: "Bats", group: "Context" },
 ];
 
-export const HITTER_SORT_KEYS = [...HITTER_RESULT_COLUMNS, ...HITTER_QUALITY_COLUMNS].map((c) => c.key as string);
+export const HITTER_SORT_KEYS = [...HITTER_RESULT_COLUMNS, ...HITTER_QUALITY_COLUMNS, ...HITTER_MODEL_COLUMNS].map((c) => c.key as string);
 export const HITTER_ROW_KEYS = rowKeys("hitter", HITTER_SORT_KEYS, [
-  "whiffPctShrunk", "oSwingPctShrunk",
+  "whiffPctShrunk", "oSwingPctShrunk", "rangePos",
 ]);
 
 export interface HittersMeta { teams: string[]; seasons: number[]; filters: FilterMeta }
