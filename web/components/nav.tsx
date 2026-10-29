@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/hitters", label: "Hitters" },
   { href: "/minors", label: "Minors" },
   { href: "/prospects", label: "Prospects" },
+  { href: "/trades", label: "Trades" },
   { href: "/teams", label: "Teams" },
   { href: "/tunneling", label: "Tunneling" },
   { href: "/fatigue", label: "Fatigue" },
@@ -25,10 +26,11 @@ const NAV_ITEMS = [
   { href: "/glossary", label: "Glossary" },
 ] as const;
 
-/* Baseball seams for the badge: two arcs bowing out to the edges, each
-   carried by a faint groove line and stitched red ticks laid perpendicular
-   to the curve. Computed once at import; rendered as static SVG (no JS at
-   runtime) and faded so the wordmark sits on top of it. */
+/* Baseball seams for the badge: two bold vertical arcs bowing out to the
+   edges — the curve itself is the visible seam — each carried by a red line
+   and stitched ticks laid perpendicular to it. Computed once at import;
+   rendered as static SVG (no JS at runtime) and faded so the wordmark sits
+   on top of it. */
 const SEAM_CURVES = [
   { d: "M13.5 5 C6 15 6 33 13.5 43", p0: [13.5, 5], p1: [6, 15], p2: [6, 33], p3: [13.5, 43] },
   { d: "M34.5 5 C42 15 42 33 34.5 43", p0: [34.5, 5], p1: [42, 15], p2: [42, 33], p3: [34.5, 43] },
@@ -54,13 +56,13 @@ const SEAM_TICKS: Array<{ x1: number; y1: number; x2: number; y2: number }> = ((
 
 function SeamStitches() {
   return (
-    <svg aria-hidden viewBox="0 0 48 48" className="pointer-events-none absolute inset-0 h-full w-full opacity-50">
+    <svg aria-hidden viewBox="0 0 48 48" className="pointer-events-none absolute inset-0 h-full w-full opacity-60">
       {SEAM_CURVES.map((c) => (
-        <path key={c.d} d={c.d} fill="none" stroke="#c92a3c" strokeOpacity={0.26} strokeWidth={0.8} />
+        <path key={c.d} d={c.d} fill="none" stroke="#c92a3c" strokeOpacity={0.8} strokeWidth={1.4} />
       ))}
       {SEAM_TICKS.map((s, i) => (
         <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
-          stroke="#c92a3c" strokeWidth={1.5} strokeLinecap="round" />
+          stroke="#c92a3c" strokeWidth={1.6} strokeLinecap="round" />
       ))}
     </svg>
   );

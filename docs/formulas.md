@@ -33,3 +33,10 @@ When a formula changes, update this table and the glossary in the same commit.
 | Decision+ | 100 + 10·z of decision runs/100 among 100+ PA hitters | Site metric (RESULTS-MLB §69) | Documented; descriptive. |
 | Run value / 100 | 100 × mean `delta_run_exp`, batter-positive; pitchers flipped | Savant CSV docs (kb) | OK |
 | Tunnel+ | Chase-logistic lift at actual vs geometry-implied separation at the 23.8 ft commit point; EB-shrunk per pairing and per pitcher (pairing type removed); 100 + 10 per pairing SD (`tunnel_plus.py`) | Past the Eye Test, *Pitch+* (kb `sources/web/substack-com-b8664fc421.md`, 2026): 23.8 ft = 175 ms decision point from Baseball Prospectus; college `compute_tunnel_plus.py` | Ported 2026-10-28 (§74). Trajectories are rebuilt from Statcast's nine-parameter fit and match `release_pos` to a median of 0.03 in. |
+
+## Trade tracker (pipeline/trades.py → trades/{season}.json)
+
+- Source: Stats API `/transactions`, `typeCode == "TR"`, both clubs MLB; deal key = (date, description).
+- Player value = Σ delta_run_exp with the acquiring club on/after the trade date (hitters: as batter; pitchers: negated, as pitcher). `rvSeason` = same, trade year only.
+- Club: In = Σ value of players received; Out = Σ value of players sent (with their new club); Net = In − Out.
+- Deadline = modal July–August trade date. Prospect rank = Pipeline top 100, else org list, in the trade year.

@@ -250,6 +250,11 @@ export async function getFarmOutput(): Promise<any | null> {
   return fetchFromR2<any>("prospects/farm.json", { shared: true }).catch(() => null);
 }
 
+/** Trade tracker season (pipeline/trades.py): deals, what each club got back, team net run value. */
+export async function getTrades(season: number | string): Promise<any | null> {
+  return fetchFromR2<any>(`trades/${season}.json`, { shared: true }).catch(() => null);
+}
+
 /** League WPA boards per season + the year's biggest swings. */
 export async function getWpaIndex(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "wpa_index.json"), { shared: true }).catch(() => null);
