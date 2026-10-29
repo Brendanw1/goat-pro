@@ -68,10 +68,12 @@ export function Nav() {
   // moves (or the back button takes it somewhere else) with no effect to reset it.
   const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
   const target = pending && pending.from === pathname ? pending.href : null;
-  const meta = useRef(new Set<string>());
+  // macOS drops a key's keyup while Command is still held, so a released key can look held: entries
+  // expire after 3 s, and the whole set clears once no Command key is down.
+  const meta = useRef(new Map<string, number>());
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { if (e.code === "MetaLeft" || e.code === "MetaRight") meta.current.add(e.code); };
-    const up = (e: KeyboardEvent) => meta.current.delete(e.code);
+    const down = (e: KeyboardEvent) => { if (e.code === "MetaLeft" || e.code === "MetaRight") meta.current.set(e.code, Date.now()); };
+    const up = (e: KeyboardEvent) => { meta.current.delete(e.code); if (!e.metaKey) meta.current.clear(); };
     const clear = () => meta.current.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -92,7 +94,9 @@ export function Nav() {
         href="/"
         aria-label="GOAT-Pro home"
         onClick={(e) => {
-          if (meta.current.size < 2) return;
+          const now = Date.now();
+          const both = e.metaKey && ["MetaLeft", "MetaRight"].every((k) => now - (meta.current.get(k) ?? 0) < 3000);
+          if (!both) return;
           e.preventDefault();
           meta.current.clear();
           window.open("http://localhost:3000/admin", "_blank", "noopener,noreferrer");

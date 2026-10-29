@@ -36,8 +36,8 @@ export function SeasonSelector({ id, seasons, current, level, otherSeasons }: {
           {aaa ? <span className={chip(true)}>AAA</span> : <Link href={otherHref} className={chip(false)}>AAA</Link>}
         </span>
       )}
-      {seasons && seasons.length > 1 && <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mr-1">Season</span>}
-      {seasons && seasons.length > 1 && seasons.map((s) => {
+      {seasons && (seasons.length > 1 || hasOther) && <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mr-1">Season</span>}
+      {seasons && (seasons.length > 1 || hasOther) && seasons.map((s) => {
         const on = String(s.s) === String(current);
         return (
           <Link key={s.s}
