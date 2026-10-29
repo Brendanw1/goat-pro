@@ -1,17 +1,20 @@
 "use client";
 
 /**
- * The lava navigation, v3: ONE canvas behind the whole nav bar — a flowing
+ * The lava navigation, v4: ONE canvas behind the whole nav bar — a flowing
  * value-noise field (fBm with domain warp) sampled on a small blocky grid.
  * The warp folds the field through two more noise fields so it swirls and
- * oozes instead of scrolling in bands; hue comes from its own low-frequency
- * field so neighbouring regions hold genuinely different colours; per-cell
- * jitter reshuffles every few frames for a slow organic shimmer. Rendered
- * dark and at low opacity: texture, not brightness.
+ * oozes; hue comes from its own low-frequency field so neighbouring regions
+ * hold genuinely different colours; per-cell jitter reshuffles slowly for an
+ * organic shimmer. Rendered dark and at low opacity: texture, not brightness.
+ *
+ * Smoothness + speed: the buffer is ~192x13 cells stretched with
+ * image-rendering:pixelated (the blocky look is the design), but the motion
+ * runs at a ~30 fps cap and pixels are packed straight into one ImageData —
+ * no fillRect calls, no colour strings — so a frame costs well under a
+ * millisecond. The field still moves slowly; it just never steps.
  *
  * Performance rules (it must cost nothing):
- *  - one tiny canvas (~168x12 cells) stretched with image-rendering:
- *    pixelated, capped at ~10 fps;
  *  - pauses entirely when the tab is hidden or the nav is off-screen
  *    (visibilitychange + IntersectionObserver);
  *  - phase follows scroll/pointer, so it still slides when you move;
@@ -20,9 +23,9 @@
 
 import { useEffect, useRef } from "react";
 
-const CELLS_X = 168;
-const CELLS_Y = 12;
-const FRAME_MS = 96;
+const CELLS_X = 192;
+const CELLS_Y = 13;
+const FRAME_MS = 33; // ~30 fps cap — slow drift, liquid motion
 const HUE_BASE = 170;
 const HUE_SPAN = 165; // regional hue field — neighbouring areas differ
 const SAT: [number, number] = [42, 58];
@@ -46,6 +49,23 @@ const vnoise = (x: number, y: number, s: number): number => {
 const fbm = (x: number, y: number, s: number): number =>
   0.5 * vnoise(x, y, s) + 0.3 * vnoise(x * 2.13, y * 2.13, s + 7) + 0.2 * vnoise(x * 4.71, y * 4.71, s + 13);
 
+/* -- hsl (0-360, 0-1, 0-1) to a packed ABGR pixel (little-endian) -------- */
+const packHsl = (h: number, s: number, l: number): number => {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0, g = 0, b = 0;
+  if (hp < 1) { r = c; g = x; }
+  else if (hp < 2) { r = x; g = c; }
+  else if (hp < 3) { g = c; b = x; }
+  else if (hp < 4) { g = x; b = c; }
+  else if (hp < 5) { r = x; b = c; }
+  else { r = c; b = x; }
+  const m = l - c / 2;
+  const R = ((r + m) * 255) | 0, G = ((g + m) * 255) | 0, B = ((b + m) * 255) | 0;
+  return (255 << 24) | (B << 16) | (G << 8) | R;
+};
+
 export function LavaNav() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -55,6 +75,8 @@ export function LavaNav() {
     if (!ctx) return;
     canvas.width = CELLS_X;
     canvas.height = CELLS_Y;
+    const img = ctx.createImageData(CELLS_X, CELLS_Y);
+    const buf = new Uint32Array(img.data.buffer);
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0;
@@ -69,10 +91,11 @@ export function LavaNav() {
       frame++;
       const time = t / 1000;
       const shift = scrollShift + pxShift;
-      const jit = frame >> 3; // reshuffles every 8 frames: shimmer, no flicker
+      const jit = frame / 20 | 0; // reshuffles every ~0.7s: shimmer, no flicker
+      let i = 0;
       for (let y = 0; y < CELLS_Y; y++) {
         const ny = y * 0.34;
-        for (let x = 0; x < CELLS_X; x++) {
+        for (let x = 0; x < CELLS_X; x++, i++) {
           const sx = x * 0.062 - time * 0.045 + shift;
           // domain warp: fold the coords through two more fields — the flow
           const wx = fbm(sx * 1.6 + time * 0.032, ny * 1.6, 31) - 0.5;
@@ -83,14 +106,14 @@ export function LavaNav() {
           const hueN = fbm(sx * 0.42 - time * 0.011, ny * 0.8 + 9, 83);
           const deep = fbm(px * 0.8, py * 0.8, 97);
           const j = hash(x, y, jit) - 0.5;
-          let lig = LIG[0] + (LIG[1] - LIG[0]) * (h * h * (3 - 2 * h)) + j * 3;
-          if (deep < 0.17) lig = DEEP_LIG + j * 2;
+          let lig = (LIG[0] + (LIG[1] - LIG[0]) * (h * h * (3 - 2 * h)) + j * 3) / 100;
+          if (deep < 0.17) lig = (DEEP_LIG + j * 2) / 100;
           const hue = HUE_BASE + (hueN - 0.5) * HUE_SPAN + (h - 0.5) * 26 + j * 9;
-          const sat = SAT[0] + (SAT[1] - SAT[0]) * h + j * 8;
-          ctx.fillStyle = `hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${lig.toFixed(0)}%)`;
-          ctx.fillRect(x, y, 1, 1);
+          const sat = (SAT[0] + (SAT[1] - SAT[0]) * h + j * 8) / 100;
+          buf[i] = packHsl(hue, sat, lig);
         }
       }
+      ctx.putImageData(img, 0, 0);
     };
 
     const loop = (t: number) => {
