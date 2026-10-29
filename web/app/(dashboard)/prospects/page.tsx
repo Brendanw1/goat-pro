@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getProspectsSeason } from "@/lib/data";
+import { getProspectsSeason, getDraftHitRates } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { logoUrl } from "@/lib/team-pixel";
@@ -62,7 +62,7 @@ function RowList({ rows, season }: { rows: any[]; season: number }) {
 
 export default async function ProspectsPage({ searchParams }: { searchParams?: Promise<Q> }) {
   const q = (await searchParams) ?? {};
-  const view = q.view === "team" ? "team" : q.view === "pos" ? "pos" : "top100";
+  const view = q.view === "team" ? "team" : q.view === "pos" ? "pos" : q.view === "hitrate" ? "hitrate" : "top100";
   const indexSeasons = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011];
   const year = indexSeasons.includes(Number(q.year)) ? Number(q.year) : 2026;
   const data = await getProspectsSeason(year);
@@ -87,6 +87,100 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
   const team = TEAM_SLUGS.includes(q.team ?? "") ? q.team! : "yankees";
   const pos = POS_SLUGS.some(([s]) => s === (q.pos ?? "")) ? q.pos! : "of";
   let rows: any[] = data.top100 ?? [];
+  if (view === "hitrate") {
+    const hr = await getDraftHitRates();
+    const fmtP = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? `${v.toFixed(1)}%` : "—");
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">Prospects — hit rates</h1>
+        <p className="text-xs text-text-dim max-w-[85ch]">
+          Sixteen years of Pipeline lists and drafts joined to MLB debuts — a descriptive read of what a ranking is
+          worth. Each list-year counts separately (list quality, not player counting); time-to-MLB counts only debuts
+          after the list year. All from public sources: Pipeline&apos;s published ranks, the statsapi draft and debut dates.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={link({ view: "top100" })} className={chip(false)}>Top 100</Link>
+          <Link href={link({ view: "team" })} className={chip(false)}>By team</Link>
+          <Link href={link({ view: "pos" })} className={chip(false)}>By position</Link>
+          <Link href={link({ view: "hitrate" })} className={chip(true)}>Hit rates</Link>
+        </div>
+        <div className="glass-panel p-4">
+          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">
+            Pipeline top-100 rank slot → reached MLB (2011–2026 lists)
+          </h2>
+          <table className="w-full text-xs font-data">
+            <thead>
+              <tr className="text-[9px] uppercase tracking-wider text-text-dim">
+                <th className="py-1 text-left font-semibold">Rank slot</th>
+                <th className="py-1 text-right font-semibold">List slots</th>
+                <th className="py-1 text-right font-semibold">Reached MLB</th>
+                <th className="py-1 text-right font-semibold">Share</th>
+                <th className="py-1 text-right font-semibold">Median years to MLB</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(hr?.rankBuckets ?? []).map((r: any) => (
+                <tr key={r.bucket} className="border-t border-white/[0.04]">
+                  <td className="py-1 font-sans text-text-secondary">{r.bucket}</td>
+                  <td className="py-1 text-right text-text-dim">{r.n?.toLocaleString()}</td>
+                  <td className="py-1 text-right text-text-secondary">{r.reached?.toLocaleString()}</td>
+                  <td className="py-1 text-right text-text-primary">{fmtP(r.pct)}</td>
+                  <td className="py-1 text-right text-text-secondary">{r.medianYearsToMlb ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="glass-panel p-4">
+          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">
+            Draft round → reached MLB (2011–2026 drafts)
+          </h2>
+          <table className="w-full text-xs font-data">
+            <thead>
+              <tr className="text-[9px] uppercase tracking-wider text-text-dim">
+                <th className="py-1 text-left font-semibold">Round</th>
+                <th className="py-1 text-right font-semibold">Picks (with ids)</th>
+                <th className="py-1 text-right font-semibold">Reached MLB</th>
+                <th className="py-1 text-right font-semibold">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(hr?.draftRounds ?? []).map((r: any) => (
+                <tr key={r.bucket} className="border-t border-white/[0.04]">
+                  <td className="py-1 font-sans text-text-secondary">{r.bucket}</td>
+                  <td className="py-1 text-right text-text-dim">{r.n?.toLocaleString()}</td>
+                  <td className="py-1 text-right text-text-secondary">{r.reached?.toLocaleString()}</td>
+                  <td className="py-1 text-right text-text-primary">{fmtP(r.pct)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {(hr?.rankByYear ?? []).length > 0 && (
+          <div className="glass-panel p-4">
+            <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">
+              Top-100 list quality by year — share of the list that reached MLB
+            </h2>
+            <div className="flex flex-wrap gap-1.5">
+              {(hr?.rankByYear ?? []).map((r: any) => (
+                <Link key={r.year} href={link({ view: "top100", year: String(r.year) })}
+                  title={`${r.year}: ${r.n} ranked`}
+                  className="px-2 py-1 rounded border border-border-subtle text-[10px] font-data hover:bg-white/[0.04]"
+                  style={{ color: `hsl(${Math.round(120 * Math.min(1, Number(r.reachedPct ?? 0) / 100))} 45% 60%)` }}>
+                  {r.year} · {fmtP(r.reachedPct)}
+                </Link>
+              ))}
+            </div>
+            <p className="text-[10px] text-text-dim mt-2">
+              Recent years read low by construction — their lists are still maturing. The colour runs green as the
+              class reaches the majors.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (view === "team") {
     // Rows carry each player's CURRENT org (Pipeline archive quirk), so the title comes from the list's own club.
     rows = data.teams?.[team] ?? [];
@@ -115,6 +209,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
         <Link href={link({ view: "top100", team: undefined, pos: undefined })} className={chip(view === "top100")}>Top 100</Link>
         <Link href={link({ view: "team" })} className={chip(view === "team")}>By team</Link>
         <Link href={link({ view: "pos" })} className={chip(view === "pos")}>By position</Link>
+          <Link href={link({ view: "hitrate" })} className={chip(false)}>Hit rates</Link>
       </div>
       {view === "team" && (
         <div className="flex flex-wrap items-center gap-1.5">

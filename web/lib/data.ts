@@ -165,6 +165,16 @@ export async function getSwingProfile(id: string, season: string | number, level
   return fetchGzippedJson<any>(lv(level, `swing/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** Draft + rank hit-rate tables (depth item 5): public-source descriptive joins. */
+export async function getDraftHitRates(): Promise<any | null> {
+  return fetchFromR2<any>("draft/hit_rates.json", { shared: true }).catch(() => null);
+}
+
+/** Per-player roster-move timeline from the statsapi transactions feed. */
+export async function getTransactions(id: string): Promise<any | null> {
+  return fetchGzippedJson<any>(`transactions/${id}.json.gz`).catch(() => null);
+}
+
 /** Fatigue profile per pitcher-season: TTO / rest / velo-fade (depth item 3). */
 export async function getLoadProfile(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
   return fetchGzippedJson<any>(lv(level, `load/${id}-${season}.json.gz`)).catch(() => null);

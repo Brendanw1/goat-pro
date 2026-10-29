@@ -4176,9 +4176,18 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             # the same file. Static fetched data; guarded when absent.
             draft_by_id = {}
             if (ROOT / "data" / "milb" / "draft.json").exists():
+                # A player can be drafted several times (the HS flier that
+                # doesn't sign, then the college pick that does) — the badge
+                # carries the SIGNED draft (the pick with a bonus), and the
+                # latest year breaks ties.
                 for picks in json.loads((ROOT / "data" / "milb" / "draft.json").read_text()).values():
                     for dp in picks:
-                        if dp.get("id") and dp["id"] not in draft_by_id:
+                        if not dp.get("id"):
+                            continue
+                        cur = draft_by_id.get(dp["id"])
+                        if cur is None:
+                            draft_by_id[dp["id"]] = dp
+                        elif (dp.get("bonus") and not cur.get("bonus")) or                              (bool(dp.get("bonus")) == bool(cur.get("bonus")) and dp["year"] > cur["year"]):
                             draft_by_id[dp["id"]] = dp
             people_by_id = {}
             ppl_fp = ROOT / "data" / "milb" / "people.parquet"

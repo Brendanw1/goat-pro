@@ -131,6 +131,18 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           className="text-[11px] text-text-dim hover:text-text-secondary underline-offset-2 hover:underline">
           Printable sheet →
         </Link>
+        {(prospectRank?.draft || prospectRank?.debut) && (
+          <span className="flex items-center gap-1.5 text-[10px] font-data text-text-dim">
+            {prospectRank.draft && (
+              <span title={`${prospectRank.draft.school ?? ""}${prospectRank.draft.school ? " ·" : ""} ${prospectRank.draft.team ?? ""}`}>
+                {prospectRank.draft.round === "1" ? "1st" : `${prospectRank.draft.round}${prospectRank.draft.round === "2" ? "nd" : "rd"}`} round
+                {prospectRank.draft.pick ? ` · #${prospectRank.draft.pick} overall` : ""} · {prospectRank.draft.year}
+              </span>
+            )}
+            {prospectRank.draft && prospectRank.debut ? " ·" : ""}
+            {prospectRank.debut && <span>MLB debut {prospectRank.debut}</span>}
+          </span>
+        )}
         {prospectRank?.ranks?.length > 0 && (
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Pipeline prospect ranking</span>

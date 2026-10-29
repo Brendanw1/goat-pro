@@ -2,6 +2,8 @@ import { getPlayerProfile, getHitterProfile, getMinorsIndex, getMinorsLines } fr
 import { PlayerPage } from "../../../player/[id]/player-page";
 import { CareerByLevel } from "@/components/ui/career-by-level";
 import { PlayerReady } from "@/components/ui/player-transition";
+import { TransactionsPanel } from "@/components/ui/transactions-panel";
+import { getTransactions } from "@/lib/data";
 import Link from "next/link";
 
 /** A minor leaguer: the AAA Statcast profile when he has one, else his line by level alone. */
@@ -31,6 +33,7 @@ export default async function MinorsPlayerPage({ params, searchParams }: {
   const { id } = await params;
   const season = (await searchParams)?.season;
   const aaa = (await getPlayerProfile(id, season, "aaa")) ?? (await getHitterProfile(id, season, "aaa"));
+  const tx = (aaa || (await latestLine(id))) ? await getTransactions(id) : null;
   const back = (
     <Link href="/minors" className="px-3 py-1 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] transition-all">
       ← Minors
@@ -44,7 +47,8 @@ export default async function MinorsPlayerPage({ params, searchParams }: {
             AAA · Statcast
           </span>
         </div>
-        <PlayerPage id={id} season={season} level="aaa" extra={<CareerByLevel id={id} />} />
+        <PlayerPage id={id} season={season} level="aaa"
+          extra={<><CareerByLevel id={id} /><TransactionsPanel tx={tx} /></>} />
       </div>
     );
   }
@@ -131,6 +135,7 @@ export default async function MinorsPlayerPage({ params, searchParams }: {
         </div>
       )}
       <CareerByLevel id={id} />
+      <TransactionsPanel tx={tx} />
     </div>
   );
 }
