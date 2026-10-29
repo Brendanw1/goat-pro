@@ -38,15 +38,21 @@ export function Nav() {
       {/* The lava field the header lives on */}
       <LavaNav />
 
-      {/* Logo / Brand — a white shader circle sitting on top of the field */}
+      {/* Logo / Brand — a white shader badge sitting on top of the field:
+          sphere gloss top-left, a faint reflection of the lava below-right,
+          inner rim shading, hairline ring. */}
       <Link
         href="/"
         aria-label="GOAT-Pro home"
-        className="relative z-10 shrink-0 grid place-items-center w-11 h-11 rounded-full font-bold tracking-wide text-[13px] text-[#1c2431]
-          bg-white shadow-[0_2px_10px_rgba(0,0,0,0.45),inset_0_-3px_6px_rgba(120,130,145,0.35),inset_0_2px_3px_rgba(255,255,255,0.9)]
-          transition-transform hover:scale-105"
+        className="relative z-10 shrink-0 grid place-items-center w-12 h-12 rounded-full bg-white transition-transform duration-200 hover:scale-105 active:scale-95 ring-1 ring-slate-900/20
+          shadow-[0_4px_16px_rgba(2,6,12,0.55),0_1px_3px_rgba(2,6,12,0.4),inset_0_-5px_9px_rgba(96,108,128,0.38),inset_0_3px_5px_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(22,30,44,0.07)]"
       >
-        <span className="drop-shadow-[0_1px_0_rgba(255,255,255,0.8)]">GOAT<br />-Pro</span>
+        <span aria-hidden className="absolute inset-0 rounded-full
+          bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0)_40%),radial-gradient(circle_at_70%_92%,rgba(125,200,215,0.35)_0%,rgba(125,200,215,0)_46%)]" />
+        <span className="relative text-center leading-none">
+          <span className="block text-[12px] font-extrabold tracking-tight text-[#131c2b]">GOAT</span>
+          <span className="mt-[3px] block text-[8.5px] font-bold tracking-[0.22em] text-[#5c6b82]">-PRO</span>
+        </span>
       </Link>
 
       {/* Nav Pills: one row. Spacing tightens with the window; whatever still
