@@ -5735,7 +5735,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--seasons", type=int, nargs="+", default=[2023, 2024, 2025, 2026])
+    ap.add_argument("--seasons", type=int, nargs="+",
+                    help="default: 2020-26 for MLB (Hawk-Eye era), 2023-26 for AAA (its Statcast starts 2023)")
     ap.add_argument("--only", nargs="+", choices=FAMILIES, metavar="FAMILY",
                     help="bake only these families: " + " ".join(FAMILIES))
     ap.add_argument("--player", type=int, help="limit the players/slot per-player files to one id")
@@ -5752,6 +5753,8 @@ def main() -> None:
     args = ap.parse_args()
     only = set(args.only) if args.only else None
     level = args.level
+    if args.seasons is None:
+        args.seasons = list(range(2023 if level == "aaa" else 2020, 2027))
     if level == "aaa":
         only = (only or set(FAMILIES)) - {"savant"}
 
