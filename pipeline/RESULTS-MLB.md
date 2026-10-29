@@ -3629,7 +3629,7 @@ to the grade − 100 up to rounding), results − swing gap in xwOBAcon points, 
 ≈ .86) / high (100+, ≈ .92), and a one-line story. Cross-fit by hitter only. 1,645 rows (2025: Judge 123 with results +140 ahead;
 Arraez 86, bat speed −20).
 
-## §98 Is our range residual skill? Ours − Savant OAA vs the Jump components (descriptive, pre-registered 2026-10-29 before any read)
+## §100 Is our range residual skill? Ours − Savant OAA vs the Jump components (descriptive, pre-registered 2026-10-29 before any read; renumbered from §98 — the swing program's Swing Quality took §98/§98a first)
 
 **Why.** §97 declared the out-probability model at its public-data ceiling: what our p cannot express is per-play positioning and routes. Savant's Jump leaderboard (in the mart since 2026-10-29, `lb_outfield_jump_{s}`, 2016+) decomposes each outfielder's range into burst / reaction / routing / bootup distance, relative to league. If our residual (our OAA − Savant's, per OF fielder-season) is skill rather than noise, it should correlate with what Jump measures — and with WHICH component tells us what our residual is made of: v3 conditions on season-average starts, so credit we give for unusual positioning stays in the residual, and Savant (per-play positions) removes it; routing is Jump's closest analogue.
 
@@ -3639,7 +3639,7 @@ Arraez 86, bat speed −20).
 
 **Expected:** routing and burst correlate positively; reaction less; bootup least. Magnitude modest (|r| .2–.4 — the residual's reliability is .40, so ~.40 is its ceiling vs anything). If the residual is uncorrelated with all four, it is either noise or something Jump does not measure — either answer steers the site.
 
-### §98 result (read once, 2026-10-29)
+### §100 result (read once, 2026-10-29)
 
 n 661 OF fielder-seasons (262 players, 2020–2026, matched join). **The pre-registered expectation was refuted in direction** — the residual correlates *negatively* with burst and bootup, and ≈0 with routing:
 
