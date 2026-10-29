@@ -558,6 +558,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
         }}
       >
         <div className="flex items-start gap-4">
+          <div className="flex flex-col items-center gap-1.5">
+          <Link href={backHref} className="rounded px-1.5 py-0.5 text-[10px] leading-none bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] transition-colors">← Back</Link>
           {(() => {
             const url = logoUrl(profile.team);
             return url ? (
@@ -567,12 +569,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               <PixelTeamLogo team={profile.team} size={44} />
             );
           })()}
-          <Link
-            href={backHref}
-            className="px-3 py-1.5 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] active:scale-[0.95] transition-all duration-150"
-          >
-            ← Back
-          </Link>
+          </div>
           <Headshot id={playerId} alt={profile.name} size={52} />
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 text-lg font-bold text-text-primary">

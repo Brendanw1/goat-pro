@@ -187,18 +187,15 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
         style={{ background: shade ? "rgba(255,255,255,0.02)" : undefined }}>
         <div>
           <div className="flex items-center gap-2.5">
-            <Link
-              href={level === "aaa" ? "/minors" : "/hitters"}
-              className="px-3 py-1.5 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] active:scale-[0.95] transition-all duration-150"
-            >
-              ← Back
-            </Link>
+            <div className="flex flex-col items-center gap-1.5">
+            <Link href={level === "aaa" ? "/minors" : "/hitters"} className="rounded px-1.5 py-0.5 text-[10px] leading-none bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] transition-colors">← Back</Link>
             {crest ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={crest} alt="" width={36} height={36} className="rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             ) : (
               <PixelTeamLogo team={profile.team} size={30} />
             )}
+            </div>
             <Headshot id={playerId} alt={profile.name} size={52} />
             <h2 className="text-xl font-bold text-text-primary">{profile.name}</h2>
           </div>
