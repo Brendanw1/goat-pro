@@ -26,47 +26,31 @@ const NAV_ITEMS = [
   { href: "/glossary", label: "Glossary" },
 ] as const;
 
-/* Baseball seams for the badge: the TRUE seam curve of a baseball — the
-   figure-8 on a sphere (latitude = A\u00b7sin(2\u00b7longitude)) — rotated to the
-   classic 3/4 pose and orthographically projected. Only the front strands
-   render, so the arcs can never cross (two earlier hand-drawn bezier
-   versions crossed; this one is generated from the real geometry). Paths
-   and stitch ticks are precomputed literals — zero runtime cost — clipped
-   to the ball and faded so the wordmark sits on top. */
+/* Baseball seams for the badge, traced from the owner's reference (pngtree
+   "3D baseball on transparent background"): the front-on view, one seam
+   smiling across the upper face and one frowning across the lower face,
+   both running off the rim, with V-stitches straddling each seam. The ball
+   fills the whole badge. Centerlines are Catmull-Rom fits of the traced
+   points; paths are precomputed literals (zero runtime cost). */
 const SEAM_PATHS = [
-  "M37.7 35.5 L38.1 34.4 L38.4 33.2 L38.6 32.0 L38.7 30.8 L38.8 29.6 L38.7 28.3 L38.6 27.2 L38.5 26.0 L38.3 24.9 L38.0 23.9 L37.8 23.0 L37.6 22.1 L37.4 21.2 L37.3 20.4 L37.2 19.7 L37.1 19.0 L37.1 18.3 L37.1 17.7 L37.2 17.1 L37.3 16.4 L37.5 15.8 L37.6 15.2 L37.8 14.6 L38.0 14.0 L38.1 13.5 L38.2 12.9 L38.2 12.4 L38.2 11.9 L38.1 11.4 L37.9 11.1 L37.8 11.0",
-  "M7.5 14.6 L7.3 15.2 L7.1 15.7 L7.1 16.3 L7.1 16.9 L7.1 17.5 L7.2 18.0 L7.2 18.6 L7.3 19.3 L7.4 19.9 L7.5 20.5 L7.5 21.2 L7.5 21.9 L7.5 22.6 L7.4 23.4 L7.4 24.3 L7.4 25.2 L7.4 26.2 L7.4 27.2 L7.5 28.4 L7.6 29.5 L7.8 30.7 L8.1 31.9 L8.5 33.1 L9.0 34.3 L9.6 35.5 L10.3 36.6 L11.1 37.6 L12.0 38.5 L12.9 39.4 L13.9 40.1 L14.2 40.3",
-  "M33.8 40.3 L33.9 40.2 L34.1 40.1 L34.2 40.0 L34.4 39.9 L34.5 39.8 L34.7 39.6 L34.8 39.5 L35.0 39.4 L35.1 39.3 L35.2 39.1 L35.4 39.0 L35.5 38.9 L35.7 38.7 L35.8 38.6 L35.9 38.4 L36.1 38.2 L36.2 38.1 L36.3 37.9 L36.4 37.8 L36.6 37.6 L36.7 37.4 L36.8 37.2 L36.9 37.0 L37.0 36.8 L37.1 36.7 L37.2 36.5 L37.3 36.3 L37.4 36.1 L37.5 35.9 L37.6 35.7 L37.7 35.5",
+  "M2.8 7.9 L3.4 8.2 L3.8 8.4 L4.2 8.6 L4.5 8.7 L4.8 8.9 L5.2 9.0 L5.5 9.2 L5.9 9.4 L6.4 9.7 L7.0 10.0 L7.7 10.4 L8.4 10.8 L9.3 11.3 L10.2 11.9 L11.1 12.5 L12.0 13.0 L13.0 13.6 L13.9 14.0 L14.8 14.5 L15.7 14.8 L16.6 15.1 L17.4 15.3 L18.2 15.5 L19.1 15.6 L19.9 15.8 L20.7 15.8 L21.5 15.9 L22.3 15.9 L23.2 15.8 L24.0 15.7 L24.8 15.6 L25.7 15.4 L26.6 15.1 L27.4 14.8 L28.3 14.5 L29.2 14.1 L30.0 13.7 L30.9 13.3 L31.7 12.9 L32.5 12.5 L33.3 12.1 L34.1 11.6 L34.9 11.1 L35.7 10.5 L36.5 10.0 L37.3 9.4 L38.0 8.9 L38.7 8.4 L39.3 7.9 L39.9 7.4 L40.4 7.1 L40.8 6.7 L41.1 6.4 L41.5 6.1 L41.8 5.8 L42.0 5.6 L42.3 5.3 L42.6 5.0 L42.9 4.6 L43.3 4.2 L43.3 4.2",
+  "M2.8 40.6 L3.4 40.3 L3.8 40.0 L4.2 39.8 L4.5 39.6 L4.8 39.4 L5.2 39.2 L5.5 39.0 L5.9 38.8 L6.4 38.5 L7.0 38.3 L7.7 37.9 L8.4 37.6 L9.3 37.2 L10.2 36.8 L11.1 36.3 L12.0 35.9 L13.0 35.5 L13.9 35.2 L14.8 34.8 L15.7 34.6 L16.6 34.4 L17.4 34.2 L18.2 34.0 L19.1 33.9 L19.9 33.8 L20.7 33.7 L21.5 33.7 L22.4 33.7 L23.2 33.6 L24.0 33.7 L24.8 33.7 L25.7 33.8 L26.5 33.8 L27.3 33.9 L28.2 34.1 L29.0 34.2 L29.8 34.4 L30.7 34.6 L31.5 34.8 L32.3 35.0 L33.1 35.3 L33.9 35.6 L34.8 36.0 L35.6 36.4 L36.4 36.8 L37.2 37.2 L38.0 37.6 L38.7 38.0 L39.5 38.4 L40.1 38.7 L40.7 39.0 L41.2 39.3 L41.6 39.6 L42.1 39.8 L42.5 40.1 L42.8 40.4 L43.3 40.6 L43.7 40.9 L44.2 41.2 L44.7 41.5 L44.7 41.5",
 ] as const;
 
-const SEAM_TICKS = [
-  { x1: 37.0, y1: 30.9, x2: 40.4, y2: 31.2 },
-  { x1: 36.1, y1: 23.0, x2: 39.4, y2: 22.2 },
-  { x1: 35.5, y1: 16.8, x2: 38.9, y2: 17.3 },
-  { x1: 36.5, y1: 12.5, x2: 39.9, y2: 12.7 },
-  { x1: 8.8, y1: 16.7, x2: 5.4, y2: 16.8 },
-  { x1: 9.2, y1: 21.4, x2: 5.8, y2: 21.4 },
-  { x1: 9.1, y1: 28.1, x2: 5.8, y2: 28.4 },
-  { x1: 12.0, y1: 36.0, x2: 9.3, y2: 38.1 },
-  { x1: 33.5, y1: 38.4, x2: 35.6, y2: 41.1 },
-  { x1: 34.7, y1: 37.3, x2: 37.3, y2: 39.4 },
-  { x1: 35.7, y1: 35.7, x2: 38.7, y2: 37.3 },
+const SEAM_STITCHES = [
+  "M4.7 9.4L4.8 11.5M5.2 8.4L6.9 7.2M6.7 10.5L6.7 12.6M7.2 9.5L9.0 8.3M8.8 11.7L8.7 13.8M9.4 10.7L11.2 9.7M10.8 12.9L10.7 15.0M11.4 12.0L13.2 10.9M13.0 14.2L13.0 16.3M13.5 13.2L15.2 12.0M15.3 15.2L15.6 17.3M15.7 14.2L17.3 12.8M17.7 15.9L18.2 18.0M17.9 14.9L19.3 13.3M20.2 16.4L21.0 18.3M20.3 15.3L21.5 13.5M22.8 16.4L23.9 18.2M22.7 15.3L23.6 13.4M25.2 16.1L26.5 17.7M24.9 15.0L25.5 13.0M27.6 15.3L29.2 16.7M27.3 14.3L27.6 12.2M29.8 14.4L31.5 15.7M29.4 13.4L29.5 11.3M32.0 13.4L33.7 14.6M31.5 12.4L31.5 10.3M34.2 12.2L36.0 13.2M33.6 11.2L33.5 9.1M36.2 10.8L38.1 11.8M35.6 9.9L35.4 7.8M38.1 9.5L40.0 10.3M37.5 8.6L37.2 6.5M40.1 8.0L42.0 8.8M39.4 7.1L39.1 5.0M41.9 6.4L43.9 7.1M41.2 5.6L40.6 3.6M43.6 4.7L45.6 5.3M42.8 3.9L42.2 1.9",
+  "M5.1 39.9L7.0 40.9M4.5 38.9L4.4 36.8M7.2 38.8L8.9 40.0M6.7 37.8L6.9 35.7M9.3 37.8L11.0 39.0M8.8 36.8L8.9 34.7M11.6 36.7L13.2 38.0M11.1 35.7L11.3 33.6M13.7 35.9L15.3 37.2M13.3 34.8L13.5 32.7M15.9 35.1L17.3 36.6M15.6 34.1L16.0 32.0M18.1 34.6L19.4 36.2M17.9 33.5L18.6 31.5M20.6 34.3L21.7 36.1M20.5 33.2L21.3 31.3M23.0 34.2L24.0 36.0M23.0 33.1L24.0 31.2M25.4 34.3L26.3 36.2M25.5 33.2L26.6 31.4M27.7 34.5L28.4 36.5M27.8 33.5L29.1 31.8M29.9 35.0L30.5 37.0M30.2 33.9L31.5 32.3M32.1 35.6L32.5 37.6M32.4 34.5L33.9 33.0M34.3 36.4L34.5 38.5M34.8 35.4L36.4 34.1M36.6 37.5L36.6 39.6M37.1 36.5L38.8 35.3M38.7 38.6L38.7 40.7M39.2 37.6L40.9 36.5M40.8 39.7L40.8 41.8M41.3 38.8L43.1 37.7M42.8 40.9L42.6 43.0M43.3 40.0L45.2 39.0",
 ] as const;
 
 function SeamStitches() {
   return (
-    <svg aria-hidden viewBox="0 0 48 48" className="pointer-events-none absolute inset-0 h-full w-full opacity-60">
+    <svg aria-hidden viewBox="0 0 48 48" className="pointer-events-none absolute inset-0 h-full w-full">
       <defs>
-        <clipPath id="badge-ball"><circle cx="24" cy="24" r="19.5" /></clipPath>
+        <clipPath id="badge-ball"><circle cx="24" cy="24" r="23.4" /></clipPath>
       </defs>
-      <g clipPath="url(#badge-ball)">
-        {SEAM_PATHS.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke="#c92a3c" strokeOpacity={0.8} strokeWidth={1.4} strokeLinejoin="round" />
-        ))}
-        {SEAM_TICKS.map((s, i) => (
-          <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
-            stroke="#c92a3c" strokeWidth={1.6} strokeLinecap="round" />
-        ))}
+      <g clipPath="url(#badge-ball)" stroke="#c92a3c" fill="none" strokeLinecap="round" opacity={0.85}>
+        {SEAM_PATHS.map((d, i) => <path key={i} d={d} strokeWidth={0.6} strokeOpacity={0.55} />)}
+        {SEAM_STITCHES.map((d, i) => <path key={i} d={d} strokeWidth={1.1} />)}
       </g>
     </svg>
   );
