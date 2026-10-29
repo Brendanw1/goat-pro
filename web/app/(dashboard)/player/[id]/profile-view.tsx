@@ -533,7 +533,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               <TeamLine team={profile.team} teams={(profile as any).teams} /> · {profile.throws === "L" || profile.throws === "Left" ? "LHP" : "RHP"}{typeof profile.age === "number" ? ` · age ${Math.floor(profile.age)}` : ""}
               {typeof profile.season === "number" ? ` · ${profile.season}` : ""}
             </p>
-          <TeamSplitsDetails lines={(profile as any).teamSplits} cols={[["ip", "IP", 1], ["era", "RA9", 2], ["fip", "FIP", 2], ["kPct", "K%", 1], ["bbPct", "BB%", 1], ["whiffPct", "Whiff%", 1], ["velo", "Velo", 1]]} />
+          <TeamSplitsDetails lines={(profile as any).teamSplits} cols={[["ip", "IP", 1], ["era", "ERA", 2], ["fip", "FIP", 2], ["stuffPlus", "Whiff+", 0], ["kPct", "K%", 1], ["bbPct", "BB%", 1], ["whiffPct", "Whiff%", 1], ["velo", "Velo", 1]]} />
             <p className="mt-0.5 font-data text-[11px] text-text-dim">{sampleLine}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {badge && (

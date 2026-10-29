@@ -79,7 +79,7 @@ export function TeamSplitsDetails({ lines, cols }: { lines?: any[] | null; cols:
             {cols.map(([k, , d]) => <td key={k} className="pr-3 text-right text-text-secondary">{cell(ln[k], d)}</td>)}</tr>
         ))}</tbody>
       </table>
-      <p className="mt-0.5">Raw stats for each club; grades cover the whole season.</p>
+      <p className="mt-0.5">Each club&rsquo;s own line. Pitchers: ERA and IP are the official per-club lines; Whiff+ is graded on that club&rsquo;s pitches on the season scale. K+, Prevention+ and the other projections cover the whole season.</p>
     </details>
   );
 }

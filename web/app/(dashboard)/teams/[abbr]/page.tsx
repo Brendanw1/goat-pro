@@ -30,8 +30,8 @@ const fmt = (v: unknown, nd?: number): string =>
 type Q = { season?: string; psort?: string; hsort?: string; pdir?: string; hdir?: string };
 
 /** Team aggregates: each stat is the club's weighted mean over its board rows (weight = the stat's own
- * denominator), ranked against every club that season. A traded player counts for the team on his board
- * row, so mid-season movers sit with one club. `good` = the direction that is better for the club. */
+ * denominator), ranked against every club that season. A player who changed clubs counts for each club
+ * with that club's own line (`byClub`). `good` = the direction that is better for the club. */
 type Agg = { key: string; label: string; w: string; nd: number; good: 1 | -1; pct?: boolean };
 const P_AGG: Agg[] = [
   { key: "era", label: "ERA", w: "ip", nd: 2, good: -1 }, { key: "fip", label: "FIP", w: "ip", nd: 2, good: -1 },
@@ -49,6 +49,13 @@ const H_AGG: Agg[] = [
   { key: "barrelPct", label: "Barrel%", w: "nBip", nd: 1, good: 1 }, { key: "oSwingPct", label: "Chase%", w: "pa", nd: 1, good: -1 },
   { key: "whiffPct", label: "Whiff%", w: "pa", nd: 1, good: -1 },
 ];
+
+/** One row per club: a mid-season mover's season row becomes his per-club lines (keys a line lacks drop out). */
+function byClub(rows: any[]): any[] {
+  return rows.flatMap((r) => Array.isArray(r.teamSplits) && r.teamSplits.length > 1
+    ? r.teamSplits.map((ln: any) => ({ id: r.id, name: r.name, season: r.season, throws: r.throws, bats: r.bats, ...ln }))
+    : [r]);
+}
 
 function teamMeans(rows: any[], aggs: Agg[]): Map<string, Record<string, number>> {
   const by = new Map<string, Record<string, [number, number]>>();
@@ -204,7 +211,8 @@ export default async function TeamPage({ params, searchParams }: {
   const { abbr: raw } = await params;
   const abbr = decodeURIComponent(raw).toUpperCase();
   const q = (await searchParams) ?? {};
-  const [pitchers, hitters, parks, recent] = await Promise.all([getPitchers(), getHitters(), getParks(), getRecentGames()]);
+  const [pitchersRaw, hittersRaw, parks, recent] = await Promise.all([getPitchers(), getHitters(), getParks(), getRecentGames()]);
+  const pitchers = byClub(pitchersRaw ?? []), hitters = byClub(hittersRaw ?? []);
   const prows = (pitchers ?? []).filter((r: any) => r.team === abbr);
   const hrows = (hitters ?? []).filter((r: any) => r.team === abbr);
   if (!prows.length && !hrows.length) notFound();

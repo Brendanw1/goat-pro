@@ -1,8 +1,8 @@
 "use client";
 /**
  * Players who changed clubs mid-season: the season row's team cell reads "2TM" (FanGraphs style) and
- * opens one line per club beneath it. Club lines carry raw stats only; the model grades are
- * season-long and stay on the combined row.
+ * opens one line per club beneath it. Club lines carry that club's stats and (pitchers) its
+ * Whiff+; the projections (K+, Prevention+, ...) are season-long and stay on the combined row.
  */
 import type { TeamStint } from "@/components/ui/shared-ui";
 
@@ -28,7 +28,7 @@ export function TeamSplitRows({ row, columns, fmt }: { row: any; columns: readon
     <>
       {lines.map((ln) => (
         <tr key={`${row.id}-${row.season}-${ln.team}`} className="border-b border-white/[0.025] bg-white/[0.02]" style={{ height: "30px" }}
-          title={`${row.name} with ${ln.team}: raw stats for that club; grades cover the whole season (the row above)`}>
+          title={`${row.name} with ${ln.team}: that club's line; projections cover the whole season (the row above)`}>
           <td className="w-[32px]" />
           {columns.map((col) => (
             <td key={col.key} className={`${col.w ?? ""} px-1 text-[11px] text-text-dim truncate ${col.align === "right" ? "text-right font-data" : "text-left"}`}>

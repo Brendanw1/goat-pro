@@ -111,7 +111,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -127,6 +127,7 @@ FAM_NEEDS = {
     "prospects": set(),     # MLB Pipeline rankings (pipeline/prospects_fetch.py): /prospects page + profile badges
     "swing": set(),         # hitter swing profiles from bat tracking (self-contained, 2023+)
     "load": set(),          # TTO / rest / velo-fade fatigue surfaces (self-contained; per-pitch columns)
+    "draft": set(),         # draft + transactions surfaces (amateur_fetch.py outputs; MLB only)
 }
 
 
@@ -588,6 +589,25 @@ def pitcher_team_splits(con, season_list: str, stints: dict, level: str, fip_c: 
         GROUP BY 1, 2, 3""").df()
     d = d[[(int(a), int(b)) in stints for a, b in zip(d["id"], d["season"])]]
     oo = official_er(level)
+    # official per-club ER/outs (pipeline/team_lines.py); missing -> the shared-out fallback below
+    tl = MILB / "team_lines.parquet"
+    club_off = {}
+    if tl.exists():
+        t = pd.read_parquet(tl)
+        t = t[(t["level"] == level) & t["team"].notna()]
+        club_off = {(int(r.mlbam_id), int(r.season), r.team): (int(r.ER), int(r.OUTS)) for r in t.itertuples()}
+    # Whiff+ per club from the per-game sums (pipeline/whiff_game.py): same scale as the season grade
+    wg = ROOT / "cache" / "whiff_game.parquet"
+    club_whiff = {}
+    if level == "mlb" and wg.exists():
+        games = con.sql(f"""
+            SELECT DISTINCT pitcher AS id, season, game_pk,
+                   CASE WHEN inning_topbot = 'Top' THEN home_team ELSE away_team END AS team
+            FROM pitches_all WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL""").df()
+        w = pd.read_parquet(wg).rename(columns={"pitcher": "id"}).merge(games, on=["id", "season", "game_pk"])
+        w = w.groupby(["id", "season", "team"])[["n", "zsum"]].sum()
+        club_whiff = {(int(i), int(s), t): float(np.clip(100 + 10 * r.zsum / r.n, 50, 175))
+                      for (i, s, t), r in w.iterrows() if r.n >= 10}
     out = {}
     for (pid, season), grp in d.groupby(["id", "season"]):
         key = (int(pid), int(season))
@@ -598,15 +618,19 @@ def pitcher_team_splits(con, season_list: str, stints: dict, level: str, fip_c: 
         order = {st["team"]: i for i, st in enumerate(stints[key])}
         lines = []
         for t in grp.itertuples():
-            outs = off * t.ev_outs / tot if off and tot else t.ev_outs
+            er_outs = club_off.get((*key, t.team))
+            outs = er_outs[1] if er_outs else (off * t.ev_outs / tot if off and tot else t.ev_outs)
             ip = outs / 3
+            era = 27 * er_outs[0] / er_outs[1] if er_outs and er_outs[1] else (9 * t.runs / ip if ip > 0 else None)
             fip = (13 * t.hr + 3 * (t.bb + t.hbp) - 2 * t.k) / ip + fip_c.get(key[1], 3.1) if ip > 0 else None
-            lines.append({"team": t.team, "g": int(t.g), "ip": f(ip, 1), "era": f(9 * t.runs / ip, 2) if ip > 0 else None,
+            lines.append({"team": t.team, "g": int(t.g), "ip": f(ip, 1),
+                          "era": f(era, 2), "eraOfficial": bool(er_outs), "stuffPlus": f(club_whiff.get((*key, t.team)), 1),
                           "fip": f(fip, 2), "whip": f((t.h + t.bb) / ip, 2) if ip > 0 else None,
                           "battersFaced": int(t.pa), "pitches": int(t.n_pitches),
                           "kPct": f(100 * t.k / t.pa, 1) if t.pa else None, "bbPct": f(100 * t.bb / t.pa, 1) if t.pa else None,
                           "kBbPct": f(100 * (t.k - t.bb) / t.pa, 1) if t.pa else None,
                           "cswPct": f(100 * t.csw / t.n_pitches, 1), "whiffPct": f(100 * t.whiff / t.swings, 1) if t.swings else None,
+                          "nSwings": int(t.swings),
                           "rvPer100": f(100 * t.rv / t.n_pitches, 2), "velo": f(t.velo, 1)})
         out[key] = sorted(lines, key=lambda x: order.get(x["team"], 99))
     return out
@@ -2642,6 +2666,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             wv = woba_of(t, t.season)
             return {"team": t.team, "g": int(t.g), "pa": int(t.pa), "avg": avg, "obp": obp, "slg": slg,
                     "ops": f(obp + slg, 3) if obp is not None and slg is not None else None,
+                    "iso": f(slg - avg, 3) if slg is not None and avg is not None else None, "nBip": int(t.bip),
                     "woba": f(wv, 3) if wv is not None else None, "hr": int(t.hr),
                     "kPct": f(100 * t.k / t.pa, 1) if t.pa else None, "bbPct": f(100 * t.bb / t.pa, 1) if t.pa else None,
                     "hardHitPct": f(100 * t.n_hard / t.bip, 1) if t.bip else None,
@@ -4145,8 +4170,35 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 }, sort_keys=True)
                 n_season_files += 1
             n_rank_files = 0
+            # Draft + debut context (depth item 5): every ranked player's draft
+            # line and MLB debut from the amateur fetch, so the profile badge
+            # carries "1st round · 11th overall" and the hit-rate joins share
+            # the same file. Static fetched data; guarded when absent.
+            draft_by_id = {}
+            if (ROOT / "data" / "milb" / "draft.json").exists():
+                for picks in json.loads((ROOT / "data" / "milb" / "draft.json").read_text()).values():
+                    for dp in picks:
+                        if dp.get("id") and dp["id"] not in draft_by_id:
+                            draft_by_id[dp["id"]] = dp
+            people_by_id = {}
+            ppl_fp = ROOT / "data" / "milb" / "people.parquet"
+            if ppl_fp.exists():
+                ppl = pd.read_parquet(ppl_fp)
+                for prow in ppl.itertuples():
+                    people_by_id[int(prow.id)] = prow
             for pid, doc in sorted(per_player.items()):
                 doc["ranks"] = sorted(doc["ranks"], key=lambda e: (-e["season"], e["list"]))
+                dp = draft_by_id.get(int(pid))
+                if dp:
+                    doc["draft"] = {"year": dp["year"], "pick": dp["pick"],
+                                    "round": dp["round"], "team": dp["team"],
+                                    "school": dp["school"]}
+                pr = people_by_id.get(int(pid))
+                if pr is not None:
+                    if getattr(pr, "debut", None):
+                        doc["debut"] = str(pr.debut)[:10]
+                    if getattr(pr, "pos", None):
+                        doc["pos"] = pr.pos
                 jwrite(out / "prospect_rank" / f"{pid}.json", doc, sort_keys=True)
                 n_rank_files += 1
             counts["prospect_season_files"] = n_season_files
@@ -4623,6 +4675,137 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         }, sort_keys=True)
         counts["load_files"] = n_load
         print(f"load files: {n_load}")
+
+    # ------------------------------------------------------------------ draft
+    # Draft + transactions surfaces (depth item 5), from pipeline/amateur_fetch.py
+    # outputs: hit-rate tables (Pipeline rank buckets and draft rounds joined to
+    # MLB debut dates) and per-player roster-move timelines. MLB only; every
+    # join is a public-source descriptive read — no model claims.
+    print(f"[{time.time() - t0:.0f}s] draft", flush=True)
+    if "draft" not in fams:
+        pass
+    elif level == "aaa":
+        print("draft: MLB-only family — skipped at AAA")
+    else:
+        dr_fp = ROOT / "data" / "milb" / "draft.json"
+        ppl_fp = ROOT / "data" / "milb" / "people.parquet"
+        src_fp = ROOT / "data" / "milb" / "prospects.json"
+        tx_fp = ROOT / "data" / "milb" / "transactions.parquet"
+        if not (dr_fp.exists() and ppl_fp.exists() and src_fp.exists()):
+            print("draft: data/milb draft.json/people.parquet/prospects.json missing — run pipeline/amateur_fetch.py first")
+        else:
+            debut = {}
+            ppl = pd.read_parquet(ppl_fp)
+            for prow in ppl.itertuples():
+                if pd.notna(getattr(prow, "debut", None)):
+                    debut[int(prow.id)] = str(prow.debut)[:10]
+            draft_picks = [dp for picks in json.loads(dr_fp.read_text()).values() for dp in picks if dp.get("id")]
+            dr_hits = []
+            for dp in draft_picks:
+                db = debut.get(int(dp["id"]))
+                dr_hits.append({"year": dp["year"], "round": str(dp["round"]), "pick": dp["pick"],
+                                "reached": db is not None,
+                                "bonus": dp.get("bonus")})
+
+            def round_bucket(rnd: str) -> str:
+                if rnd in ("1", "1S"):
+                    return "1st round (incl. supp)" if rnd == "1S" else "1st round"
+                if rnd in ("2", "2S"):
+                    return "2nd round"
+                if rnd in ("3", "3S", "CB", "PB", "A", "B", "C"):
+                    return "3rd + comp/prospect rounds"
+                try:
+                    ri = int(rnd)
+                except ValueError:
+                    return "other"
+                if ri <= 5:
+                    return f"rounds 4–5"
+                if ri <= 10:
+                    return "rounds 6–10"
+                return "round 11+"
+
+            by_round: dict = {}
+            for h in dr_hits:
+                rb = round_bucket(h["round"])
+                c = by_round.setdefault(rb, {"n": 0, "reached": 0})
+                c["n"] += 1
+                c["reached"] += 1 if h["reached"] else 0
+            rounds_out = [{"bucket": rb, "n": c["n"], "reached": c["reached"],
+                           "pct": f(100 * c["reached"] / c["n"], 1) if c["n"] else None}
+                          for rb, c in sorted(by_round.items(), key=lambda kv: -kv[1]["n"])]
+
+            # Pipeline rank buckets: each (year, rank) row counts toward that
+            # year's bucket — list quality, not player counting. Time-to-MLB
+            # only for debuts after the list year.
+            raw_ranks = json.loads(src_fp.read_text())
+            rank_rows = []
+            for y, lists in raw_ranks.items():
+                for r0 in lists.get("top100", []) or []:
+                    if r0.get("id"):
+                        rank_rows.append({"year": int(y), "rank": int(r0["rank"]), "id": int(r0["id"])})
+            rank_hits = []
+            for rk in rank_rows:
+                db = debut.get(rk["id"])
+                ttm = None
+                if db:
+                    dy = int(db[:4])
+                    if dy >= rk["year"]:
+                        ttm = dy - rk["year"]
+                rank_hits.append({"year": rk["year"], "rank": rk["rank"], "reached": db is not None, "ttm": ttm})
+
+            def rank_bucket(rank: int) -> str:
+                if rank <= 10:
+                    return "top 10"
+                if rank <= 25:
+                    return "11–25"
+                if rank <= 50:
+                    return "26–50"
+                return "51–100"
+
+            by_rank: dict = {}
+            for h in rank_hits:
+                rb = rank_bucket(h["rank"])
+                c = by_rank.setdefault(rb, {"n": 0, "reached": 0, "ttms": []})
+                c["n"] += 1
+                c["reached"] += 1 if h["reached"] else 0
+                if h["ttm"] is not None:
+                    c["ttms"].append(h["ttm"])
+            order = ["top 10", "11–25", "26–50", "51–100"]
+            ranks_out = [{"bucket": rb,
+                          "n": by_rank[rb]["n"], "reached": by_rank[rb]["reached"],
+                          "pct": f(100 * by_rank[rb]["reached"] / by_rank[rb]["n"], 1) if by_rank[rb]["n"] else None,
+                          "medianYearsToMlb": sorted(by_rank[rb]["ttms"])[len(by_rank[rb]["ttms"]) // 2]
+                          if by_rank[rb]["ttms"] else None}
+                         for rb in order if rb in by_rank]
+            # by rank year, for the trend read
+            by_year_out = []
+            for y in sorted({h["year"] for h in rank_hits}):
+                sub = [h for h in rank_hits if h["year"] == y]
+                by_year_out.append({"year": y, "n": len(sub),
+                                    "reachedPct": f(100 * sum(1 for h in sub if h["reached"]) / len(sub), 1)})
+            jwrite(out / "draft" / "hit_rates.json", {
+                "_comment": ("descriptive joins of public sources: Pipeline top-100 rank buckets and draft "
+                             "rounds vs MLB debut (statsapi people). List-year rows count per year (list "
+                             "quality); time-to-MLB counts debuts after the list year only"),
+                "rankBuckets": ranks_out, "rankByYear": by_year_out, "draftRounds": rounds_out,
+            }, sort_keys=True)
+
+            n_tx = 0
+            if tx_fp.exists():
+                tx = pd.read_parquet(tx_fp)
+                tx["date"] = tx["date"].astype(str)
+                for pid, grp in tx.groupby("id"):
+                    if player is not None and int(pid) != player:
+                        continue
+                    rows_out = sorted(
+                        [{"date": d, "type": ty, "desc": ds, "from": fm, "to": to}
+                         for d, ty, ds, fm, to in zip(grp["date"], grp["type"], grp["desc"], grp["from"], grp["to"])],
+                        key=lambda e: e["date"], reverse=True)
+                    jwrite_gz(out / "transactions" / f"{pid}.json.gz",
+                              {"id": str(pid), "rows": rows_out}, sort_keys=True)
+                    n_tx += 1
+            counts["transaction_files"] = n_tx
+            print(f"hit-rate tables written; transaction files: {n_tx}")
 
     # ----------------------------------------------------------------- meta
     # The manifest doubles as the sync audit: per-file bytes + sha (16) so a
