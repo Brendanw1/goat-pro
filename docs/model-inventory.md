@@ -51,6 +51,11 @@ Queued for later, in order (after the swing program, `docs/swing-program.md`):
    comps, hurdle WAR; vt_baseball/MLB_Draft_Model) for what transfers. Then exploration and early
    tests (matured 2011-19 lists as the backtest; pre-register; sleeper = model rank well above the Pipeline rank
    that later reached MLB).
+0a. **Deep dive after the prospect model round** (owner, 2026-10-29): our own WAR projection model (forecast)
+   and a descriptive WAR layer, plus prospect future value (FV) / value per skill, built from the stats and
+   models in depth. The prospect write-up gets a critique for future work (see docs/prospect-model.md, "Critique and
+   roadmap"): how an MLB R&D group would make it more advanced, how analysts and ML engineers would optimise it, and
+   whether a self-improving loop (automated retrain, backtest, champion/challenger) is feasible on our data.
 0b. **Team identities and org fingerprints** (owner, 2026-10-29). Clustering and ML on team-level deviations
    from league average: hitters (approach, swing, batted-ball shape), pitchers (arsenal, shape, location,
    usage), farm systems (which metrics and stats cluster within an org's minor leaguers) and draft tendencies

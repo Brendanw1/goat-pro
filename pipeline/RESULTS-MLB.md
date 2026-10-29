@@ -3332,3 +3332,41 @@ Calibration passes every season (decile gaps .0010–.0054, all ≤ .03). Both g
 - **Handling flag on the seal's row-level stats:** `made_rate` vs `mean_p` in `defense_v4_SEALED.json` are not comparable at row granularity (`made` is per-position, `p` is per-play), so within's .24 vs .78 is expected, not miscalibration. Use the responsible-row figures above.
 
 **Shipped: nothing changes.** §81 v3 remains the site's range model. The v4 artifacts (`defense_chances_v4.parquet`, `defense_v4_SEALED.json`, `defense_fielders_v4.csv`, `defense_players_v4.csv`) are recorded evidence; no export wiring, no bake. The speed surface for the site stays with D-39 (descriptive Savant speed profile).
+
+### §97 result (read once, 2026-10-29; `pipeline/results/prospect_97.json`)
+
+(The §97 pre-registration sits above the §96 result; this block belongs to §97.)
+Population: 6,585 player × list rows, 2,989 players, 50% pitchers. 94% have a year − 1 MiLB line, and 55% have a
+2011+ draft pick. Y1 base rate 0.678 (Top 100: 0.934).
+
+| out of fold, leave one list year out | B0 Pipeline ordinal | B1 prior | M hierarchical |
+|---|---|---|---|
+| AUC Y1 reached MLB, all | 0.679 | 0.784 | **0.810** |
+| AUC hitters / pitchers | 0.712 / 0.649 | 0.799 / 0.764 | 0.830 / 0.784 |
+| AUC Top 100 / org only | 0.608 / 0.628 | 0.742 / 0.757 | 0.768 / 0.788 |
+| Spearman EV vs Y2 playing time | 0.388 | 0.508 | **0.568** |
+| Spearman vs Y3 §85 WAR, 2015–19 lists (reported) | **0.235** | 0.203 | 0.215 |
+
+- **Gate (a) PASS.** ΔAUC M − B1 = +0.026 [+0.019, +0.034]. ΔSpearman = +0.059 [+0.046, +0.073]. M wins 9 of 9
+  years on both.
+- **Gate (b) PASS.** There are 980 sleeper rows (797 players), with a Y1 rate of 0.815. That is +32.2 pp [+28.8, +35.7]
+  over B0-decile peers. Fallers (1,000 rows) come in at −31.2 pp [−35.0, −27.5].
+- **Exploratory (not pre-registered, read after the gates).**
+  - Proximity carries much of the gain. A model with no rate stats (prior + level, age vs level, PA, line flag) gets
+    AUC 0.799 and Spearman 0.544. On top of that, the rate stats add ΔAUC +0.011 [+0.006, +0.015] and ΔSp +0.024
+    [+0.016, +0.032].
+  - The pre-registered sleepers are about 2.1 years older and 1.6 levels higher than their peers, and lower on the
+    org lists. The top names are upper-minors depth players (Torreyes, I. Vargas, Valera), who debut but add little
+    value.
+  - Value check against B1 peers (gap ≥ 15 pct points): Y2 +0.33 full-season equivalents [+0.26, +0.40]. On the
+    2015–19 lists, Σ §85 WAR +0.56 [+0.22, +0.92].
+  - The overall Y3 ordering does not beat B0. Pipeline rank still orders career value at the top better.
+  - Calibration: the lowest P(MLB) decile predicts 0.12 against 0.21 observed, and the second 0.28 against 0.39. VB
+    fixed effects run low in the tail, so the probabilities need recalibration before any is shown.
+- **Diagnosis (why the pass is narrower than it looks).** This is not a data bug. It is a modeling and target issue.
+  Y1 rewards being close to the majors, and Pipeline rank encodes ceiling, not ETA. Most of M's edge is therefore
+  "an older AAA player debuts", which is real but is not a sleeper in the owner's sense. The rate-stat edge is real but
+  small. On realized §85 WAR the model does not beat Pipeline overall.
+- **Verdict.** Both gates pass as registered. Nothing ships: this was a research round. The full build has to target
+  value (§85 WAR or playing time with a quality term), keep ETA separate from quality, and define sleepers against B1
+  on the quality axis. Design in `docs/prospect-model.md`.
