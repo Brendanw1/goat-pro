@@ -325,7 +325,7 @@ def _files(d: Path, skip: tuple[str, ...]) -> set[Path]:
 def _same(pa: Path, pb: Path, rel: Path) -> bool:
     if not pa.exists() or not pb.exists():
         return False
-    if rel == Path("meta.json"):  # exportedAt timestamps the run; nothing else may differ
+    if rel in (Path("meta.json"), Path("meta_site.json")):  # exportedAt timestamps the run; nothing else may differ
         ja, jb = json.loads(pa.read_text()), json.loads(pb.read_text())
         ja.pop("exportedAt", None), jb.pop("exportedAt", None)
         return ja == jb
@@ -784,7 +784,8 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
                 ok = m & ~np.isnan(raw[ax])
                 bk[ax][ok] = np.searchsorted(e[ax], raw[ax][ok], side="right")
         b = pd.DataFrame({"site": sites, "o": o, "rv": cols["rv"], "w": cols["w"],
-                          "pitcher": df["pitcher"].to_numpy(), "batter": df["batter"].to_numpy(), **bk})
+                          "pitcher": df["pitcher"].to_numpy(), "batter": df["batter"].to_numpy(),
+                          "th": df["p_throws"].to_numpy(), "st": df["stand"].to_numpy(), **bk})
         lg = {t: {ax: [_bucket_stats(g) for _, g in b[(b["site"] == t) & (b[ax] >= 0)].groupby(ax)]
                   for ax in BUCKET_AXES} for t in edges}
         # league xwOBAcon / xSLG on contact per type this season (the pitcher trends' dashed reference)
@@ -795,10 +796,13 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
         for t in edges:
             bt = b[b["site"] == t]
             rows = []
-            for side, who, sign in ((0, "pitcher", 1), (1, "batter", -1)):
-                tot = bt.groupby(who).size()
+            # hitter rows: 1 = both pitcher hands pooled (the /buckets board); 2 = vs RHP, 3 = vs LHP (the matchup view,
+            # since arm-side run moves in on one batter side and away from the other)
+            for side, who, sign, part in ((0, "pitcher", 1, bt), (1, "batter", -1, bt),
+                                          (2, "batter", -1, bt[bt["th"] == "R"]), (3, "batter", -1, bt[bt["th"] == "L"])):
+                tot = part.groupby(who).size()
                 for ax_i, ax in enumerate(BUCKET_AXES):
-                    a = (bt[bt[ax] >= 0].groupby([who, ax])
+                    a = (part[part[ax] >= 0].groupby([who, ax])
                          .agg(n=("rv", "size"), rv=("rv", "sum"), sw=("sw", "sum"), wh=("wh", "sum"), ws=("w", "sum"), wn=("wn", "sum"))
                          .reset_index())
                     a = a[a["n"] >= BUCKET_BOARD_MIN]
@@ -807,10 +811,15 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
                         rows.append([str(int(pid)), side, ax_i, int(k), int(r.n), round(100 * r.n / int(tot[pid]), 1),
                                      round(sign * 100 * r.rv / r.n, 2), round(100 * r.wh / r.sw, 1) if r.sw else None,
                                      round(r.ws / r.wn / 1000, 3) if r.wn else None])
+            # league hitter-side RV/100 per pitcher hand x batter side x axis x bin, the platoon-matched reference for rows 2/3
+            lgh = {th: {st: {ax: {int(k): round(float(-100 * g["rv"].mean()), 2)
+                                  for k, g in bt[(bt["th"] == th) & (bt["st"] == st) & (bt[ax] >= 0)].groupby(ax)}
+                             for ax in BUCKET_AXES} for st in ("L", "R")} for th in ("L", "R")}
             jwrite(out / "buckets" / f"{season}-{t}.json",
-                   {"season": season, "type": t, "edges": edges[t], "lg": lg[t],
+                   {"season": season, "type": t, "edges": edges[t], "lg": lg[t], "lgh": lgh,
                     "cols": ["id", "side", "axis", "bin", "n", "share", "rv100", "whiff", "xwcon"],
-                    "_comment": "side 0 = pitcher (rv100 pitcher-positive), 1 = hitter (rv100 hitter-positive); "
+                    "_comment": "side 0 = pitcher (rv100 pitcher-positive), 1 = hitter (rv100 hitter-positive), 2 = hitter vs RHP, "
+                                "3 = hitter vs LHP; lgh[pitcher hand][batter side][axis][bin] = league hitter-side rv100; "
                                 "axis 0 velo, 1 IVB, 2 arm-side HB; bin = index into edges (k = above edges[k-1])",
                     "rows": rows})
 
