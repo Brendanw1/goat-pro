@@ -1,114 +1,133 @@
 "use client";
 
 /**
- * The lava field: slowly drifting blocks of colour rendered on a tiny canvas
- * (one cell per block) and stretched with image-rendering: pixelated — chunky
- * pixels, never a smooth gradient. The hue field is layered sines; bands
- * slither and roll, lava-lamp slow, and the phase follows page movement
- * (scroll + pointer) so it feels like it slides along when you move.
- *
- * Two shapes share this file:
- *  - <LavaBar />  the strip above the nav: pastel, wide blocks, very slow.
- *  - <LavaPill /> the ACTIVE nav pill's background: fewer, chunkier cells,
- *    deeper colours with occasional dark flashes, a touch quicker.
- * Reduced motion renders a single static frame.
+ * The lava header: ONE field, two windows. A thin full-width band runs along
+ * the top edge of the navigation, and the ACTIVE pill renders the segment of
+ * the very same stream at its horizontal position — both sample a shared
+ * field function off the same clock, so the pill is literally part of the
+ * flow, not a separate decoration. Cells are small, flat and blocky (2 rows
+ * on the band, 3 in the pill), stretched with image-rendering: pixelated;
+ * the palette is the site's pastel sweep, dropped darker, with sparse deep
+ * flashes. Phase follows scroll + pointer so the stream slides when you move;
+ * reduced motion renders one static frame.
  */
 
 import { useEffect, useRef } from "react";
 
-type FieldOpts = {
-  cellsX: number;
-  cellsY: number;
-  frameMs: number;
-  baseHue: number;
-  hueSpan: number;
-  sat: [number, number];
-  lig: [number, number];
-  /** occasional deep flashes: every ~N frames one cell dips to deepLig */
-  deepEvery?: number;
-  deepLig?: number;
-};
+// the shared field — same function, same clock, same horizontal mapping
+const CELLS_X = 160;               // band cells across the viewport width
+const HUE_BASE = 178;
+const HUE_SPAN = 118;
+const SAT: [number, number] = [48, 62];
+const LIG: [number, number] = [40, 58];   // darker than the first version
+const DEEP_LIG = 30;
+const DEEP_EVERY = 11;             // sparse deep flashes
 
-const BAR: FieldOpts = { cellsX: 72, cellsY: 5, frameMs: 140, baseHue: 195, hueSpan: 52,
-  sat: [40, 52], lig: [72, 84], deepEvery: 9, deepLig: 52 };
-const PILL: FieldOpts = { cellsX: 22, cellsY: 3, frameMs: 110, baseHue: 165, hueSpan: 130,
-  sat: [45, 62], lig: [55, 74], deepEvery: 6, deepLig: 38 };
+function cellColor(x: number, y: number, ySpan: number, time: number, shift: number, frame: number): string {
+  const wave = Math.sin(x * 0.19 + time * 0.21 + shift)
+    + Math.sin(x * 0.07 - time * 0.13 - shift * 1.4 + Math.sin(time * 0.07) * 2)
+    + Math.sin((x + y * 18) * 0.11 + time * 0.09 + shift * 0.6);
+  let lig = LIG[0] + (LIG[1] - LIG[0]) * (0.5 + 0.5 * Math.sin(y * 1.7 + time * 0.11 + x * 0.05));
+  if ((x * 7 + y * 13 + frame) % (DEEP_EVERY * CELLS_X) === 0) lig = DEEP_LIG;
+  const hue = HUE_BASE + wave * HUE_SPAN * 0.5 + (y / Math.max(1, ySpan - 1)) * 10;
+  const sat = SAT[0] + (SAT[1] - SAT[0]) * (0.5 + 0.5 * Math.sin(x * 0.3 + time * 0.05));
+  return `hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${lig.toFixed(0)}%)`;
+}
 
-function useLavaField(ref: React.RefObject<HTMLCanvasElement | null>, o: FieldOpts) {
+function sharedShift(): number {
+  return (typeof window !== "undefined" ? window.scrollY : 0) * 0.0035;
+}
+
+/** The full-width band at the top edge of the navigation. */
+export function LavaBar({ className = "" }: { className?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    canvas.width = o.cellsX;
-    canvas.height = o.cellsY;
-
+    const Y = 2; // flat: two cell rows
+    canvas.width = CELLS_X;
+    canvas.height = Y;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let raf = 0;
-    let last = 0;
-    let frame = 0;
-    const drift = { scroll: 0, px: 0 };
-
+    let raf = 0, last = 0, frame = 0;
     const draw = (t: number) => {
-      const time = t / 1000;
       frame++;
-      const shift = drift.scroll * 0.0035 + drift.px * 0.0022;
-      for (let y = 0; y < o.cellsY; y++) {
-        for (let x = 0; x < o.cellsX; x++) {
-          const wave = Math.sin(x * 0.19 + time * 0.21 + shift)
-            + Math.sin(x * 0.07 - time * 0.13 - shift * 1.4 + Math.sin(time * 0.07) * 2)
-            + Math.sin((x + y * 22) * 0.11 + time * 0.09 + shift * 0.6);
-          let lig = o.lig[0] + (o.lig[1] - o.lig[0]) * (0.5 + 0.5 * Math.sin(y * 1.7 + time * 0.11 + x * 0.05));
-          // the occasional deep flash: sparse, deterministic per cell+frame
-          if (o.deepEvery && ((x * 7 + y * 13 + frame) % (o.deepEvery * o.cellsX)) === 0) lig = o.deepLig!;
-          const hue = o.baseHue + wave * o.hueSpan * 0.5 + y * 6;
-          const sat = o.sat[0] + (o.sat[1] - o.sat[0]) * (0.5 + 0.5 * Math.sin(x * 0.3 + time * 0.05));
-          ctx.fillStyle = `hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${lig.toFixed(0)}%)`;
+      const time = t / 1000;
+      const shift = sharedShift() + pointerShift();
+      for (let y = 0; y < Y; y++) {
+        for (let x = 0; x < CELLS_X; x++) {
+          ctx.fillStyle = cellColor(x, y, Y, time, shift, frame);
           ctx.fillRect(x, y, 1, 1);
         }
       }
     };
-
     const loop = (t: number) => {
-      if (t - last >= o.frameMs) {
-        last = t;
-        draw(t);
-      }
+      if (t - last >= 130) { last = t; draw(t); }
       raf = requestAnimationFrame(loop);
     };
-
-    if (reduced) {
-      draw(0);
-    } else {
-      const onScroll = () => { drift.scroll = window.scrollY; };
-      const onMove = (e: PointerEvent) => { drift.px = e.clientX / Math.max(1, window.innerWidth); };
-      window.addEventListener("scroll", onScroll, { passive: true });
-      window.addEventListener("pointermove", onMove, { passive: true });
-      raf = requestAnimationFrame(loop);
-      return () => {
-        cancelAnimationFrame(raf);
-        window.removeEventListener("scroll", onScroll);
-        window.removeEventListener("pointermove", onMove);
-      };
-    }
-  }, [ref, o.cellsX, o.cellsY, o.frameMs]);
-}
-
-export function LavaBar({ className = "" }: { className?: string }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useLavaField(ref, BAR);
+    if (reduced) draw(0);
+    else raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
   return (
     <canvas ref={ref} aria-hidden="true"
-      className={`block w-full h-[10px] [image-rendering:pixelated] select-none ${className}`} />
+      className={`block w-full h-[8px] [image-rendering:pixelated] select-none ${className}`} />
   );
 }
 
-/** Background for the active nav pill: chunkier, deeper, slightly quicker. */
+let pointerShift = () => 0;
+if (typeof window !== "undefined") {
+  window.addEventListener("pointermove", (e) => {
+    pointerShift = () => (e.clientX / Math.max(1, window.innerWidth)) * 0.0022 * 1000;
+  }, { passive: true });
+}
+
+/**
+ * The ACTIVE pill: the same stream, sampled at the pill's horizontal
+ * position — its cells line up with the band's, so the header reads as one
+ * field the pill is part of.
+ */
 export function LavaPill() {
   const ref = useRef<HTMLCanvasElement>(null);
-  useLavaField(ref, PILL);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const Y = 3;
+    canvas.width = 26;
+    canvas.height = Y;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0, last = 0, frame = 0;
+    let x0 = 0;
+    const align = () => {
+      const r = canvas.getBoundingClientRect();
+      x0 = Math.round((r.left + r.width / 2) / Math.max(1, window.innerWidth) * CELLS_X) - canvas.width / 2;
+    };
+    align();
+    window.addEventListener("resize", align);
+    const draw = (t: number) => {
+      frame++;
+      const time = t / 1000;
+      const shift = sharedShift() + pointerShift();
+      for (let y = 0; y < Y; y++) {
+        for (let i = 0; i < canvas.width; i++) {
+          ctx.fillStyle = cellColor(x0 + i, y + 3, Y, time, shift, frame); // y+3: the band's rows run on
+          ctx.fillRect(i, y, 1, 1);
+        }
+      }
+    };
+    const loop = (t: number) => {
+      if (t - last >= 130) { last = t; frame % 20 === 0 && align(); draw(t); }
+      raf = requestAnimationFrame(loop);
+    };
+    if (reduced) draw(0);
+    else raf = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", align); };
+  }, []);
   return (
     <canvas ref={ref} aria-hidden="true"
-      className="absolute inset-0 w-full h-full rounded-full [image-rendering:pixelated] opacity-80" />
+      className="absolute inset-0 w-full h-full rounded-full [image-rendering:pixelated] opacity-90" />
   );
 }
