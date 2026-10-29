@@ -3370,3 +3370,54 @@ Population: 6,585 player × list rows, 2,989 players, 50% pitchers. 94% have a y
 - **Verdict.** Both gates pass as registered. Nothing ships: this was a research round. The full build has to target
   value (§85 WAR or playing time with a quality term), keep ETA separate from quality, and define sleepers against B1
   on the quality axis. Design in `docs/prospect-model.md`.
+
+## §98 Swing Quality re-attack: small-sample stabilisation, model class, coach decomposition. Part 1 written 2026-10-29 before any new outcome read
+
+**Critique of §91 (what the estimand got wrong for the use case).**
+- §91 tested SQcon where it cannot win. Its floors (≥ 200 swings, ≥ 75 BIP in S) pick hitters whose own xwOBAcon is already
+  fairly reliable (SB .77 at 100 BIP), so the only edge SQ has (it stabilises fast: SB .75 at 25 BIP vs .43 for xwOBAcon) was never
+  in the test. The people a coach or front office actually needs a swing read on are call-ups, part-timers and April samples.
+- SQcon is trained on xwOBA, so it is a swing-capacity prior for xwOBAcon, not a rival to it. It cannot see barrel accuracy (§91
+  diagnosis). The right estimand is a *shrinkage target*: does pulling a small observed xwOBAcon toward SQcon (instead of toward
+  the league mean, which is what Marcel does) forecast later contact quality better?
+- What a coach needs is the *why*, not a single number: how much of the swing's value is bat speed, plane, contact point and pitch
+  diet, and whether results are running ahead of or behind the swing. §91 built the model but never surfaced that.
+- SQswing → wOBA is dropped (walks, strikeouts and decisions sit outside its estimand; §91 kill 1).
+
+**Directions taken.** (1) the fast-stabilisation claim (the one with a mechanism for passing); (2) a cheap model-class comparison on
+dev only, since §91's diagnosis says information, not the learner, is the limit; (3) a SHAP decomposition for the coach display,
+which ships descriptively whatever the gate says. Hitter-level ridge on window means of swing traits is added to (2) as the
+"no per-swing model" alternative.
+
+**Dev design (free reads, 2024 and 2025 in-season).** For each hitter-season, the window is his first N tracked balls in play
+(N ∈ {25, 50}, chronological), with every tracked swing up to that BIP. Target: xwOBAcon on the rest of the season's BIP (≥ 50 BIP,
+weight = rest BIP). Predictors from the window only: observed xwOBAcon; in-season Marcel (window BIP weight 5, S−1 and S−2 full
+seasons 4 and 3, k = 100 BIP of league mean, as §91); bat speed; blast per contact; SQcon (window mean of the in-play head,
+hitter-grouped cross-fit on the season's swings, contact-point centring leave-one-out within the window only). Metric: hitter-grouped
+out-of-fold weighted R² of OLS, ΔwR² of Marcel + X over Marcel, hitter-clustered bootstrap. Candidates for the in-play head:
+LightGBM (§91 settings), XGBoost (hist, matched depth/rate), LightGBM monotone-increasing in bat speed, natural-spline ridge; and the
+hitter-level trait ridge. Chosen on dev only.
+
+**Holdout population (counted before any outcome read, counts only).** Hitter-seasons *below §91's floors* in S (25 ≤ tracked BIP < 75,
+or < 200 tracked swings) with ≥ 30 BIP in S+1: 51 (2024 → 2025) + 61 (2025 → 2026) = **112 pairs**; their S+1 outcomes never entered a
+§91/§91b gate. Small: only a large effect can clear a CI on n ≈ 112, so dev must show the effect size first. The frozen claim, its bar,
+and the single read go below as §98a.
+
+## §97 Range v5: lift-corrected hang time (re-test of §81's proxy), pre-registered 2026-10-29 before any read
+
+**Why.** §81's diagnosis names the drag-only hang-time proxy as a handling limit: a drag-only trajectory solved to match `hit_distance_sc` ignores backspin lift, so deep flies get hang times ~1 s short, required speed is overstated, and p is too low on exactly the long, extreme plays that drive the elite-range compression (our runs SD 6.1 vs Savant OAA SD 7.4 among OF; Crow-Armstrong 2025: 5.3 vs 24). §96 established the complementary rule: player attributes stay out of p. v5 therefore fixes the ball's physics, not the player.
+
+**The change** (`defense_mlb.py --v5`; model features are exactly §81's v3 set — v4's `f_sprint` does not enter X):
+- **hang_time gains a fixed lift term.** Backspin lift perpendicular to velocity, rotated +90° in the (x, z) plane: `a = −k·|v|·v + C_L·|v|·(−v_z, v_x)`. Drag k is still solved per ball by bisection so the simulated range matches dist; lift is FIXED, not solved (two unknowns, one constraint).
+- **C_L is pre-declared from physics, not tuned: C_L = 0.24** (Nathan's `C_L(S) = 0.09 + 0.60S` at the typical fly-ball spin factor S ≈ 0.25). Sensitivity rows are pre-declared at C_L = 0.15 and 0.30, reported only.
+- Applies to air balls (la ≥ 10) exactly as §81; grounders unaffected (hang is NaN).
+- Chance rows keep §96's schema emission (`hang`/`req_speed`/`f_sprint`/`reach`) for the descriptive decomposition; the model does not use it.
+- Nothing else changes: folds, isotonic, credit, runs, gates.
+
+**Judged (read once), per group, gates as §75/§80/§81:** decile gap ≤ .03 in every season; r vs Savant OAA, CI lower bound > .50.
+
+**Shipping rule:** a group ships v5 only if it passes AND r ≥ its §81 r (IF .580, OF .721). IF is a near-control — its features barely move (hang is NaN on grounders) — so a large IF Δr in either direction is itself a finding to diagnose.
+
+**Reported:** Δr vs §81 per group; YoY; split-half k; and the compression check that motivates this re-test — the SD of our runs vs Savant's OAA per group, and the top-10 CF of 2025 by Savant OAA (ours vs theirs). Sensitivity rows at C_L 0.15 / 0.30: r only, reported, never selected after the fact.
+
+**Expected:** OF r rises toward or past .721 — the fix moves p on precisely the plays that drive the compression. IF moves only through shared-tree interactions (|Δr| should be small). Risk: a fixed C_L misfits the real mix of spin rates and axes; **if OF does not improve, the compression is attributed to per-play positioning — a data limit — and the r-vs-Savant program is declared at its public-data ceiling**, with effort moving to the validation and decomposition surfaces (Jump components, star-band calibration transfer, `des` depth mining) rather than further re-tests of p.
