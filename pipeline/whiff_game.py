@@ -4,6 +4,8 @@ season grade's own scale.
     GOAT_LO=2020 nice -n 10 python pipeline/whiff_game.py      # -> cache/whiff_game.parquet
     python pipeline/whiff_game.py --demo                       # self-check, synthetic data
 
+Also writes cache/pitch_models.parquet: per-pitch Whiff+ and Pitching+ on their season scales (explorer).
+
 Season Whiff+ = grade(z), z = the pitch-weighted mean over classes of each class's mean per-pitch
 z = (pred - m[class, hand]) / s[class, hand] (train_mlb.season_grades), i.e. the plain mean of
 per-pitch z. The refs m, s are not stored, so they are recovered from the shipped grades: z is
@@ -72,6 +74,25 @@ def main() -> None:
            .agg(n=("z", "size"), zsum=("z", "sum")).reset_index())
     out.to_parquet(CACHE / "whiff_game.parquet", index=False)
     print(f"cache/whiff_game.parquet: {len(out):,} pitcher-games")
+
+    # Per-pitch model grades for the pitch explorer, both on their season grade's own scale, so any
+    # slice's grade is the plain mean: Whiff+ = 100 + 10 z (before the 50-175 clip) and Pitching+ =
+    # a + b v, the exact linear map of location_plus.grades (fit on the shipped grades, checked).
+    pg = pd.read_csv(PIPE / "results" / "pitching_plus_raw_grades.csv")
+    b_, a_ = np.polyfit(pg["v"], pg["grade"], 1)
+    assert (pg["grade"] - (a_ + b_ * pg["v"])).abs().max() < 1e-6, "Pitching+ is not linear in mean v"
+    v = pd.read_parquet(CACHE / "pitchval_raw.parquet")["v"].to_numpy()
+    assert len(v) == len(df)
+    z = np.full(len(df), np.nan)
+    has = pred["pred"].notna().to_numpy()
+    cell = (df["pclass"] + "_" + df["stand"]).to_numpy()
+    z[has] = (pd.Series(cell[has]).map({k: r[0] for k, r in refs.items()}).to_numpy() * pred["pred"].to_numpy()[has]
+              - pd.Series(cell[has]).map({k: r[1] for k, r in refs.items()}).to_numpy())
+    pm = pd.DataFrame({"game_pk": df["game_pk"].to_numpy(), "at_bat_number": df["at_bat_number"].to_numpy(),
+                       "pitch_number": df["pitch_number"].to_numpy(),
+                       "whiff_plus": (100 + 10 * z).astype("float32"), "pitching_plus": (a_ + b_ * v).astype("float32")})
+    pm.to_parquet(CACHE / "pitch_models.parquet", index=False)
+    print(f"cache/pitch_models.parquet: {len(pm):,} pitches (Pitching+ = {a_:.3f} + {b_:.2f} v)")
 
 
 def demo() -> None:

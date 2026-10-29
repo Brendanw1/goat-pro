@@ -658,19 +658,26 @@ def _pitch_outcome(desc: pd.Series, ev: pd.Series) -> np.ndarray:
     return o
 
 
-def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
+def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str = "mlb") -> int:
     """pitches/{P|H}{id}-{season}.json.gz. Columns (same length): t type index into `types`, x/z plate
     location in hundredths of a foot (catcher's view, as Statcast), h opponent hand (0 L, 1 R), c count
     (balls * 3 + strikes), o outcome index into `outcomes`, r run value in thousandths of a run from the
     file owner's side (pitcher: delta_pitcher_run_exp; hitter: its negative), e exit velo x10 and w xwOBA
     x1000 on balls in play (null otherwise), d day of season (0 = his first game), q in the zone
-    (Statcast zone 1-9) or not."""
+    (Statcast zone 1-9) or not, ba/sl xBA and xSLG x1000 on balls in play; pitcher files at MLB also carry
+    wp/pp, the pitch's Whiff+ and Pitching+ x10 on their season scales (cache/pitch_models.parquet from
+    pipeline/whiff_game.py), so any slice's grade is their mean."""
     n_files = 0
+    pm_fp = ROOT / "cache" / "pitch_models.parquet"
+    pm = pd.read_parquet(pm_fp) if level == "mlb" and pm_fp.exists() else None
+    if pm is not None:  # a duplicated pitch key would duplicate rows in the merge: drop both copies
+        pm = pm.drop_duplicates(["game_pk", "at_bat_number", "pitch_number"], keep=False)
     for season in seasons:
         df = con.sql(f"""
             SELECT pitcher, batter, CAST(game_date AS DATE) AS gd, {site_case} AS site, plate_x, plate_z,
                    stand, p_throws, balls, strikes, description, events, delta_pitcher_run_exp AS rv,
-                   launch_speed, estimated_woba_using_speedangle AS xw, bb_type, sz_top, sz_bot,
+                   launch_speed, estimated_woba_using_speedangle AS xw, estimated_ba_using_speedangle AS xba,
+                   estimated_slg_using_speedangle AS xslg, bb_type, sz_top, sz_bot,
                    game_pk, at_bat_number, pitch_number, zone
             FROM pitches_all
             WHERE game_type = 'R' AND season = {season} AND pitch_type IS NOT NULL
@@ -678,6 +685,8 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
             ORDER BY game_date, game_pk, at_bat_number, pitch_number""").df()
         if df.empty:
             continue
+        if pm is not None:
+            df = df.merge(pm, on=["game_pk", "at_bat_number", "pitch_number"], how="left")
         o = _pitch_outcome(df["description"], df["events"])
         bip = df["bb_type"].notna().to_numpy()
         cols = {"x": np.round(df["plate_x"].to_numpy() * 100).astype(int),
@@ -686,7 +695,12 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
                 "e": np.where(bip & df["launch_speed"].notna(), np.round(df["launch_speed"].fillna(0) * 10), np.nan),
                 "w": np.where(bip & df["xw"].notna(), np.round(df["xw"].fillna(0) * 1000), np.nan),
                 "rv": df["rv"].fillna(0).to_numpy(),
-                "q": df["zone"].between(1, 9).to_numpy().astype(int)}
+                "q": df["zone"].between(1, 9).to_numpy().astype(int),
+                "ba": np.where(bip & df["xba"].notna(), np.round(df["xba"].fillna(0) * 1000), np.nan),
+                "sl": np.where(bip & df["xslg"].notna(), np.round(df["xslg"].fillna(0) * 1000), np.nan)}
+        if pm is not None:
+            cols["wp"] = np.round(df["whiff_plus"].to_numpy(dtype=float) * 10)
+            cols["pp"] = np.round(df["pitching_plus"].to_numpy(dtype=float) * 10)
         for side, who, opp_hand, sign in (("P", "pitcher", "stand", 1), ("H", "batter", "p_throws", -1)):
             ids = df[who].to_numpy()
             hand = (df[opp_hand] == "R").to_numpy().astype(int)
@@ -707,7 +721,10 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
                        "t": [tix[t] for t in sites], "x": cols["x"][ix].tolist(), "z": cols["z"][ix].tolist(),
                        "h": hand[ix].tolist(), "c": cols["c"][ix].tolist(), "o": cols["o"][ix].tolist(),
                        "r": np.round(sign * cols["rv"][ix] * 1000).astype(int).tolist(), "q": cols["q"][ix].tolist(),
+                       "ba": nul(cols["ba"][ix]), "sl": nul(cols["sl"][ix]),
                        "e": nul(cols["e"][ix]), "w": nul(cols["w"][ix]), "d": day.tolist()}
+                if side == "P" and "wp" in cols:
+                    doc["wp"], doc["pp"] = nul(cols["wp"][ix]), nul(cols["pp"][ix])
                 jwrite_gz(out / "pitches" / f"{side}{int(pid)}-{season}.json.gz", doc)
                 n_files += 1
         del df
@@ -4771,7 +4788,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     # join is a public-source descriptive read — no model claims.
     print(f"[{time.time() - t0:.0f}s] pitches", flush=True)
     if "pitches" in fams:
-        counts["pitch_files"] = bake_pitches(con, out, seasons, site_case_sql())
+        counts["pitch_files"] = bake_pitches(con, out, seasons, site_case_sql(), level)
     print(f"[{time.time() - t0:.0f}s] draft", flush=True)
     if "draft" not in fams:
         pass
