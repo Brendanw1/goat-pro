@@ -4,7 +4,7 @@ An open baseball research project: pitch, pitcher and hitter models built on
 public MLB and AAA tracking data, each one tested before it is shown. The
 results are published as a website.
 
-- Site: https://project-p0q8t.vercel.app
+- Site: https://goatpro.dev
 - Data: Baseball Savant (Statcast), the MLB Stats API, the Chadwick register
   and FanGraphs Guts constants. All of it is public, and no proprietary or
   college data is used.
