@@ -30,6 +30,11 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
+/** .241 style (three decimals, no leading zero), "—" when missing. */
+const rate3 = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(3).replace(/^0(?=\.)/, "") : "—");
+/** 53 -> "53rd", 11 -> "11th". */
+const ordinal = (n: number) => `${n}${[11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+
 export default async function PlayerSheetPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ season?: string; level?: string }>;
@@ -54,7 +59,7 @@ export default async function PlayerSheetPage({ params, searchParams }: {
   const rankPct = (metric: string, v: unknown): string => {
     const bp = seasonP?.[metric];
     if (typeof v !== "number" || !bp) return "";
-    return `${Math.round(isHitter ? getStatPercentileRank(metric, v, bp) : getPitcherPercentileRank(metric, v, bp))}th`;
+    return ordinal(Math.round(isHitter ? getStatPercentileRank(metric, v, bp) : getPitcherPercentileRank(metric, v, bp)));
   };
 
   return (
@@ -100,10 +105,10 @@ export default async function PlayerSheetPage({ params, searchParams }: {
             {isHitter ? (
               <>
                 <Stat label="PA" value={String(profile.pa ?? "—")} />
-                <Stat label="AVG" value={profile.avg != null ? String(profile.avg).replace(/^0/, ".") : "—"} sub={rankPct("avg", profile.avg)} />
-                <Stat label="OBP" value={profile.obp != null ? String(profile.obp).replace(/^0/, ".") : "—"} sub={rankPct("obp", profile.obp)} />
-                <Stat label="SLG" value={profile.slg != null ? String(profile.slg).replace(/^0/, ".") : "—"} sub={rankPct("slg", profile.slg)} />
-                <Stat label="wOBA" value={profile.woba != null ? String(profile.woba).replace(/^0/, ".") : "—"} sub={rankPct("woba", profile.woba)} />
+                <Stat label="AVG" value={rate3(profile.avg)} sub={rankPct("avg", profile.avg)} />
+                <Stat label="OBP" value={rate3(profile.obp)} sub={rankPct("obp", profile.obp)} />
+                <Stat label="SLG" value={rate3(profile.slg)} sub={rankPct("slg", profile.slg)} />
+                <Stat label="wOBA" value={rate3(profile.woba)} sub={rankPct("woba", profile.woba)} />
                 <Stat label="K%" value={profile.kPct != null ? `${profile.kPct}%` : "—"} sub={rankPct("kPct", profile.kPct)} />
                 <Stat label="EV90" value={profile.ev90 != null ? `${profile.ev90}` : "—"} sub={rankPct("ev90", profile.ev90)} />
                 <Stat label="Brl%" value={profile.barrelPct != null ? `${profile.barrelPct}%` : "—"} sub={rankPct("barrelPct", profile.barrelPct)} />
