@@ -65,6 +65,11 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
         season on game-grouped folds (AUC .94–.95); catchers have their own page (Framing+). Savant&apos;s OAA and
         fielding run value sit beside ours as reference columns — ours labelled, theirs labelled. 30+ chances;
         the profile Defense tab shows each fielder&apos;s cards and the chances themselves.
+        <span className="text-text-secondary">
+          {" "}Known gap, measured (RESULTS-MLB §97/§100): our numbers <em>compress elite range</em> — Savant grades
+          per-play positioning and routes that public data does not carry, so the best outfielders show lower here
+          than there (hover a Savant OAA cell on a big gap). The ordering is the signal, not the scale.
+        </span>
       </p>
       <div className="flex flex-wrap items-center gap-2">
         {seasons.map((s) => (
@@ -96,11 +101,18 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
                     <Link href={`/player/${r.id}?season=${season}&tab=defense`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
                   </td>
                   <td className="px-2 py-1.5 font-sans text-text-dim">{r.pos}</td>
-                  {COLS.map((c) => (
-                    <td key={c.key} className={`px-2 py-1.5 text-right ${c.key === sortKey ? "text-text-primary" : "text-text-secondary"}`}>
-                      {fmt(r[c.key], c.key === "chances" ? 0 : 1)}
-                    </td>
-                  ))}
+                  {COLS.map((c) => {
+                    const gap = c.key === "savOaa" && typeof r.oaaOurs === "number" && typeof r.savOaa === "number"
+                      ? r.savOaa - r.oaaOurs : null;
+                    const note = gap != null && Math.abs(gap) >= 8
+                      ? `Differs from our ${fmt(r.oaaOurs)} by ${fmt(Math.abs(gap))} runs — the measured elite-range compression (RESULTS-MLB §97/§100): Savant grades per-play positioning and routes that public data does not carry.`
+                      : undefined;
+                    return (
+                      <td key={c.key} title={note} className={`px-2 py-1.5 text-right ${c.key === sortKey ? "text-text-primary" : "text-text-secondary"}`}>
+                        {fmt(r[c.key], c.key === "chances" ? 0 : 1)}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

@@ -12,8 +12,11 @@ export const metadata = { title: "Swing archetypes" };
 const COL = ["#e3b341", "#7da1c4", "#9bbf85", "#c48ab0"];
 const DIM = "#5d6577";
 const BANDS = ["≤26", "27–30", "31+"];
-const sgn = (v: number, dp = 2) => `${v > 0 ? "+" : ""}${v.toFixed(dp)}`;
-const r3 = (v: number) => v.toFixed(3).replace(/^0/, "");
+const sgn = (v: number, dp = 2) => {
+  const r = Number(v.toFixed(dp)); // round first: (-0.0004).toFixed(3) is "-0.000" — the minus must not survive the rounding
+  return `${r > 0 ? "+" : ""}${r.toFixed(dp)}`;
+};
+const r3 = (v: number) => Number(v.toFixed(3)).toFixed(3).replace(/^0/, "");
 
 function Fig({ title, n, read, children }: { title: string; n: string; read?: string; children: React.ReactNode }) {
   return (

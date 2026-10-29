@@ -41,7 +41,7 @@ function spread(ys: number[], gap = 11): number[] {
 const path = (pts: [number, number][]) => pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
 
 function UShape({ u }: { u: Record<string, any[]> }) {
-  const W = 460, H = 240, PL = 36, PR = 70, PT = 12, PB = 30;
+  const W = 460, H = 240, PL = 42, PR = 70, PT = 12, PB = 30;
   const series = [["all", "#fff"], ["fam:FB", FAM_COLOR.FB], ["fam:BR", FAM_COLOR.BR], ["fam:OS", FAM_COLOR.OS]] as const;
   const vals = series.flatMap(([k]) => u[k].map((b) => b.xw));
   const y0 = Math.min(...vals) - 0.01, y1 = Math.max(...vals) + 0.01;
@@ -63,7 +63,7 @@ function UShape({ u }: { u: Record<string, any[]> }) {
           </g>
         );
       })}
-      {[y0, (y0 + y1) / 2, y1].map((v) => <text key={v} x={PL - 4} y={sy(v) + 3} textAnchor="end" fontSize={8} fill={DIM}>{v.toFixed(3).replace(/^0/, "")}</text>)}
+      {[y0, (y0 + y1) / 2, y1].map((v) => <text key={v} x={PL - 4} y={sy(v) + 3} textAnchor="end" fontSize={8} fill={DIM}>{v.toFixed(3)}</text>)}
       {["−8 or more", "−8 to −4", "−4 to 0", "0 to +4", "+4 to +8", "+8 or more"].map((l, i) => <text key={i} x={sx(BIN_X[i])} y={H - PB + 12} textAnchor="middle" fontSize={8} fill={DIM}>{l}</text>)}
       <text x={(PL + W - PR) / 2} y={H - 4} textAnchor="middle" fontSize={8} fill={DIM}>in. vs the hitter&apos;s own mean depth (deep ← → out front)</text>
     </svg>
