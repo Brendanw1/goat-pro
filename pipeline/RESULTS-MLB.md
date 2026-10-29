@@ -3555,3 +3555,5 @@ Phase 1 builds data and design only; no model is scored and no outcome is read b
 
 **Handling flag on §97 (found here).** v0's `eb_features` used the 2010–19 AAA lines with the Mexican League included (about 6,100
 lines), which distorted the AAA level × season means. §97's numbers stand as run. The phase-2 v0 baseline uses the corrected lines.
+
+**Sensitivity rows (read 2026-10-29, after the primary verdict, reported only):** C_L 0.15 — IF .582 [.527, .634], OF .717 [.673, .754]; C_L 0.30 — IF .578 [.523, .628], OF .721 [.679, .757]. The model is flat in C_L across the whole pre-declared range (every |Δr| vs the primary ≤ .004): the rank-preserving-proxy conclusion is not sensitive to the lift magnitude chosen.

@@ -1,0 +1,203 @@
+{
+ "meta": {
+  "2020": {
+   "range": {
+    "auc": 0.9425,
+    "decile_gap": 0.0034,
+    "n": 40590,
+    "out_rate": 0.6899,
+    "rv_diff": {
+     "0": 0.7654,
+     "1": 0.832
+    }
+   },
+   "framing": {}
+  },
+  "2021": {
+   "range": {
+    "auc": 0.9513,
+    "decile_gap": 0.0029,
+    "n": 112732,
+    "out_rate": 0.6919,
+    "rv_diff": {
+     "0": 0.7436,
+     "1": 0.8148
+    }
+   },
+   "framing": {}
+  },
+  "2022": {
+   "range": {
+    "auc": 0.95,
+    "decile_gap": 0.0025,
+    "n": 116344,
+    "out_rate": 0.6956,
+    "rv_diff": {
+     "0": 0.725,
+     "1": 0.7941
+    }
+   },
+   "framing": {}
+  },
+  "2023": {
+   "range": {
+    "auc": 0.9556,
+    "decile_gap": 0.0018,
+    "n": 115918,
+    "out_rate": 0.6899,
+    "rv_diff": {
+     "0": 0.7534,
+     "1": 0.8187
+    }
+   },
+   "framing": {}
+  },
+  "2024": {
+   "range": {
+    "auc": 0.956,
+    "decile_gap": 0.0029,
+    "n": 116110,
+    "out_rate": 0.6956,
+    "rv_diff": {
+     "0": 0.7403,
+     "1": 0.8075
+    }
+   },
+   "framing": {}
+  },
+  "2025": {
+   "range": {
+    "auc": 0.9562,
+    "decile_gap": 0.0017,
+    "n": 116394,
+    "out_rate": 0.6958,
+    "rv_diff": {
+     "0": 0.7377,
+     "1": 0.8037
+    }
+   },
+   "framing": {}
+  },
+  "2026": {
+   "range": {
+    "auc": 0.9574,
+    "decile_gap": 0.0025,
+    "n": 115830,
+    "out_rate": 0.6971,
+    "rv_diff": {
+     "0": 0.7424,
+     "1": 0.8076
+    }
+   },
+   "framing": {}
+  }
+ },
+ "range": {
+  "IF": {
+   "external_oaa": {
+    "r": 0.5781,
+    "ci": [
+     0.5232,
+     0.6283
+    ],
+    "n": 1138,
+    "verdict_ext": "PASS"
+   },
+   "calibration_pass": true,
+   "verdict": "CONFIRMED",
+   "reliability": {
+    "split_half_r": 0.1365,
+    "rel": 0.2402,
+    "k": 967.0,
+    "n_players": 1174
+   },
+   "r_frp": 0.5776,
+   "yoy": {
+    "oaa": 0.2595,
+    "outs_above_average": 0.4427,
+    "n": 704
+   }
+  },
+  "OF": {
+   "external_oaa": {
+    "r": 0.7207,
+    "ci": [
+     0.6788,
+     0.7568
+    ],
+    "n": 665,
+    "verdict_ext": "PASS"
+   },
+   "calibration_pass": true,
+   "verdict": "CONFIRMED",
+   "reliability": {
+    "split_half_r": 0.2368,
+    "rel": 0.3829,
+    "k": 443.2,
+    "n_players": 916
+   },
+   "r_frp": 0.7209,
+   "yoy": {
+    "oaa": 0.3746,
+    "outs_above_average": 0.6413,
+    "n": 358
+   },
+   "compression": {
+    "sd_runs_ours": 4.26,
+    "sd_oaa_savant": 6.18,
+    "top10_cf_2025": [
+     {
+      "name": "Pete Crow-Armstrong",
+      "savant": 24.0,
+      "ours": 5.5
+     },
+     {
+      "name": "Ceddanne Rafaela",
+      "savant": 21.0,
+      "ours": 16.6
+     },
+     {
+      "name": "Victor Scott",
+      "savant": 17.0,
+      "ours": 4.1
+     },
+     {
+      "name": "Jacob Young",
+      "savant": 14.0,
+      "ours": 4.8
+     },
+     {
+      "name": "Denzel Clarke",
+      "savant": 13.0,
+      "ours": 13.0
+     },
+     {
+      "name": "Kyle Isbel",
+      "savant": 12.0,
+      "ours": 6.7
+     },
+     {
+      "name": "Julio Rodr\u00edguez",
+      "savant": 11.0,
+      "ours": 4.5
+     },
+     {
+      "name": "Andy Pages",
+      "savant": 11.0,
+      "ours": 4.3
+     },
+     {
+      "name": "Myles Straw",
+      "savant": 10.0,
+      "ours": 7.3
+     },
+     {
+      "name": "Daulton Varsho",
+      "savant": 9.0,
+      "ours": -0.5
+     }
+    ]
+   }
+  }
+ }
+}
