@@ -31,48 +31,47 @@ export function Nav() {
   const target = pending && pending.from === pathname ? pending.href : null;
 
   return (
-    <nav className="glass-nav sticky top-0 z-50 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
+    <nav className="glass-nav sticky top-0 z-50 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:gap-x-4">
       {/* Logo / Brand */}
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-        <Link
-          href="/"
-          className="text-lg font-bold tracking-wide text-text-primary"
-        >
-          GOAT-Pro
-        </Link>
+      <Link
+        href="/"
+        className="shrink-0 text-lg font-bold tracking-wide text-text-primary"
+      >
+        GOAT-Pro
+      </Link>
 
-        {/* Nav Pills — wrap rather than run off the right edge. At 320px the
-            pills wrap; none of them leaves the viewport. */}
-        <div className="flex flex-wrap items-center gap-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive = target
-              ? target === item.href
-              : pathname === item.href || pathname.startsWith(item.href + "/");
+      {/* Nav Pills: one row. Spacing tightens with the window; whatever still
+          doesn't fit fades out at the right and scrolls sideways (no bar). On a
+          phone the strip takes its own row under the brand and search. */}
+      <div className="nav-strip order-last flex w-full min-w-0 items-center gap-0.5 overflow-x-auto pr-6 sm:order-none sm:w-auto sm:flex-1 lg:ml-2 xl:ml-4 xl:gap-1">
+        {NAV_ITEMS.map((item) => {
+          const isActive = target
+            ? target === item.href
+            : pathname === item.href || pathname.startsWith(item.href + "/");
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                onClick={() => setPending({ href: item.href, from: pathname })}
-                className={`
-                  px-4 py-1.5 rounded-full text-sm font-medium press-scale nav-glow
-                  ${
-                    isActive
-                      ? "nav-pill-active text-text-primary"
-                      : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03]"
-                  }
-                `}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              onClick={() => setPending({ href: item.href, from: pathname })}
+              className={`
+                shrink-0 whitespace-nowrap px-2 py-1.5 rounded-full text-[13px] font-medium press-scale nav-glow lg:px-2.5 xl:px-3 xl:text-sm 2xl:px-4
+                ${
+                  isActive
+                    ? "nav-pill-active text-text-primary"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03]"
+                }
+              `}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </div>
 
       {/* Right side — search */}
-      <div className="flex items-center gap-4">
+      <div className="ml-auto flex shrink-0 items-center">
         <Search />
       </div>
     </nav>

@@ -854,3 +854,11 @@ html[data-intro="play"] body { overflow: hidden; }
 .home-reveal { opacity: 0; animation: fade-up 480ms cubic-bezier(0.2, 0, 0, 1) calc(var(--i, 0) * 55ms) forwards; }
 html[data-intro="play"] .home-reveal { animation-delay: calc(1250ms + var(--i, 0) * 70ms); }
 @media (prefers-reduced-motion: reduce) { .home-reveal { animation: none; opacity: 1; } }
+
+/* Nav pill strip: one row; overflow scrolls sideways with no visible bar and fades out at the edge. */
+.nav-strip {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.nav-strip::-webkit-scrollbar { display: none; }

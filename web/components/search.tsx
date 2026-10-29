@@ -165,7 +165,7 @@ export function Search() {
 
           aria-label="Search players"
           className="
-            w-56 px-3 py-1.5 rounded-lg text-sm
+            w-36 sm:w-44 xl:w-56 px-3 py-1.5 rounded-lg text-sm
             bg-white/[0.05] border border-border-subtle
             text-text-secondary placeholder:text-text-dim
             focus:border-border-emphasis focus:bg-white/[0.08]
