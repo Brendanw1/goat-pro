@@ -6,12 +6,15 @@
  * a projection. Server component: the bake carries the dots.
  */
 
-export function AgingStrip({ track, curve, role, season }: {
-  track: any | null; curve: any[] | null; role: "pitcher" | "batter"; season?: string | number;
+export function AgingStrip({ track, curves, role, season }: {
+  track: any | null; curves: any | null; role: "pitcher" | "batter"; season?: string | number;
 }) {
   const rows: any[] = track?.seasons ?? [];
-  if (rows.length < 3 || !curve?.length) return null;
   const field = role === "pitcher" ? "ffVelo" : rows.some((r) => r.batSpeed != null) ? "batSpeed" : "woba";
+  // the league curve must be the one measured in the SAME field as his dots —
+  // a wOBA dot on the bat-speed line is a nonsense axis.
+  const curve: any[] | null = curves?.[field] ?? null;
+  if (rows.length < 3 || !curve?.length) return null;
   const pts = rows.filter((r) => r[field] != null);
   if (pts.length < 3) return null;
   const nd = field === "woba" ? 3 : 1;
@@ -25,7 +28,7 @@ export function AgingStrip({ track, curve, role, season }: {
   const px = (v: number) => PL + ((v - x0) / (x1 - x0)) * (W - PL - PR);
   const py = (v: number) => PT + (1 - (v - y0) / (y1 - y0)) * (H - PT - PB);
   const path = lg.map((p, i) => `${i ? "L" : "M"}${px(p.age).toFixed(1)},${py(p.mean).toFixed(1)}`).join("");
-  const label = field === "ffVelo" ? "fastball velocity by age" : field === "batSpeed" ? "bat speed by age" : "wOBA by age";
+  const label = field === "ffVelo" ? "fastball velocity by age" : field === "batSpeed" ? "bat speed by age" : "wOBA by age (Savant scale)";
   return (
     <div className="glass-panel px-4 py-3">
       <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -39,7 +42,7 @@ export function AgingStrip({ track, curve, role, season }: {
         {pts.map((p) => (
           <g key={p.season}>
             <circle cx={px(p.age)} cy={py(p[field])} r={3} fill="#7da1c4" />
-            <text x={px(p.age)} y={py(p[field]) - 6} textAnchor="middle" fontSize={8} fill="#7da1c4">{p[field].toFixed(nd)}</text>
+            <text x={px(p.age)} y={py(p[field]) - 6} textAnchor="middle" fontSize={8} fill="#7da1c4">{p[field].toFixed(nd).replace(/^0/, ".")}</text>
             <text x={px(p.age)} y={H - 4} textAnchor="middle" fontSize={8} fill="#8b93a7">{p.age}</text>
           </g>
         ))}

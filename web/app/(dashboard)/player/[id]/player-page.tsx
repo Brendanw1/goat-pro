@@ -78,6 +78,11 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
     getAgingTrack(id),
     getAgingCurves(),
   ]);
+  // rendered once here (server) and placed inside each view's Overview tab
+  const agingStrip = (
+    <AgingStrip track={agingTrack} curves={agingCurves}
+      role={hitter ? "batter" : "pitcher"} season={detSeason} />
+  );
 
   const pctSeason = String(profile?.season ?? hitter?.season ?? season ?? "");
   const percentiles = hitter
@@ -170,10 +175,8 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           </span>
         )}
       </div>
-<AgingStrip track={agingTrack} curve={hitter ? agingCurves?.batSpeed ?? agingCurves?.woba : agingCurves?.ffVelo}
-        role={hitter ? "batter" : "pitcher"} season={detSeason} />
-      {hitter ? (
-        <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id}
+{hitter ? (
+        <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id} agingStrip={agingStrip}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}
           scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} running={running} initialTab={tab} level={level} />
       ) : (
@@ -193,7 +196,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           careerArsenal={career?.kind === "P" ? career.seasons : null}
           backHref={level === "aaa" ? "/minors" : undefined}
           level={level}
-        load={load} initialTab={tab} />
+        load={load} initialTab={tab} agingStrip={agingStrip} />
       )}
       {extra}
     </>

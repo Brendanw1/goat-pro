@@ -5218,9 +5218,15 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             GROUP BY 1, 2 HAVING count(*) >= 100
         """).df()
 
-        def curve(df, field):
+        def curve(df, field, pooled=False):
+            # pooled=True (wOBA): weight every plate appearance, not every season —
+            # a mean-of-seasons wOBA at a thin age is one bench bat's year.
+            if pooled:
+                g = df.groupby("age").agg(wv=("wv", "sum"), wd=("wd", "sum"), n=("v", "count"))
+                return [{"age": int(a), "n": int(r_.n), "mean": f(r_.wv / r_.wd, 3)}
+                        for a, r_ in g.iterrows() if r_.n >= 20 and r_.wd > 0]
             g = df.groupby("age")[field].agg(["mean", "count"])
-            return [{"age": int(a), "n": int(r_["count"]), "mean": f(r_["mean"], field == "v" and 3 or 1)}
+            return [{"age": int(a), "n": int(r_["count"]), "mean": f(r_["mean"], 1)}
                     for a, r_ in g.iterrows() if r_["count"] >= 20]
 
         jwrite(out / "aging" / "curves.json", {
@@ -5230,7 +5236,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             "ffVelo": curve(ag_ff.assign(v=ag_ff["v"].round(2)), "v"),
             "batSpeed": curve(ag_bs.assign(v=ag_bs["v"].round(2)), "v"),
             "ev": curve(ag_ev.assign(v=ag_ev["v"].round(2)), "v"),
-            "woba": curve(ag_wo.assign(v=ag_wo["v"].round(3)), "v"),
+            "woba": curve(ag_wo, "v", pooled=True),
         }, sort_keys=True)
 
         # per-player age tracks (any qualifying season type)

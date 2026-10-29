@@ -37,7 +37,7 @@ const FAM_LABEL: Record<string, string> = {
   FB: "Fastballs (FF/SI)", CT: "Cutters", BR: "Breaking (SL/SW/CB/KC)", OS: "Offspeed (CH/FS/EP)",
 };
 
-export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, career, visuals, swing, running, initialTab, level }: {
+export function HitterProfileView({ profile, percentiles, playerId, gameLog, spray, sprayRefs, scouting, scoutingLeague, benchmarks, career, visuals, swing, running, initialTab, agingStrip, level }: {
   profile: any;
   percentiles: any;
   playerId: string;
@@ -52,6 +52,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
   swing?: any | null;
   running?: any | null;
   initialTab?: string | null;
+  agingStrip?: React.ReactNode;
   level?: string;
 }) {
   // ?tab= deep link (the swing board links here); stale keys fall back to Overview.
@@ -485,6 +486,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
           </div>
         )}
       </ProfileTabPanel>
+      {tab === "overview" && agingStrip}
       <span className="hidden">{playerId}</span>
     </div>
   );

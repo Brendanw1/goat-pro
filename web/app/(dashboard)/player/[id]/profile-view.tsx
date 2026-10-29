@@ -70,6 +70,7 @@ type ProfileViewProps = {
   situational?: any | null;
   load?: any | null;
   initialTab?: string | null;
+  agingStrip?: React.ReactNode;
 };
 
 /** A pitch's VAA cells tinted by their same-zone rank: verdict colour, or grey when the row is descriptive. */
@@ -280,7 +281,7 @@ function PlatoonCell({ pitch, h }: { pitch: any; h: "LHH" | "RHH" }) {
   );
 }
 
-export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, load, initialTab, backHref = "/pitchers", level }: ProfileViewProps) {
+export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, load, initialTab, agingStrip, backHref = "/pitchers", level }: ProfileViewProps) {
   const [vaaPitchFilter, setVaaPitchFilter] = useState<string>("all");
   const [percentilePitchTab, setPercentilePitchTab] = useState<string | null>(null);
   // ?tab= deep link (the fatigue board links here); stale keys fall back to Overview.
@@ -931,6 +932,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
       </div>
       )}
       </ProfileTabPanel>
+      {tab === "overview" && agingStrip}
     </div>
   );
 }
