@@ -12,12 +12,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { PitchType } from "@/types";
 import { PitchSplits, type SplitFile } from "@/components/ui/pitch-splits";
+import { PitchTrends, type TrendFile } from "@/components/ui/pitch-trends";
 
 type Num = number | null;
 type File = {
   side: "P" | "H"; season: number; types: string[]; outcomes: string[]; zone: [number, number]; start: string;
   t: number[]; x: number[]; z: number[]; h: number[]; c: number[]; o: number[]; r: number[];
-  e: Num[]; w: Num[]; d: number[]; q?: number[]; ba?: Num[]; sl?: Num[]; wp?: Num[]; pp?: Num[];
+  e: Num[]; w: Num[]; d: number[]; q?: number[]; lgc?: Record<string, [Num, Num]>; ba?: Num[]; sl?: Num[]; wp?: Num[]; pp?: Num[];
 };
 
 const colorOf = (t: string) => PITCH_CONFIG[t as PitchType]?.color ?? "#8C9591";
@@ -336,6 +337,8 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
         samples; a cell is drawn once about {MIN_EFF} pitches sit within a bandwidth. The number over each panel is its overall value
         (pitch count on Where); hovering rings the same spot in every panel. Dashed box = his average rulebook zone.
       </p>
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+      <div className="space-y-3 min-w-0 max-w-full lg:max-w-[820px]">
       <div className="overflow-x-auto">
         <table className="text-[11px] font-data">
           <thead className="text-text-dim"><tr>
@@ -364,6 +367,9 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
         <p className="text-[10px] text-text-dim">Left = his first game ({file.start}). The table and this chart follow every filter; the table lists each type even when its chip is off.</p>
       </div>
       <PitchSplits file={file as unknown as SplitFile} level={level} />
+      </div>
+      {pitcher && <div className="flex-1 min-w-[300px] max-w-[640px]"><PitchTrends file={file as unknown as TrendFile} /></div>}
+      </div>
     </div>
   );
 }

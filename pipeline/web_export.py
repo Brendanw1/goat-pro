@@ -708,7 +708,8 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
     any slice's grade is their mean; hitter files at MLB carry dv, the pitch's decision value x1000
     (cache/decision_pitches.parquet), and `dec` {mu, sd} so a slice's Decision+ = 100 + 10 (100 mean dv
     / 1000 - mu) / sd. `bins` {type: {axis: edges}} and `lg` {type: {axis: [bucket stats]}} carry the
-    movement buckets and the league's line in each (pitcher side). Also writes buckets/{season}-{type}.json,
+    movement buckets and the league's line in each (pitcher side); `lgc` {type: [xwOBAcon, xSLG]} the league's
+    mean on balls in play per type that season (level's own league). Also writes buckets/{season}-{type}.json,
     the bucket board: per player and bucket (30+ pitches) n, share of his pitches of that type, RV/100,
     whiff, xwOBAcon, both sides."""
     n_files = 0
@@ -785,6 +786,10 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
                           "pitcher": df["pitcher"].to_numpy(), "batter": df["batter"].to_numpy(), **bk})
         lg = {t: {ax: [_bucket_stats(g) for _, g in b[(b["site"] == t) & (b[ax] >= 0)].groupby(ax)]
                   for ax in BUCKET_AXES} for t in edges}
+        # league xwOBAcon / xSLG on contact per type this season (the pitcher trends' dashed reference)
+        cg = pd.DataFrame({"site": sites, "w": cols["w"], "sl": cols["sl"]}).groupby("site")[["w", "sl"]].mean() / 1000
+        lgc = {t: [None if np.isnan(r.w) else round(float(r.w), 3), None if np.isnan(r.sl) else round(float(r.sl), 3)]
+               for t, r in cg.iterrows()}
         b = b.assign(sw=b["o"].between(2, 8), wh=b["o"] == 2, wn=b["w"].notna())
         for t in edges:
             bt = b[b["site"] == t]
@@ -832,7 +837,8 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
                        "e": nul(cols["e"][ix]), "w": nul(cols["w"][ix]), "d": day.tolist(),
                        "v": nul(cols["v"][ix]), "iv": nul(cols["iv"][ix]), "hb": nul(cols["hb"][ix]),
                        "pe": cols["pe"][ix].tolist(), "wv": nul(cols["wv"][ix]),
-                       "bins": {t: edges[t] for t in types if t in edges}, "lg": {t: lg[t] for t in types if t in edges}}
+                       "bins": {t: edges[t] for t in types if t in edges}, "lg": {t: lg[t] for t in types if t in edges},
+                       "lgc": {t: lgc[t] for t in types if t in lgc}}
                 if side == "P" and "wp" in cols:
                     doc["wp"], doc["pp"] = nul(cols["wp"][ix]), nul(cols["pp"][ix])
                 if side == "H" and "dv" in cols:
