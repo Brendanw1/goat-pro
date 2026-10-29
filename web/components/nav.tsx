@@ -79,9 +79,9 @@ export function Nav() {
   const target = pending && pending.from === pathname ? pending.href : null;
 
   return (
-    <nav className="glass-nav sticky top-0 z-50 relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:gap-x-4 overflow-hidden">
-      {/* The lava field the header lives on */}
-      <LavaNav />
+    <nav className="glass-nav sticky top-0 z-50 relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:gap-x-4">
+      {/* The lava field the header lives on, clipped in its own layer so the search results can hang below the bar */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden"><LavaNav /></div>
 
       {/* Logo / Brand — a white shader badge sitting on top of the field:
           the base is a sphere gradient (white top-left into cool grey) so the
