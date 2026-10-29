@@ -20,7 +20,7 @@ export const metadata = { title: "Matchup" };
  * pitches like these, with the sample beside every number.
  */
 
-type Q = { pitcher?: string; team?: string; hitters?: string; game?: string; season?: string };
+type Q = { pitcher?: string; team?: string; hitters?: string; game?: string; season?: string; bs?: string; bt?: string };
 
 const FAMILY: Record<string, string> = { FF: "FB", SI: "FB", CT: "CT", SL: "BR", SW: "BR", CB: "BR", CH: "OS", FS: "OS" };
 const FAMILY_NAME: Record<string, string> = { FB: "fastballs", CT: "cutters", BR: "breaking", OS: "offspeed" };
@@ -45,17 +45,25 @@ function read(diff: number | null, n: number): { text: string; tone: string } {
 export default async function MatchupPage({ searchParams }: { searchParams?: Promise<Q> }) {
   const q = (await searchParams) ?? {};
   const pid = (q.pitcher ?? "").replace(/\D/g, "");
+  const chip = "rounded-md border border-border-subtle px-2 py-1 text-[11px] text-text-secondary";
   const prof = pid ? await getPlayerProfile(pid, q.season || undefined) : null;
   if (!prof || !prof.pitches?.length) {
-    // no pitcher yet: offer the latest postseason starters
+    // no pitcher yet: the latest postseason starters, then the D-50 league-wide lineup browser (any team, any season)
     const ps = await getPostseason();
     const latest = Object.keys(ps?.seasons ?? {}).sort().pop();
     const recent = latest
       ? ps.seasons[latest].series.flatMap((s: any) => s.games.filter((g: any) => g.sp).map((g: any) => ({ ...g, label: s.label })))
         .sort((a: any, b: any) => b.date.localeCompare(a.date)).slice(0, 6)
       : [];
+    const board = await getHitters();
+    const seasons = [...new Set(board.map((r) => String(r.season)))].sort().reverse();
+    const bs = q.bs && seasons.includes(q.bs) ? q.bs : seasons[0];
+    const bt = (q.bt ?? "").toUpperCase();
+    const pool = board.filter((r) => String(r.season) === bs);
+    const bteams = [...new Set(pool.map((r) => r.team).filter((t) => typeof t === "string"))].sort() as string[];
+    const lineup = bt ? pool.filter((r) => r.team === bt).sort((a, b) => (b.pa ?? 0) - (a.pa ?? 0)).slice(0, 12) : [];
     return (
-      <div className="glass-panel p-6 text-sm text-text-dim space-y-3">
+      <div className="glass-panel p-6 text-sm text-text-dim space-y-4">
         <p>{pid ? `No pitcher profile for ${pid}. ` : ""}Pick a pitcher: every pitcher profile and every postseason game has a Matchup link. The latest postseason starters:</p>
         <ul className="space-y-1 text-xs">
           {recent.map((g: any) => (
@@ -70,6 +78,43 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
             </li>
           ))}
         </ul>
+        <div className="space-y-2 border-t border-border-subtle pt-4">
+          <p className="text-text-secondary">Or browse any lineup, any season — then scout it from any pitcher&apos;s profile:</p>
+          <form method="get" action="/matchup" className="flex flex-wrap items-center gap-1">
+            <select name="bs" defaultValue={bs} className="rounded-md border border-border-subtle bg-transparent px-2 py-1 text-[11px] text-text-secondary">
+              {seasons.map((s) => <option key={s} value={s}>{s} season</option>)}
+            </select>
+            <select name="bt" defaultValue={bt} className="rounded-md border border-border-subtle bg-transparent px-2 py-1 text-[11px] text-text-secondary">
+              <option value="">Team…</option>
+              {bteams.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <button className={chip}>Go</button>
+          </form>
+          {bt ? (
+            lineup.length ? (
+              <table className="w-full max-w-[560px] text-xs font-data">
+                <tbody>
+                  {lineup.map((r: any, i: number) => (
+                    <tr key={r.id} className="border-t border-white/[0.04]">
+                      <td className="py-1 pr-2 text-right text-[10px] text-text-dim">{i + 1}</td>
+                      <td className="py-1 pr-2 font-sans">
+                        <Link href={`/player/${r.id}?season=${bs}`} className="text-text-primary hover:underline">{r.name}</Link>
+                        <span className="ml-1 text-[10px] text-text-dim">{r.bats ?? ""}</span>
+                      </td>
+                      <td className="py-1 pr-3 text-right text-[10px]">{r.pa} PA</td>
+                      <td className="py-1 pr-3 text-right text-[10px]">{d3(r.woba)} wOBA</td>
+                      <td className="py-1 pr-3 text-right text-[10px]">{r.kPct?.toFixed(0) ?? "—"} K%</td>
+                      <td className="py-1 text-right text-[10px]">
+                        {r.decisionPlus != null ? <span title="Decision+ (descriptive)">Dec+ {r.decisionPlus.toFixed(0)}</span> : null}
+                        {r.batSpeed != null ? <span className="ml-2" title="bat speed, Savant bat tracking">bat {r.batSpeed.toFixed(0)}</span> : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <p>No {bs} hitters on file for {bt}.</p>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -138,7 +183,6 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
   };
   const CELL_NAME: Record<string, string> = { FF: "four-seamers", SI: "sinkers", FC: "cutters", SL: "sliders", CU: "curves", CH: "changeups" };
   const cellLabel = (c: string) => { const [g, h] = c.split("-"); return `${CELL_NAME[g] ?? g} ${h === "high" ? "up" : h === "low" ? "down" : "middle"}`; };
-  const chip = "rounded-md border border-border-subtle px-2 py-1 text-[11px] text-text-secondary";
 
   return (
     <div className="space-y-4">
@@ -181,6 +225,8 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
               <th className="py-2 text-right font-semibold" title="arm-side horizontal break">Arm HB</th>
               <th className="py-2 text-right font-semibold">Whiff+</th>
               <th className="py-2 text-right font-semibold">Pitching+</th>
+              <th className="py-2 text-right font-semibold" title="Whiff+ vs LHH / vs RHH (§73 platoon splits)">Whiff+ L/R</th>
+              <th className="py-2 text-right font-semibold" title="vertical approach angle, degrees (steep = up-shot at the plate)">VAA</th>
               <th className="py-2 text-right font-semibold">Whiff%</th>
               <th className="px-3 py-2 text-left font-semibold">League buckets it sits in (league whiff%)</th>
             </tr>
@@ -195,6 +241,10 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                 <td className="py-1.5 text-right text-text-secondary">{p.hb == null ? "—" : (throws === "R" ? -p.hb : p.hb).toFixed(1)}</td>
                 <td className="py-1.5 text-right" style={{ color: gradeColor(p.stuffPlus) }}>{p.stuffPlus?.toFixed(0) ?? "—"}</td>
                 <td className="py-1.5 text-right" style={{ color: gradeColor(p.pitchingPlus) }}>{p.pitchingPlus?.toFixed(0) ?? "—"}</td>
+                <td className="py-1.5 text-right text-text-secondary">
+                  {p.stuffVsLHH?.toFixed(0) ?? "—"} / {p.stuffVsRHH?.toFixed(0) ?? "—"}
+                </td>
+                <td className="py-1.5 text-right text-text-secondary">{p.vaa?.toFixed(1) ?? "—"}°</td>
                 <td className="py-1.5 text-right text-text-secondary">{p.whiffPct?.toFixed(1) ?? "—"}</td>
                 <td className="px-3 py-1.5 font-sans text-[10px] text-text-dim">
                   {p.bins.length ? p.bins.map((b: any) => `${b.label}${b.lgWhiff != null ? ` (${b.lgWhiff.toFixed(0)}%)` : ""}`).join(" · ") : "no buckets"}
@@ -254,6 +304,14 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                           {h.pa} PA · wOBA {d3(h.woba)} · K {h.kPct?.toFixed(0) ?? "—"}% · chase {h.oSwingPct?.toFixed(0) ?? "—"}%
                         </div>
                       ) : <div className="pl-[18px] text-[10px] text-text-dim">no {season} hitter file</div>}
+                      {h && (h.decisionPlus != null || h.batSpeed != null || h.attackAngle != null || h.sprintSpeed != null) ? (
+                        <div className="pl-[18px] text-[10px] text-text-dim font-data" title="Decision+ (descriptive) · bat speed and attack angle (Savant bat tracking) · sprint speed">
+                          {h.decisionPlus != null ? <>Dec+ {h.decisionPlus.toFixed(0)} · </> : null}
+                          {h.batSpeed != null ? <>bat {h.batSpeed.toFixed(0)} · </> : null}
+                          {h.attackAngle != null ? <>AA {h.attackAngle.toFixed(0)}° · </> : null}
+                          {h.sprintSpeed != null ? <>sprint {h.sprintSpeed.toFixed(1)}</> : null}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-2 text-right text-[10px]">
                       {vh ? <><div className="text-text-secondary">{d3(vh.woba)}</div><div className="text-text-dim">{vh.pa} PA · K {vh.kPct?.toFixed(0)}%</div></> : <span className="text-text-dim">—</span>}
@@ -285,7 +343,10 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                             </div>
                           ) : null}
                           {c.fam ? (
-                            <div className="text-text-dim">vs {FAMILY_NAME[c.fam.v] ?? c.fam.v}: {d3(c.fam.woba)} · {c.fam.pa} PA</div>
+                            <div className="text-text-dim">
+                              vs {FAMILY_NAME[c.fam.v] ?? c.fam.v}: {d3(c.fam.woba)} wOBA · {c.fam.kPct?.toFixed(0) ?? "—"} K%
+                              {c.fam.avgEv != null ? <> · {c.fam.avgEv.toFixed(0)} EV</> : null} · {c.fam.pa} PA
+                            </div>
                           ) : null}
                           <div className="text-text-dim">sees it {c.use.toFixed(0)}%</div>
                         </td>
@@ -297,10 +358,12 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
             </tbody>
           </table>
           <p className="px-3 py-2 text-[10px] text-text-dim border-t border-border-subtle">
-            Per pitch: the read, then his RV/100 minus the league&apos;s in the velo · IVB · arm-HB buckets (pitches seen), his wOBA
-            against that pitch family (either hand), and how often this pitcher throws it to his side of the plate. Arsenal = those
-            bucket edges weighted by that usage. Plane = his swing plane by pitch group × height (§90b), as the contact it implies
-            vs his own norm, weighted by where this pitcher throws; a contact read, not damage, descriptive, not a forecast. vs {throws}HP = his line against {throws === "R" ? "right" : "left"}-handers.
+            Per pitch: the read, then his RV/100 minus the league&apos;s in the velo · IVB · arm-HB buckets (pitches seen), his wOBA,
+            K% and average EV against that pitch family (either hand), and how often this pitcher throws it to his side of the plate.
+            Arsenal = those bucket edges weighted by that usage. Plane = his swing plane by pitch group × height (§90b), as the contact
+            it implies vs his own norm, weighted by where this pitcher throws; a contact read, not damage, descriptive, not a forecast.
+            vs {throws}HP = his line against {throws === "R" ? "right" : "left"}-handers. Whiff+ L/R = the §73 platoon split of this
+            pitch&apos;s grade; VAA = its vertical approach angle — read together with the hitter&apos;s attack angle (AA) in his tools line.
           </p>
         </div>
       )}
