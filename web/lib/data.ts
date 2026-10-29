@@ -170,6 +170,26 @@ export async function getSwingProfile(id: string, season: string | number, level
   return fetchGzippedJson<any>(lv(level, `swing/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** League aging curves (depth item 7): FF velo / bat speed / EV / wOBA by age. */
+export async function getAgingCurves(): Promise<any | null> {
+  return fetchFromR2<any>("aging/curves.json", { shared: true }).catch(() => null);
+}
+
+/** Decline read: latest-season FF velo vs previous, with IL moves. */
+export async function getDeclineIndex(): Promise<any | null> {
+  return fetchFromR2<any>("aging/decline_index.json", { shared: true }).catch(() => null);
+}
+
+/** Prospect bridges: draft-age clocks and tier debut ages/arcs. */
+export async function getProspectAging(): Promise<any | null> {
+  return fetchFromR2<any>("aging/prospect_aging.json", { shared: true }).catch(() => null);
+}
+
+/** One player's by-age track (3+ qualified seasons). */
+export async function getAgingTrack(id: string): Promise<any | null> {
+  return fetchGzippedJson<any>(`aging/${id}.json.gz`).catch(() => null);
+}
+
 /** Per-game win-probability file: timeline + top swings (depth item 6). */
 export async function getGameWpa(gid: string, level: Level = "mlb"): Promise<any | null> {
   return fetchGzippedJson<any>(lv(level, `wpa/${gid}.json.gz`)).catch(() => null);

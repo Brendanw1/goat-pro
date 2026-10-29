@@ -111,7 +111,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -130,6 +130,7 @@ FAM_NEEDS = {
     "draft": set(),         # draft + transactions surfaces (amateur_fetch.py outputs; MLB only)
     "pitches": set(),       # per-pitch explorer files (location/count/outcome/RV), both sides (self-contained)
     "wpa": set(),           # win-probability layer: per-game swings + league WPA boards (self-contained)
+    "aging": set(),         # league aging curves, per-player age tracks, decline flags, prospect-age bridges
 }
 
 
@@ -5054,6 +5055,212 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         }, sort_keys=True)
         counts["wpa_files"] = n_wpa
         print(f"wpa game files: {n_wpa}")
+
+    # ------------------------------------------------------------------ aging
+    # Aging curves and the decline read (depth list item 7, with the owner's
+    # prospect bridges). Pools the FULL mart (2020-26) rather than the bake
+    # seasons — age curves need the years. Curves weight each pitcher-season /
+    # batter-season equally (a season is one dot, not its pitch count), the
+    # classic survival caveat applies and the glossary says so. The Bayesian
+    # changepoint early-warning version stays model-lane; what ships here is
+    # the measured read: his dots on the league curve, YoY velo deltas with IL
+    # context, and how draft age and prospect tier set debut clocks and peaks.
+    print(f"[{time.time() - t0:.0f}s] aging", flush=True)
+    if "aging" not in fams:
+        pass
+    elif level == "aaa":
+        print("aging: MLB-only family — skipped at AAA (age_pit/age_bat are MLB columns)")
+    else:
+        ALL = "2020, 2021, 2022, 2023, 2024, 2025, 2026"
+        # per pitcher-season FF velo (>=100 FF), equal weight per season
+        ag_ff = con.sql(f"""
+            SELECT pitcher, season, max(age_pit) AS age, avg(release_speed) AS v, count(*) AS n
+            FROM pitches_all
+            WHERE game_type = 'R' AND season IN ({ALL}) AND pitch_type = 'FF'
+              AND release_speed IS NOT NULL AND age_pit BETWEEN 19 AND 43
+            GROUP BY 1, 2 HAVING count(*) >= 100
+        """).df()
+        # per batter-season bat speed (>=100 tracked swings) and EV
+        ag_bs = con.sql(f"""
+            SELECT batter, season, max(age_bat) AS age, avg(bat_speed) AS v, count(*) AS n
+            FROM pitches_all
+            WHERE game_type = 'R' AND season IN ({ALL}) AND bat_speed IS NOT NULL
+              AND age_bat BETWEEN 19 AND 43
+            GROUP BY 1, 2 HAVING count(*) >= 100
+        """).df()
+        ag_ev = con.sql(f"""
+            SELECT batter, season, max(age_bat) AS age, avg(launch_speed) AS v, count(*) AS n
+            FROM pitches_all
+            WHERE game_type = 'R' AND season IN ({ALL}) AND launch_speed IS NOT NULL
+              AND age_bat BETWEEN 19 AND 43
+            GROUP BY 1, 2 HAVING count(*) >= 50
+        """).df()
+        # per batter-season wOBA (Savant scale, from the per-pitch values)
+        ag_wo = con.sql(f"""
+            SELECT b.batter, b.season, max(b.age_bat) AS age,
+                   sum(b.wv) / NULLIF(sum(b.wd), 0) AS v, count(*) AS pa
+            FROM (
+                SELECT batter, season, age_bat, game_pk, at_bat_number,
+                       max(woba_value) AS wv, max(woba_denom) AS wd
+                FROM pitches_all
+                WHERE game_type = 'R' AND season IN ({ALL})
+                  AND woba_value IS NOT NULL AND age_bat BETWEEN 19 AND 43
+                GROUP BY 1, 2, 3, 4, 5
+            ) b
+            GROUP BY 1, 2 HAVING count(*) >= 100
+        """).df()
+
+        def curve(df, field):
+            g = df.groupby("age")[field].agg(["mean", "count"])
+            return [{"age": int(a), "n": int(r_["count"]), "mean": f(r_["mean"], field == "v" and 3 or 1)}
+                    for a, r_ in g.iterrows() if r_["count"] >= 20]
+
+        jwrite(out / "aging" / "curves.json", {
+            "_comment": ("league curves pooled 2020-26, one dot per qualified player-season (FF 100+, bat speed "
+                         "100+ swings, EV 50+ BIP, wOBA 100+ PA on Savant's scale); survival bias applies — "
+                         "each age's pool is only the players good enough to be there"),
+            "ffVelo": curve(ag_ff.assign(v=ag_ff["v"].round(2)), "v"),
+            "batSpeed": curve(ag_bs.assign(v=ag_bs["v"].round(2)), "v"),
+            "ev": curve(ag_ev.assign(v=ag_ev["v"].round(2)), "v"),
+            "woba": curve(ag_wo.assign(v=ag_wo["v"].round(3)), "v"),
+        }, sort_keys=True)
+
+        # per-player age tracks (any qualifying season type)
+        tracks: dict = {}
+        for df, kind in ((ag_ff, "ff"), (ag_bs, "bs"), (ag_ev, "ev"), (ag_wo, "wo")):
+            for r_ in df.itertuples():
+                tr = tracks.setdefault(int(r_.pitcher if kind == "ff" else r_.batter), {})
+                tr[int(r_.season)] = {
+                    "season": int(r_.season), "age": int(r_.age),
+                    **({"ffVelo": f(r_.v, 1), "nPitches": int(r_.n)} if kind == "ff" else
+                       {"batSpeed": f(r_.v, 1), "nSwings": int(r_.n)} if kind == "bs" else
+                       {"ev": f(r_.v, 1), "nBip": int(r_.n)} if kind == "ev" else
+                       {"woba": f(r_.v, 3), "pa": int(r_.pa)})}
+        n_aging = 0
+        for pid, seasons in sorted(tracks.items()):
+            if player is not None and pid != player:
+                continue
+            if len(seasons) < 3:
+                continue
+            jwrite_gz(out / "aging" / f"{pid}.json.gz",
+                      {"id": str(pid), "seasons": [seasons[s] for s in sorted(seasons)]},
+                      sort_keys=True)
+            n_aging += 1
+        counts["aging_files"] = n_aging
+
+        # decline flags: latest-season FF velo vs the pitcher's previous season,
+        # with IL moves from the transactions feed (descriptive context, not the
+        # changepoint model)
+        il_moves = {}
+        tx_fp = ROOT / "data" / "milb" / "transactions.parquet"
+        if tx_fp.exists():
+            tx = pd.read_parquet(tx_fp)
+            tx = tx[tx["desc"].astype(str).str.contains("injured list", case=False, na=False)]
+            for r_ in tx.itertuples():
+                il_moves[(int(r_.id), int(str(r_.date)[:4]))] = il_moves.get((int(r_.id), int(str(r_.date)[:4])), 0) + 1
+        ff_g = ag_ff.sort_values("season").groupby("pitcher")
+        decline_rows = []
+        names = dict(con.sql("SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register").fetchall())
+        for pid, g_ in ff_g:
+            if len(g_) < 2:
+                continue
+            last = g_.iloc[-1]
+            prev = g_.iloc[-2]
+            if int(last.season) - int(prev.season) > 1:
+                continue
+            decline_rows.append({"id": str(int(pid)), "name": names.get(int(pid)),
+                                 "season": int(last.season), "age": int(last.age),
+                                 "ffVelo": f(last.v, 1), "prevSeason": int(prev.season),
+                                 "prevFfVelo": f(prev.v, 1),
+                                 "delta": f(last.v - prev.v, 1),
+                                 "ilMoves": il_moves.get((int(pid), int(last.season)), 0)})
+        decline_rows.sort(key=lambda e: (e["delta"] if e["delta"] is not None else 0))
+        jwrite(out / "aging" / "decline_index.json", {
+            "_comment": ("latest-season FF velo vs the pitcher's previous season (both 100+ FF), with IL moves "
+                         "that year from the statsapi transactions feed — a descriptive decline read, not the "
+                         "Bayesian changepoint model"),
+            "pitchers": decline_rows,
+        }, sort_keys=True)
+
+        # prospect bridges (owner ask): draft age sets the clock; prospect tier
+        # sets the debut age and the post-debut arc
+        ppl_fp = ROOT / "data" / "milb" / "people.parquet"
+        dr_fp = ROOT / "data" / "milb" / "draft.json"
+        src_fp = ROOT / "data" / "milb" / "prospects.json"
+        bridges: dict = {}
+        if ppl_fp.exists() and dr_fp.exists() and src_fp.exists():
+            ppl = pd.read_parquet(ppl_fp)[["id", "birth", "debut"]]
+            ppl["birth_year"] = pd.to_datetime(ppl["birth"], errors="coerce").dt.year
+            ppl["debut_year"] = pd.to_datetime(ppl["debut"], errors="coerce").dt.year
+            by_id = ppl.set_index("id")
+            # (a) draft age -> reached MLB + median years
+            draft_picks = [dp for picks in json.loads(dr_fp.read_text()).values() for dp in picks if dp.get("id")]
+            buckets = {"18 or younger": [], "19": [], "20": [], "21": [], "22": [], "23+": []}
+            for dp in draft_picks:
+                if dp["id"] not in by_id.index:
+                    continue
+                bw = by_id.loc[dp["id"], "birth_year"]
+                dy = by_id.loc[dp["id"], "debut_year"]
+                if pd.isna(bw):
+                    continue
+                age = dp["year"] - int(bw)
+                key = ("18 or younger" if age <= 18 else "23+" if age >= 23 else str(age))
+                buckets[key].append((dy is not None and not pd.isna(dy), (int(dy) - dp["year"]) if (not pd.isna(dy) and dy >= dp["year"]) else None))
+            draft_age = []
+            for key, vals in buckets.items():
+                if not vals:
+                    continue
+                years = sorted(y for _, y in vals if y is not None)
+                draft_age.append({"bucket": key, "n": len(vals),
+                                  "reachedPct": f(100 * sum(1 for rch, _ in vals if rch) / len(vals), 1),
+                                  "medianYears": years[len(years) // 2] if years else None})
+            bridges["draftAge"] = draft_age
+            # (b) first top-100 tier -> debut age + pooled post-debut wOBA by age
+            raw_ranks = json.loads(src_fp.read_text())
+            first_rank: dict = {}
+            for y, lists in sorted(raw_ranks.items(), key=lambda kv: int(kv[0])):
+                for r0 in lists.get("top100", []) or []:
+                    pid = int(r0["id"])
+                    if pid not in first_rank:
+                        first_rank[pid] = (int(y), int(r0["rank"]))
+            tier_of = {}
+            for pid, (y, rank) in first_rank.items():
+                tier_of[pid] = ("top 10" if rank <= 10 else "11-25" if rank <= 25 else "26-50" if rank <= 50 else "51-100")
+            tiers = {}
+            for pid, tier in tier_of.items():
+                if pid not in by_id.index:
+                    continue
+                dw = by_id.loc[pid, "debut_year"]
+                bw = by_id.loc[pid, "birth_year"]
+                if pd.isna(dw):
+                    continue
+                c = tiers.setdefault(tier, {"n": 0, "debutAges": [], "pa": {}})
+                c["n"] += 1
+                if not pd.isna(bw):
+                    c["debutAges"].append(int(dw) - int(bw))
+            # pooled wOBA by age per tier from the batter-season aggregate
+            wo_g = ag_wo.assign(tier=[tier_of.get(int(b), None) for b in ag_wo["batter"]])
+            for tier in ("top 10", "11-25", "26-50", "51-100"):
+                c = tiers.setdefault(tier, {"n": 0, "debutAges": [], "pa": {}})
+                sub = wo_g[wo_g["tier"] == tier]
+                for a, grp in sub.groupby("age"):
+                    c["pa"][int(a)] = {"seasons": len(grp), "woba": f(grp["v"].mean(), 3)}
+            bridges["tiers"] = []
+            for tier in ("top 10", "11-25", "26-50", "51-100"):
+                c = tiers.get(tier)
+                if not c:
+                    continue
+                das = sorted(c["debutAges"])
+                bridges["tiers"].append({"tier": tier, "n": c["n"],
+                                         "medianDebutAge": das[len(das) // 2] if das else None,
+                                         "byAge": [{"age": a, "seasons": c["pa"][a]["seasons"], "woba": c["pa"][a]["woba"]}
+                                                   for a in sorted(c["pa"]) if c["pa"][a]["seasons"] >= 5]})
+        jwrite(out / "aging" / "prospect_aging.json", {
+            "_comment": ("prospect bridges: draft-age buckets -> reached MLB and median years; first top-100 tier "
+                         "-> median debut age and mean season wOBA by age (100+ PA seasons, >=5 seasons per age)"),
+            **bridges,
+        }, sort_keys=True)
+        print(f"aging files: {n_aging}; decline rows: {len(decline_rows)}")
 
     # ----------------------------------------------------------------- meta
     # The manifest doubles as the sync audit: per-file bytes + sha (16) so a

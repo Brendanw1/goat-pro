@@ -1,9 +1,10 @@
-import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard, getLoadProfile, getLoadIndex } from "@/lib/data";
+import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard, getLoadProfile, getLoadIndex, getAgingTrack, getAgingCurves } from "@/lib/data";
 import { vaaZoneRows } from "@/lib/vaa-zone";
 import { profilePercentiles } from "@/lib/percentiles";
 import { PlayerReady } from "@/components/ui/player-transition";
 import { TeamTheme } from "@/components/ui/team-theme";
 import { SeasonSelector } from "@/components/ui/season-selector";
+import { AgingStrip } from "@/components/ui/aging-strip";
 import { PlayerProfileView } from "./profile-view";
 import { HitterProfileView } from "./hitter-profile";
 import Link from "next/link";
@@ -71,6 +72,12 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
       load = { ...loadDoc, league: loadIdx?.league?.[String(loadDoc.season)] ?? null };
     }
   }
+
+  // By-age strip (depth item 7): his track on the league curve, both roles.
+  const [agingTrack, agingCurves] = await Promise.all([
+    getAgingTrack(id),
+    getAgingCurves(),
+  ]);
 
   const pctSeason = String(profile?.season ?? hitter?.season ?? season ?? "");
   const percentiles = hitter
@@ -163,7 +170,9 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           </span>
         )}
       </div>
-{hitter ? (
+<AgingStrip track={agingTrack} curve={hitter ? agingCurves?.batSpeed ?? agingCurves?.woba : agingCurves?.ffVelo}
+        role={hitter ? "batter" : "pitcher"} season={detSeason} />
+      {hitter ? (
         <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}
           scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} running={running} initialTab={tab} level={level} />

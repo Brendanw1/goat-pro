@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/fatigue", label: "Fatigue" },
   { href: "/abs", label: "ABS" },
   { href: "/wpa", label: "WPA" },
+  { href: "/aging", label: "Aging" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/scouting/savant", label: "Savant boards" },
   { href: "/glossary", label: "Glossary" },
