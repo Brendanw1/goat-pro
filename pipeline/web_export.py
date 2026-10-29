@@ -2679,8 +2679,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             columns = [{"key": "player", "label": "Player", "align": "left"},
                        {"key": "season", "label": "Season", "align": "right"}]
             pidxF = ROOT / "data" / "export" / "web" / "player_index.json"
-        player_index_ids = set(json.loads(pidxF.read_text())) if pidxF.exists() else set()
-        seen = set()
+            player_index_ids = set(json.loads(pidxF.read_text())) if pidxF.exists() else set()
+            seen = set()
             for row in all_rows[:5]:
                 for k in row:
                     if k not in ("player", "id", "season") and k not in seen:

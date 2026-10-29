@@ -107,5 +107,5 @@ finds it at `~/Projects/vt_baseball/savant_mart` by default; set `SAVANT_MART`
 ## License
 
 Code: MIT (see `LICENSE`). The Statcast and MLB data — and the player headshots hot-linked from
-MLB's official photo CDN (`img.mlbstatic.com`, mirrored to this bucket as insurance by
+MLB's official photo CDN (`img.mlbstatic.com`, mirrored to this bucket (mlb-headshots/, outside the bake-sync scope) as insurance by
 `pipeline/headshots.py`) — remain subject to MLB Advanced Media's terms. Team logos are trademarks of their clubs.

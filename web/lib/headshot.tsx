@@ -6,7 +6,7 @@
  * retina without shipping the 426px original to a thumbnail.
  *
  * Terms: MLB Advanced Media content, like the Savant data — attribution lives
- * in the README. The polite mirror in pipeline/headshots.py is an insurance
+ * in the README. The polite mirror in pipeline/headshots.py (R2 mlb-headshots/, outside the sync scope) is an insurance
  * copy in R2 (headshots/{id}.png); the site reads the CDN directly so photos
  * stay current and our bucket holds nothing load-bearing.
  */

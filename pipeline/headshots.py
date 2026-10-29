@@ -1,4 +1,4 @@
-"""D-32 insurance mirror of MLB's headshot CDN into R2 (headshots/{id}.png). The SITE hot-links the
+"""D-32 insurance mirror of MLB's headshot CDN into R2 (mlb-headshots/headshots/{id}.png — outside the goatpro/ sync scope, see the comment in main). The SITE hot-links the
 CDN directly (web/lib/headshot.tsx) so photos stay current and nothing load-bearing is stored here;
 this copy exists so a CDN change or outage cannot break the site's primary visual, and so usage can
 migrate to our bucket later without a second research pass.
@@ -67,7 +67,11 @@ def main() -> None:
     s3 = boto3.client("s3", endpoint_url=env["R2_ENDPOINT"], aws_access_key_id=env["R2_ACCESS_KEY_ID"],
                       aws_secret_access_key=env["R2_SECRET_ACCESS_KEY"],
                       config=Config(max_pool_connections=2, retries={"max_attempts": 5, "mode": "adaptive"}))
-    bucket, prefix = env["R2_BUCKET_NAME"], "goatpro"
+    bucket = env["R2_BUCKET_NAME"]
+    # OUTSIDE the goatpro/ sync scope on purpose: r2_sync deletes remote keys that are not in the
+    # local tree, so anything it can see must exist under data/export/web. The mirror's keys do not;
+    # the first sync after the mirror started erased ~700 of them before its own verify stopped it.
+    prefix = "mlb-headshots"
     have = {k.rsplit("/", 1)[1].removesuffix(".png") for k in remote_etags(s3, bucket, f"{prefix}/headshots/")}
     todo = [i for i in ids if i not in have]
     print(f"{len(have)} already mirrored, {len(todo)} to fetch", flush=True)
