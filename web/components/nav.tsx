@@ -26,14 +26,16 @@ const NAV_ITEMS = [
   { href: "/glossary", label: "Glossary" },
 ] as const;
 
-/* Baseball seams for the badge: two bold vertical arcs bowing out to the
-   edges — the curve itself is the visible seam — each carried by a red line
-   and stitched ticks laid perpendicular to it. Computed once at import;
+/* Baseball seams for the badge, matched to the owner's 3D reference: the
+   perspective view — a dominant strand entering just right of the top apex,
+   bowing deep across the face, exiting at the lower right; a second strand
+   hugging the left limb from upper-left to lower-left. Each carried by a red
+   line with stitched ticks laid perpendicular to it. Computed once at import;
    rendered as static SVG (no JS at runtime) and faded so the wordmark sits
    on top of it. */
 const SEAM_CURVES = [
-  { d: "M13.5 5 C6 15 6 33 13.5 43", p0: [13.5, 5], p1: [6, 15], p2: [6, 33], p3: [13.5, 43] },
-  { d: "M34.5 5 C42 15 42 33 34.5 43", p0: [34.5, 5], p1: [42, 15], p2: [42, 33], p3: [34.5, 43] },
+  { d: "M27 5.5 C8 18 8 34 32 39.5", p0: [27, 5.5], p1: [8, 18], p2: [8, 34], p3: [32, 39.5] },
+  { d: "M14.5 7.5 C21 20 21 34 14.5 40.5", p0: [14.5, 7.5], p1: [21, 20], p2: [21, 34], p3: [14.5, 40.5] },
 ];
 const SEAM_TICKS: Array<{ x1: number; y1: number; x2: number; y2: number }> = (() => {
   const ticks = [];
