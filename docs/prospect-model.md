@@ -346,3 +346,45 @@ full-scale NUTS fit is estimated at over 6 hours.
 3. Re-read sleepers when more matured years exist.
 
 Nothing is displayed until the owner reviews it.
+
+## 9. Speed of the §99 Bayesian fit (2026-10-29)
+
+Profile and configs on the §99f NUTS diagnostic subsample (750 hitters, arrival fold 2018, dev; 500 warm-up + 500 draws per
+chain). Scratch scripts kept out of the repo; `pipeline/prospect_bayes_bench.py` times the full data on any device.
+
+- **Profile.** 0.33 ms per gradient; mean tree depth 7 (127 leapfrog steps), step size ≈ .045, no max-depth hits, 0
+  divergences. Low ESS is only the noise scale sd_eta (the z_eta funnel); every other global has ESS ≥ 269.
+- **Dead latents.** 87% of z_eta (15.6k of 18k here, 508k of 582k at full scale) are never read: step t = 0 is zeroed and
+  steps past an entity's last season feed nothing. `d["compact"] = True` samples z_eta only where it is read. These latents
+  are prior-only, so dropping them is exact; the frozen path (no flag) is unchanged.
+- **No-ops.** No (entity, season, level, league) cell repeats, so Binomial aggregation buys nothing. The model is already
+  float32 (x64 off).
+
+| config | wall | ESS sd_eta | ESS/s (sd_eta) | median global ESS | max \|z\| vs base (80 globals) |
+|---|---|---|---|---|---|
+| base: 2 chains sequential | 180 s | 21 | 0.12 | 782 | — |
+| compact | 156 s | 115 | 0.74 | 905 | 1.5 |
+| compact + init_to_median | 148 s | 97 | 0.66 | 801 | 1.4 |
+| compact + dense mass on globals | 125 s | 43 | 0.35 | 395 | 2.0 |
+| 4 chains parallel | 97 s | 151 | 1.55 | 1,731 | 1.5 |
+| **4 chains parallel + compact** | **70 s** | **177** | **2.53** | 1,548 | 2.3 |
+
+- Posterior match: every config's global means sit within MC error of the base run (z = Δmean / combined MC SE; max 2.3
+  across 80 parameters, as expected by chance). sd_eta ≈ .16/.15/.18 (K, BB, HR) in every config.
+- sd_eta ESS is noisy across seeds and chain counts (21 vs 115 with the same seed), so the gain is mostly from more chains
+  and fewer dimensions, not a cured funnel. A dense mass on the globals shortened trees but lowered ESS: not worth it.
+- **Finding: SVI collapses sd_eta.** AutoNormal puts sd_eta at ≈ .008–.011; NUTS at ≈ .16. Mean-field SVI treats season-to-
+  season skill noise as nearly zero. AutoLowRankMVN (rank 20, compact) did not fix it and had a worse ELBO (17,599 vs
+  17,340 subsample; 540.8k vs 533.0k on the full 2018 fold); dev raw Brier .0753 vs .0745 (AutoNormal), AUC .911 both,
+  raw ECE ≈ .10 for all (Platt is applied downstream). SVI wall time on the full fold: AutoNormal 75 s, compact 34 s,
+  low-rank 59 s.
+- **Full-scale NUTS on CPU (compact, hitters, fold 2018: 24k entities, 147k latents, 64k lines).** 2.9 ms per gradient,
+  but trees run near max depth (≈ 950 leapfrog steps per iteration), so ≈ 2.6 s per iteration: 1,000 + 1,000 iterations ≈
+  1.5 h per chain, ≈ 1.5–2 h wall for 4 parallel chains on 4 cores. Pitchers (4 skills) and the non-compact model cost more.
+- **GPU.** The per-gradient work is small (64k lines), so a GPU mostly buys vectorized chains: expect ~1 ms per gradient
+  and 4–8 chains for about the cost of one, i.e. ≈ 30–60 min for 4 chains. Estimate only; run the bench to confirm.
+  `python pipeline/prospect_bayes_bench.py --compact --chains 4` needs `data/milb/prospect_snapshots.parquet` (19.2 MB),
+  `hist_hitters.parquet` (1.4 MB), `hitters.parquet` (0.9 MB), `hist_pitchers.parquet` (1.4 MB), `pitchers.parquet`
+  (1.0 MB), plus `pipeline/prospect_bayes.py` and `pipeline/prospect_backtest.py`. Public data only.
+- **Next.** The tree depth, not the gradient, is the cost: a reparameterisation of the sd_eta funnel (e.g. marginalising the
+  random walk with a Kalman-style likelihood) would do more than hardware. Arrival recalibration is pre-registered as §99g.

@@ -106,6 +106,7 @@ def prep(E, LC):
         reach=(E.y_val.fillna(0) > 0).values, cens=E.value_censored.fillna(False).values.astype(bool),
         train=E.train.values.astype(bool), w=E.w.values.astype(np.float32),
         mu0=np.log(r / (1 - r)).astype(np.float32),
+        live=np.flatnonzero((np.arange(T)[None, :] >= 1) & (np.arange(T)[None, :] <= last_t[:, None])),
         dims=(len(E), T, cnt.shape[1], len(seasons), len(lg_codes), len(orgs)))
     return d, E
 
@@ -136,7 +137,11 @@ def model(d, task="arr", sd_org_scale=0.02):
     sdo = numpyro.sample("sd_org", dist.HalfNormal(sd_org_scale).expand([S]))
     u_org = numpyro.sample("u_org_z", dist.Normal(0, 1).expand([NORG, S])) * sdo
     z0 = numpyro.sample("z0", dist.Normal(0, 1).expand([P, S]))
-    ze = numpyro.sample("z_eta", dist.Normal(0, 1).expand([P, T, S]))
+    if d.get("compact"):   # §99 speed: z_eta only where theta is read (1 <= t <= last_t); the rest is prior-only, so exact
+        zl = numpyro.sample("z_eta_live", dist.Normal(0, 1).expand([len(d["live"]), S]))
+        ze = jnp.zeros((P * T, S)).at[jnp.asarray(d["live"])].set(zl).reshape(P, T, S)
+    else:
+        ze = numpyro.sample("z_eta", dist.Normal(0, 1).expand([P, T, S]))
     th0 = mu + jnp.asarray(d["X"]) @ b + sd0 * z0
     step = d0 + d1 * (jnp.asarray(d["age"])[..., None] - 22) + u_org[jnp.asarray(d["org"])][:, None, :] + sde * ze
     theta = th0[:, None, :] + jnp.cumsum(step.at[:, 0, :].set(0.0), axis=1)

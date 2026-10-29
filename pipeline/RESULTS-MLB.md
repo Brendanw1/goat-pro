@@ -3765,3 +3765,28 @@ sits exactly at the +5 pp bar. Dev was .227 vs .053, so the holdout is direction
 - Arrival probabilities and the sleeper board fail.
 - Nothing is displayed: owner review comes first (coordinator rule). If the value rank is shown, it is labelled
   "forecast, value gate passed (§99f); arrival probabilities not calibrated".
+
+## §99g Era-aware arrival recalibration: pre-registration, written 2026-10-29 before any recalibration fit
+
+(Re-test promised in the §99f diagnosis of gate (a). No result is written here. The 2022–23 arrival lists and 2016–17 value
+lists are spent and are not used to fit, tune or score anything below.)
+
+- **Model.** M_arr stays the frozen §99f LGB procedure, re-run inside each training window (lists ≤ Y − 4). Only the
+  calibration map changes. NPY (frozen M_val, arrival head) gets the same map and is reported beside it, not gated.
+- **Map (one form, fixed now).** logit p = a + b · logit p_raw + δ · post, with post = 1 for list years ≥ 2020.
+  - a, b: Platt fitted on the out-of-fold dev predictions of list years 2015–2019 (pre-2020 era).
+  - δ: one era offset, fitted with a and b held, on the out-of-fold dev predictions of list years 2020–2021.
+  - Both use the existing `prospect_99_dev_preds.parquet` rows (forward chained, train lists ≤ Y − 4), so each fitted
+    pair has the same lag structure as the read.
+  - Stated limit: the 2021 list's k = 4 window closes after the 2024 season, so a forecaster on the 2024 list date could
+    not have had it. This is a retrospective test of the era term, not a point-in-time one. A point-in-time variant
+    (δ from the 2020 list only) is reported beside it, not gated.
+- **Dev check (allowed, not a gate).** Leave-one-year-out within 2020–21 (δ from one year, scored on the other).
+- **Read once:** the 2024 list, after the 2027 season closes its k = 4 window. Model trained on lists ≤ 2020. Nothing else
+  is scored with this map before then.
+- **Pass bar** (§99d gate (a), unchanged): vs B1 with the same era map, ΔBrier < 0 with the player-clustered bootstrap CI
+  (2,000 draws) excluding 0, **and** 10-bin ECE ≤ 0.02. M_arr must also not lose to NPY-with-the-map on Brier; if it does,
+  the simpler winner rule of §99d applies.
+- **Kill.** Fail → no arrival probability ships; P(MLB) stays ETA-only, labelled "descriptive, not a forecast".
+- **Logged now so it cannot move:** map form, era cut (2020), fit years (2015–19 for a, b; 2020–21 for δ), read year (2024),
+  pass bar. Any other map tried in dev is logged as exploratory and cannot be the read.
