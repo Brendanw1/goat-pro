@@ -5242,10 +5242,14 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         # per-player age tracks (any qualifying season type)
         tracks: dict = {}
         for df, kind in ((ag_ff, "ff"), (ag_bs, "bs"), (ag_ev, "ev"), (ag_wo, "wo")):
+            # MERGE per season — assignment replaced the whole entry, so the last
+            # metric (wOBA) silently erased bat speed / EV from every season it
+            # shared with them.
             for r_ in df.itertuples():
                 tr = tracks.setdefault(int(r_.pitcher if kind == "ff" else r_.batter), {})
                 tr[int(r_.season)] = {
                     "season": int(r_.season), "age": int(r_.age),
+                    **tr.get(int(r_.season), {}),
                     **({"ffVelo": f(r_.v, 1), "nPitches": int(r_.n)} if kind == "ff" else
                        {"batSpeed": f(r_.v, 1), "nSwings": int(r_.n)} if kind == "bs" else
                        {"ev": f(r_.v, 1), "nBip": int(r_.n)} if kind == "ev" else
