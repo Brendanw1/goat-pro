@@ -31,7 +31,7 @@ export default async function SavantPage({
   const sp = await searchParams;
   const family = BOARDS.some((b) => b.key === sp.board) ? sp.board! : BOARDS[0].key;
   const board = await getSavantBoard(family);
-  const season = Number(sp.season) || board?.seasons?.[0];
+  const season = Number(sp.season) || (board?.seasons?.length ? Math.max(...board.seasons) : undefined); // latest, not the bake's array head
   const rows = season && board ? board.rows.filter((r) => Number(r.season ?? r.year ?? season) === season) : board?.rows ?? [];
 
   return (

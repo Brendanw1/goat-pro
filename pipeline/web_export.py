@@ -2678,7 +2678,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 continue
             columns = [{"key": "player", "label": "Player", "align": "left"},
                        {"key": "season", "label": "Season", "align": "right"}]
-            seen = set()
+            pidxF = ROOT / "data" / "export" / "web" / "player_index.json"
+        player_index_ids = set(json.loads(pidxF.read_text())) if pidxF.exists() else set()
+        seen = set()
             for row in all_rows[:5]:
                 for k in row:
                     if k not in ("player", "id", "season") and k not in seen:
@@ -2689,10 +2691,11 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "family": family, "title": spec["title"], "source": spec["source"],
                 "source_url": "https://baseballsavant.mlb.com/leaderboard/",
                 "label": "Descriptive attributed Savant data — not a GOAT-Pro model, not a forecast",
-                # Rows open a goat-pro profile when the side exists: pitcher boards
-                # and, since wave 2b, the two batter boards. Catcher ids have no
-                # player file and render plain.
-                "link_players": family in ("expected_statistics_pitcher", "expected_statistics_batter", "bat_tracking"),
+                # D-24: link a board's names when EVERY row id is in the player index —
+                # the owner rule ("link when the id is in player_index"), decided here so
+                # the table carries no runtime lookup.
+                "link_players": all(str(int(float(r.get("id")))) in player_index_ids
+                                    for r in all_rows if r.get("id") not in (None, "")),
                 "seasons": seasons_out, "columns": columns, "rows": all_rows,
             }
             jwrite(out / "savant" / f"{family}.json", board_out)

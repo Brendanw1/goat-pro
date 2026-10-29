@@ -12,10 +12,15 @@ import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 
 const PAGE_SIZE = 25;
 
-function fmt(v: unknown): string {
+/** Column kind drives formatting: fractions get 3 decimals, percents/counts 1, integers none. */
+type Kind = "frac" | "num" | "text";
+
+function fmt(v: unknown, kind: Kind = "num"): string {
   if (v === null || v === undefined) return "—";
-  if (typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, "");
-  return String(v);
+  if (typeof v !== "number") return String(v);
+  const r = Number(v.toFixed(kind === "frac" ? 3 : 1));
+  if (r === 0) return (0).toFixed(kind === "frac" ? 3 : 1); // -0 must not survive the rounding
+  return kind === "frac" ? r.toFixed(3).replace(/^0/, "") : String(r);
 }
 
 export function SavantTable({ board }: { board: SavantBoard }) {
@@ -38,6 +43,29 @@ export function SavantTable({ board }: { board: SavantBoard }) {
       return String(av ?? "").localeCompare(String(bv ?? "")) * dir;
     });
   }, [board.rows, board.columns, q, sortBy, sortDir]);
+
+  // per-column kind (fraction vs number) and the sorted numeric values for percentile lookups —
+  // the owner ask: "percentile chips per column, within board + season". A cell earns a tint by
+  // distance from the column median and a title stating the percentile; below 30 rows it stays quiet.
+  const { kinds, ranks } = useMemo(() => {
+    const kinds: Record<string, Kind> = {};
+    const ranks: Record<string, number[]> = {};
+    for (const c of board.columns) {
+      const vals = board.rows.map((r) => r[c.key]).filter((v): v is number => typeof v === "number");
+      if (!vals.length) { kinds[c.key] = "text"; continue; }
+      kinds[c.key] = vals.every((v) => Math.abs(v) < 1) ? "frac" : "num";
+      if (vals.length >= 30) ranks[c.key] = [...vals].sort((a, b) => a - b);
+    }
+    return { kinds, ranks };
+  }, [board]);
+
+  const pctile = (key: string, v: number): { pct: number; n: number } | null => {
+    const a = ranks[key];
+    if (!a) return null;
+    let lo = 0, hi = a.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] < v) lo = m + 1; else hi = m; }
+    return { pct: Math.round((100 * lo) / a.length), n: a.length };
+  };
 
   function exportCsv() {
     const cols = board.columns;
@@ -101,18 +129,32 @@ export function SavantTable({ board }: { board: SavantBoard }) {
                 {board.columns.map((c) => {
                   const raw = r[c.key];
                   const isName = c.key === nameKey;
+                  const kind = kinds[c.key] ?? "num";
+                  const p = typeof raw === "number" && kind !== "text" ? pctile(c.key, raw) : null;
+                  // tint by distance from the median — the tails are who a scout came to see
+                  const tint = p && Math.abs(p.pct - 50) >= 25
+                    ? { backgroundColor: `rgba(227,179,65,${(0.05 + (Math.abs(p.pct - 50) - 25) / 25 * 0.09).toFixed(3)})` }
+                    : undefined;
+                  const tip = p ? `${p.pct}th percentile of ${p.n} (board + season)` : undefined;
                   return (
-                    <td key={c.key}
+                    <td key={c.key} title={tip} style={tint}
                       className={`px-1.5 text-xs truncate ${c.align === "right" ? "text-right font-data" : "text-left"} ${isName ? "text-text-primary font-medium" : "text-text-secondary"}`}>
                       {isName && r.id && board.link_players ? (
-                        <Link href={`/player/${r.id}?season=${r.season}`} className="hover:underline">{fmt(raw)}</Link>
+                        <Link href={`/player/${r.id}?season=${r.season}`} className="hover:underline">
+                          {isName && typeof r.team === "string" && /^[A-Z]{2,4}$/.test(r.team) ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <PixelTeamLogo team={r.team} size={14} />
+                              {fmt(raw, "text")}
+                            </span>
+                          ) : fmt(raw, "text")}
+                        </Link>
                       ) : isName && typeof r.team === "string" && /^[A-Z]{2,4}$/.test(r.team) ? (
                         <span className="inline-flex items-center gap-1.5">
                           <PixelTeamLogo team={r.team} size={14} />
-                          {fmt(raw)}
+                          {fmt(raw, "text")}
                         </span>
                       ) : (
-                        fmt(raw)
+                        fmt(raw, kind)
                       )}
                     </td>
                   );
