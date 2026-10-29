@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getGameReport, getGameWpa } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
+import { TeamCrest } from "@/components/ui/pixel-team-logo";
 import type { PitchType } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -101,7 +102,12 @@ export default async function GameReportPage({ params, searchParams }: {
             <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Win probability</span>
             <span className="text-[10px] text-text-dim">{wpa.home} win expectancy by inning — the swings below are the batting team&apos;s</span>
           </div>
-          <svg viewBox="0 0 940 120" className="w-full" role="img" aria-label="home win probability by inning">
+          <div className="flex items-stretch gap-2">
+          <div className="flex flex-col justify-between py-1 text-[10px] font-data text-text-dim shrink-0" aria-hidden>
+            <span className="inline-flex items-center gap-1"><TeamCrest team={wpa.home} size={16} />{wpa.home} wins</span>
+            <span className="inline-flex items-center gap-1"><TeamCrest team={wpa.away} size={16} />{wpa.away} wins</span>
+          </div>
+          <svg viewBox="0 0 940 120" className="w-full min-w-0" role="img" aria-label={`${wpa.home} win probability by inning against ${wpa.away}`}>
             {(() => {
               const W = 940, H = 120, PL = 8, PR = 8, PT = 10, PB = 16;
               const pts = wpa.timeline;
@@ -119,10 +125,12 @@ export default async function GameReportPage({ params, searchParams }: {
               );
             })()}
           </svg>
+          </div>
           {wpa.moments?.length ? (
             <div className="mt-2 grid gap-1 sm:grid-cols-2">
               {wpa.moments.slice(0, 6).map((m: any, i: number) => (
                 <div key={i} className="flex items-baseline gap-2 text-[11px] border-b border-white/[0.03] py-1">
+                  <span className="self-center shrink-0"><TeamCrest team={m.half === "Bot" ? wpa.home : wpa.away} size={13} /></span>
                   <span className="font-data text-text-dim shrink-0">{m.half === "Bot" ? "B" : "T"}{m.inning}</span>
                   <span className="text-text-secondary leading-snug flex-1">
                     <Link href={`/player/${m.batterId}`} className="hover:underline">{m.batter}</Link>

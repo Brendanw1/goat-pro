@@ -176,8 +176,8 @@ export async function getGameWpa(gid: string, level: Level = "mlb"): Promise<any
 }
 
 /** League WPA boards per season + the year's biggest swings. */
-export async function getWpaIndex(): Promise<any | null> {
-  return fetchFromR2<any>("wpa_index.json", { shared: true }).catch(() => null);
+export async function getWpaIndex(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "wpa_index.json"), { shared: true }).catch(() => null);
 }
 
 /** Draft + rank hit-rate tables (depth item 5): public-source descriptive joins. */

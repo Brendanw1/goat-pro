@@ -4,7 +4,7 @@
  * purpose. Deterministic — the same team always renders the same sprite (the
  * dither pattern is hashed off the code), nothing loads, nothing external.
  */
-import { teamPixels } from "@/lib/team-pixel";
+import { logoUrl, teamPixels } from "@/lib/team-pixel";
 
 /**
  * 5-row uppercase pixel font, rows top→bottom. Mostly 3 bits wide; M, W and N
@@ -117,4 +117,11 @@ export function PixelTeamLogo({ team, size = 18, className = "" }: { team: strin
       ))}
     </svg>
   );
+}
+
+/** The club's cap logo when we have it, else the pixel badge. */
+export function TeamCrest({ team, size = 14 }: { team: string | null | undefined; size?: number }) {
+  const crest = logoUrl(team ?? undefined);
+  // eslint-disable-next-line @next/next/no-img-element
+  return crest ? <img src={crest} alt="" width={size} height={size} className="rounded shrink-0" /> : <PixelTeamLogo team={team} size={size - 1} />;
 }

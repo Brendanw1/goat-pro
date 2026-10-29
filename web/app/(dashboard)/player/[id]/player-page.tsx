@@ -7,6 +7,7 @@ import { SeasonSelector } from "@/components/ui/season-selector";
 import { PlayerProfileView } from "./profile-view";
 import { HitterProfileView } from "./hitter-profile";
 import Link from "next/link";
+import { WpaAbsStrip } from "@/components/ui/wpa-abs-strip";
 
 /** The profile page body for one level: MLB at /player/[id], AAA Statcast at /minors/player/[id]. */
 export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
@@ -126,6 +127,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
         </div>
       )}
       <SeasonSelector id={id} seasons={career?.seasons ?? null} current={detSeason} level={level} />
+      {detSeason ? <WpaAbsStrip id={id} season={detSeason} level={level} name={(hitter ?? profile)?.name} team={(hitter ?? profile)?.team} /> : null}
       <div className="no-print flex flex-wrap items-center gap-4">
         <Link href={`/player/${id}/sheet?season=${detSeason}${level === "aaa" ? "&level=aaa" : ""}`}
           className="text-[11px] text-text-dim hover:text-text-secondary underline-offset-2 hover:underline">
