@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 /**
  * Hitter profile, wave-2b surface: slash header, measured percentile panel
  * (production, contact quality, discipline), the batted-ball mix, and splits
@@ -183,6 +185,12 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
         style={{ background: shade ? "rgba(255,255,255,0.02)" : undefined }}>
         <div>
           <div className="flex items-center gap-2.5">
+            <Link
+              href={level === "aaa" ? "/minors" : "/hitters"}
+              className="px-3 py-1.5 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] active:scale-[0.95] transition-all duration-150"
+            >
+              ← Back
+            </Link>
             {crest ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={crest} alt="" width={36} height={36} className="rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
