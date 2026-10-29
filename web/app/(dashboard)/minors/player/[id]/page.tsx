@@ -1,6 +1,7 @@
 import { getPlayerProfile, getHitterProfile, getMinorsIndex, getMinorsLines } from "@/lib/data";
 import { PlayerPage } from "../../../player/[id]/player-page";
 import { CareerByLevel } from "@/components/ui/career-by-level";
+import { MlePanel } from "@/components/ui/mle-panel";
 import { PlayerReady } from "@/components/ui/player-transition";
 import { TransactionsPanel } from "@/components/ui/transactions-panel";
 import { getTransactions } from "@/lib/data";
@@ -48,7 +49,7 @@ export default async function MinorsPlayerPage({ params, searchParams }: {
           </span>
         </div>
         <PlayerPage id={id} season={season} level="aaa"
-          extra={<><CareerByLevel id={id} /><TransactionsPanel tx={tx} /></>} />
+          extra={<><MlePanel id={id} /><CareerByLevel id={id} /><TransactionsPanel tx={tx} /></>} />
       </div>
     );
   }
@@ -134,6 +135,7 @@ export default async function MinorsPlayerPage({ params, searchParams }: {
           </p>
         </div>
       )}
+      <MlePanel id={id} />
       <CareerByLevel id={id} />
       <TransactionsPanel tx={tx} />
     </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { sortComparator } from "@/lib/table-sort";
-import { getMinorsIndex, getMinorsLines, getPitchers, getHitters } from "@/lib/data";
+import { getMinorsIndex, getMinorsLines, getPitchers, getHitters, getTranslation, getTranslationFactors } from "@/lib/data";
 
 export const metadata = { title: "Minors" };
 
@@ -22,6 +22,11 @@ const LEVEL_LABEL: Record<string, string> = { ROK: "Rookie" };
 const PAGE = 100;
 
 type Col = { key: string; label: string; nd?: number; lead?: boolean; asc?: boolean; model?: boolean; tip?: string };
+/** MLB-equivalent columns (RESULTS-MLB §88): AAA and AA rows only; the tip carries each level's verdict. */
+const MLE: Record<"pitchers" | "hitters", Col[]> = {
+  pitchers: [{ key: "kPct", label: "MLE K%", nd: 1 }, { key: "bbPct", label: "MLE BB%", nd: 1, asc: true }, { key: "fip", label: "MLE FIP", nd: 2, asc: true }],
+  hitters: [{ key: "kPct", label: "MLE K%", nd: 1, asc: true }, { key: "bbPct", label: "MLE BB%", nd: 1 }, { key: "iso", label: "MLE ISO", nd: 3, lead: false }, { key: "woba", label: "MLE wOBA", nd: 3, lead: false }],
+};
 const MODEL_TIP = "MLB-trained model scored on AAA pitches (display only); AAA 2023+ rows";
 const COLS: Record<"pitchers" | "hitters", Col[]> = {
   pitchers: [
@@ -129,12 +134,19 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
     // AAA rows pick up the AAA Statcast board's model numbers (same id + season)
     const aaa = seasonSel && seasonSel >= 2023 ? (kind === "pitchers" ? await getPitchers("aaa") : await getHitters("aaa")) : null;
     const byId = new Map((aaa ?? []).filter((r: any) => r.season === seasonSel).map((r: any) => [String(r.id), r]));
-    cols = [...COLS[kind], ...LINE_MODEL[kind]];
+    const [mleFile, factors] = seasonSel ? await Promise.all([getTranslation(kind, seasonSel), getTranslationFactors()]) : [null, null];
+    const mleBy = new Map((mleFile?.rows ?? []).map((r: any) => [`${r.id}-${r.level}`, r]));
+    const VLABEL: Record<string, string> = { tested: "tested", provisional: "provisional (passed a re-test on already-read rows; confirm on 2026 → 2027)" };
+    const verdict = (k: string) => ["AAA", "AA"].map((l) => `${l}: ${VLABEL[factors?.levels?.[l]?.[kind]?.verdict?.[k]] ?? "descriptive, not a forecast"}`).join("; ");
+    const mleCols: Col[] = MLE[kind].map((c) => ({ ...c, key: `mle_${c.key}`, model: true, tip: `MLB-equivalent (§88), AAA/AA rows. ${verdict(c.key)}` }));
+    cols = [...COLS[kind], ...mleCols, ...LINE_MODEL[kind]];
     rows = (file?.rows ?? [])
       .filter((r: any) => (level === "All" || r.level === level) && (!team || r.team === team) && (r[floorKey] ?? 0) >= min && ageOk(r))
       .map((r: any) => {
         const m: any = r.level === "AAA" ? byId.get(String(r.id)) : null;
-        return m ? { ...r, ...Object.fromEntries(LINE_MODEL[kind].map((c) => [c.key, m[c.key]])) } : r;
+        const e: any = mleBy.get(`${r.id}-${r.level}`);
+        const withMle = e ? { ...r, ...Object.fromEntries(MLE[kind].map((c) => [`mle_${c.key}`, e[c.key]])) } : r;
+        return m ? { ...withMle, ...Object.fromEntries(LINE_MODEL[kind].map((c) => [c.key, m[c.key]])) } : withMle;
       });
     var seasonShown = seasonSel;
   }
@@ -158,7 +170,7 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
       <p className="text-xs text-text-dim max-w-[70ch]">
         {src === "sc"
           ? "The AAA Statcast board: the same advanced read the MLB side carries — CSW%, whiff, chase, run value, exit-velocity quality — over tracked AAA pitches from 2023. The shaded columns are models: Whiff+, K+ and Prevention+ are the MLB-trained models scored on AAA pitches (MLB model on AAA data, display only; of the three only the K gain was confirmed at AAA), and xwOBA reads contact quality."
-          : `Season lines for every level from the MLB Stats API, ${lineSeasons[0]}–${lineSeasons[lineSeasons.length - 1]}. The shaded model columns fill only for AAA rows from 2023 (the only level with tracked pitches); switch to the Statcast board for the full advanced read.`}
+          : `Season lines for every level from the MLB Stats API, ${lineSeasons[0]}–${lineSeasons[lineSeasons.length - 1]}. The shaded MLE columns are MLB-equivalent lines for AAA and AA rows (park- and league-adjusted, translated, regressed; hover for which are tested forecasts and which are descriptive). The other shaded model columns fill only for AAA rows from 2023 (the only level with tracked pitches); switch to the Statcast board for the full advanced read.`}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         {(["pitchers", "hitters"] as const).map((k) => (
