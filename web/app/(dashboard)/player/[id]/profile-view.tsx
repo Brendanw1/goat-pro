@@ -337,6 +337,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
     initialTab && TABS_FOR.pitcher.some((x) => x.key === initialTab) ? initialTab : "overview");
   const pitches = profile.pitches || [];
   const rows = pitches;
+  const sequences = (profile as any).sequences as any[] | undefined;
 
   const pitcherBp = percentiles?.pitchers ?? null;
   const perTypeBp = percentiles?.pitchers_per_type ?? null;
@@ -476,7 +477,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                 <div className="w-[48px] text-right text-xs font-data text-text-secondary">{pitch.cswPct?.toFixed(1)}%</div>
                 <div className="w-[48px] text-right text-xs font-data text-text-secondary">{pitch.zonePct?.toFixed(1)}%</div>
                 <div className="w-[52px] text-right text-xs font-data text-text-secondary">{pitch.chasePct?.toFixed(1)}%</div>
-                <div className="w-[100px] text-right text-xs font-data leading-tight" title={STUFF_TIP}>
+                <div className="w-[100px] text-right text-xs font-data leading-tight"
+                  title={pitch.classRank ? `${STUFF_TIP} League rank this season among qualified ${pitch.pitchType} seasons: whiff #${pitch.classRank.whiff ?? "—"} of ${pitch.classRank.n}, velo #${pitch.classRank.velo ?? "—"}, RV/100 #${pitch.classRank.rv ?? "—"}.` : STUFF_TIP}>
                   {gradeCell(pitch.stuffPlus, "stuffPlus")}
                 </div>
                 {!compact && (
@@ -669,6 +671,27 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           </div>
           {arsenalCard(false)}
           <TunnelPairs pairs={profile.tunnelPairs} tunnelPlus={profile.tunnelPlus} nPairs={profile.tunnelPairsN} rankable={profile.tunnelRankable} />
+          {sequences && sequences.length > 0 && (
+            <div className="glass-panel p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold text-text-primary">Sequences</h3>
+                <span className="text-[10px] text-text-dim">within plate appearances · descriptive (§57: sticky, not forecast-useful)</span>
+              </div>
+              <div className="mt-2 space-y-1 text-xs font-data">
+                {sequences.map((s: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="w-24 text-text-primary">{s.from} → {s.to}</span>
+                    <span className="w-14 text-right text-text-secondary">{s.p.toFixed(1)}%</span>
+                    <span className="w-40 text-text-dim">{s.n}× after {s.from}{s.lgP != null ? ` · league ${s.lgP.toFixed(1)}%` : ""}</span>
+                    <span className={`text-[10px] ${s.p >= (s.lgP ?? 0) ? "text-usf-green" : "text-text-dim"}`}>
+                      {s.lgP != null ? (s.p >= s.lgP ? `+${(s.p - s.lgP).toFixed(1)} vs league` : `${(s.p - s.lgP).toFixed(1)} vs league`) : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] text-text-dim">His most-used back-to-back pairs: how often the second pitch follows the first inside a plate appearance, against the same season&apos;s league rate for that pair.</p>
+            </div>
+          )}
           {/* Per-type percentiles beside VAA by zone: two mid-height cards in one row. */}
           <div className={`grid grid-cols-1 gap-4 ${vaaByZone && vaaByZone.length > 0 ? "lg:grid-cols-[1fr_360px]" : ""}`}>
             {/* Per-pitch percentiles, same row component, ranked against that pitch type */}

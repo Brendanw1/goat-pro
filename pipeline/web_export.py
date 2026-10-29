@@ -1914,6 +1914,33 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     f"stuffVs{h}": f(pl.grade, 1), f"stuffVs{h}Shrunk": f(pl.grade_shrunk, 1),
                     f"stuffVs{h}Lo": f(pl.lo, 1), f"stuffVs{h}Hi": f(pl.hi, 1),
                     f"usageVs{h}": f(pl.usage, 1), f"nVs{h}": int(pl.n)})
+        # D-11 pitch rank: where each type sits in the season's qualified league population
+        _ql = bytype[bytype["n"] >= SABR_FLOORS["row"]].copy()
+        _ql["wq"] = 100 * _ql["whiff"] / _ql["swings"].where(_ql["swings"] > 0)
+        _ql["vq"] = 100 * _ql["rv"] / _ql["n"]
+        _rk: dict = {}
+        for (_ss, _pt), _g in _ql.groupby(["season", "pitch_type"]):
+            _rk[(int(_ss), _pt)] = {
+                "n": int(len(_g)),
+                "whiff": {int(r_.id): int(r_.wq) for r_ in
+                          _g.assign(wq=_g["wq"].rank(ascending=False)).itertuples() if pd.notna(r_.wq)},
+                "velo": {int(r_.id): int(r_.wq) for r_ in
+                         _g.assign(wq=_g["velo"].rank(ascending=False)).itertuples()},
+                "rv": {int(r_.id): int(r_.wq) for r_ in
+                       _g.assign(wq=_g["vq"].rank(ascending=False)).itertuples()},
+            }
+        # D-11 sequences: what follows what within a PA (usage_transitions.py), with the league baseline
+        _seq_f = ROOT / "pipeline" / "results" / "pitcher_transitions.csv"
+        seqs: dict = {}
+        if _seq_f.exists():
+            _sq = pd.read_csv(_seq_f)
+            _sq = _sq[(_sq["lg"] == 0)].sort_values("n", ascending=False)
+            for _r in _sq.to_dict("records"):  # dict rows: `from` is a keyword, itertuples would rename it
+                seqs.setdefault((int(_r["id"]), int(_r["season"])), []).append(
+                    {"from": _r["from"], "to": _r["to"], "n": int(_r["n"]),
+                     "p": round(100 * _r["p"], 1), "lgP": round(100 * _r["lgP"], 1) if pd.notna(_r["lgP"]) else None})
+            for k in seqs:
+                seqs[k] = seqs[k][:6]
         player_index = {}
         written_pairs: set[tuple[int, int]] = set()
         written_latest: set[int] = set()
@@ -1970,6 +1997,11 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "stuffGradeFrom": None if (pid, season, site) in type_grade else p_host.get(site),
                     "gyro": site == "SL" and (pid, season, "SL") in type_gyro or None,
                     "twin": twin_of(pid, site, b["velo"], b["ivb"], b["hb"]),
+                    "classRank": (_rk.get((season, b["pitch_type"])) and {
+                        "n": _rk[(season, b["pitch_type"])]["n"],
+                        "whiff": _rk[(season, b["pitch_type"])]["whiff"].get(pid),
+                        "velo": _rk[(season, b["pitch_type"])]["velo"].get(pid),
+                        "rv": _rk[(season, b["pitch_type"])]["rv"].get(pid)}) or None,
                     "pitchingPlus": f(pg, 1) if pg is not None else None,
                     # no per-type ABStuff+: train_mlb grades it per pitcher only (abs_grade)
                     **platoon.get((pid, season, site), {}),
@@ -2019,6 +2051,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 **{k: f(gr_row[c], 3 if c == "k_proj" else 1) for c, k in P7_FIELDS.items()},
                 "confidence": gr_row["confidence"],
                 "pitches": pitch_rows, "battedBall": bb_rows, "movementProfile": mv,
+                "sequences": seqs.get((pid, season)),
                 "movementCloud": [
                     {"t": c0, "x": c1, "y": c2}
                     for (c0, c1, c2) in cloud_by_player.get((pid, season), [])
