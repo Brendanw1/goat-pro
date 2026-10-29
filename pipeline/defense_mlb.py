@@ -5,6 +5,7 @@
     python defense_mlb.py --demo   # self-check of the credit split
     python defense_mlb.py --v2     # §80 re-test (isotonic recalibration), writes defense_v2_SEALED.json
     python defense_mlb.py --v3     # §81 re-test (+ Savant start positions, hang time; range only), *_v3 outputs
+    python defense_mlb.py --v4     # §96 re-test (+ the responsible fielder's own sprint speed; range only), *_v4 outputs
     python defense_mlb.py --artifacts  # same fits, writes only cache/defense_chances + framing_pitches parquets
 
 Every model is fit WITHIN a season (2026 changed Statcast's plate/zone conventions) and scored out of fold:
@@ -35,9 +36,10 @@ OUTS = ("field_out", "force_out", "grounded_into_double_play", "double_play", "t
 IF_POS, OF_POS = (3, 4, 5, 6), (7, 8, 9)
 SAVANT_IF, SAVANT_OF = {"1B", "2B", "3B", "SS"}, {"LF", "CF", "RF"}
 FRAMING_MIN = 2000
-V3 = "--v3" in sys.argv  # §81: + Savant average start positions and physics hang time (implies V2)
+V4 = "--v4" in sys.argv  # §96: + the responsible fielder's own sprint speed and the reach split (implies V3)
+V3 = "--v3" in sys.argv or V4  # §81: + Savant average start positions and physics hang time (implies V2)
 V2 = "--v2" in sys.argv or V3  # §80: isotonic recalibration of the range model
-SFX = "_v3" if V3 else ""
+SFX = "_v4" if V4 else "_v3" if V3 else ""
 POSITIONS = PIPE.parent / "cache" / "fielder_positions.parquet"  # fielder_positions.py
 RANGE_SQL = """
 SELECT game_pk, game_date, inning, inning_topbot AS half, batter, stand, events, launch_speed AS ev, launch_angle AS la, hit_distance_sc AS dist,
@@ -130,6 +132,17 @@ def hang_time(ev, la, dist, h0=3.0, dt=0.02, iters=20):
     return fly((lo + hi) / 2)[1]
 
 
+def f_sprint_feature(d, sf, sp):
+    """§96: the responsible fielder = the position achieving the min of the §81 distances (d_of for air balls,
+    d_if otherwise); his own lb_sprint_speed, median-filled like the batter's."""
+    air = d["la"].to_numpy() >= 10
+    idx = np.where(air, 4 + sf[["d7", "d8", "d9"]].to_numpy().argmin(1),
+                   sf[["d3", "d4", "d5", "d6"]].to_numpy().argmin(1))
+    F = np.stack([d[f"fielder_{k}"].to_numpy() for k in range(3, 10)], 1)
+    fill = sp.median() if len(sp) else 27.0
+    return pd.Series(F[np.arange(len(d)), idx]).map(sp).fillna(fill).to_numpy()
+
+
 def start_features(d, s):
     """§81: each fielder's Savant average start (hand x runner on first x shifted cell; league mean of the cell
     when the fielder has < 10 plays in it) -> OF distance to the fielded point, IF lateral distance to the path."""
@@ -166,8 +179,13 @@ def range_season(con, s):
     for c in ("ifa", "ofa", "home_team", "stand"):
         d[c] = d[c].astype("category")
     X = d[["ev", "la", "dist", "spray", "stand", "ifa", "ofa", "outs", "r1", "r2", "r3", "sprint", "home_team"]]
+    sf, fs = None, None
     if V3:
-        X = pd.concat([X, start_features(d, s)], axis=1)
+        sf = start_features(d, s)
+        X = pd.concat([X, sf], axis=1)
+        if V4:
+            fs = f_sprint_feature(d, sf, sp)
+            X["f_sprint"] = fs
     y = d["events"].isin(OUTS).to_numpy().astype(int)
     p = oof(X, y, d["game_pk"])
     if V2:
@@ -185,6 +203,12 @@ def range_season(con, s):
     c = credit(y == 1, d["hit_location"].to_numpy(dtype=float), p, resp)
     rv = d.assign(out=y).groupby(["air", "out"])["drun"].mean().unstack()
     rv_diff = d["air"].map(rv[0] - rv[1]).to_numpy()  # batter runs of a non-out minus an out
+    extra = {}
+    if V4:
+        air = d["la"].to_numpy() >= 10
+        # §96 schema (not model): per-play reach class of the responsible OFer; NaN where there is no flight time
+        extra = {"hang": sf["hang"].to_numpy(), "req_speed": sf["req_speed"].to_numpy(), "f_sprint": fs,
+                 "reach": np.where(air, (fs >= sf["req_speed"].to_numpy()).astype(float), np.nan)}
     rows = []
     for k in range(3, 10):
         rows.append(pd.DataFrame({"mlbam": d[f"fielder_{k}"].to_numpy(), "pos": k, "game_pk": d["game_pk"].to_numpy(),
@@ -194,7 +218,8 @@ def range_season(con, s):
                                   "la": d["la"].to_numpy(), "spray": d["spray"].to_numpy(), "fx": d["fx"].to_numpy(),
                                   "fy": d["fy"].to_numpy(), "stand": d["stand"].astype(str).to_numpy(),
                                   "date": d["game_date"].astype(str).to_numpy(), "inning": d["inning"].to_numpy(),
-                                  "half": d["half"].to_numpy(), "outs": d["outs"].to_numpy(), "event": d["events"].to_numpy()}))
+                                  "half": d["half"].to_numpy(), "outs": d["outs"].to_numpy(), "event": d["events"].to_numpy(),
+                                  **extra}))
     meta = {"auc": round(float(roc_auc_score(y, p)), 4), "decile_gap": round(max_decile_gap(y, p), 4),
             "n": int(len(d)), "out_rate": round(float(y.mean()), 4), "rv_diff": {int(a): round(float(v), 4) for a, v in (rv[0] - rv[1]).items()}}
     print(s, "range", meta, flush=True)
@@ -248,6 +273,22 @@ def yoy(df, ids, cols):
     return {c: round(float(j[c].corr(j[c + "_next"])), 4) for c in cols} | {"n": int(len(j))}
 
 
+def reach_split(ofc, sv):
+    """§96 reported (descriptive, OF): credit split by whether the responsible fielder's own speed covers the
+    required one. Classes are approximate: average starts and a drag-only hang time."""
+    out = {"n_chances": int(len(ofc))}
+    for name, val in (("within", 1.0), ("beyond", 0.0)):
+        cc = ofc[ofc["reach"] == val]
+        fp = cc.groupby(["mlbam", "season"])[["chances", "oaa", "runs"]].sum().reset_index()
+        pg = cc.groupby(["mlbam", "season", "game_pk"])[["chances", "oaa"]].sum().reset_index()
+        j = fp.merge(sv, on=["mlbam", "season"])
+        out[name] = {"share": round(float(len(cc)) / len(ofc), 4), "made_rate": round(float(cc["made"].mean()), 4),
+                     "mean_p": round(float(cc["p"].mean()), 4), "reliability": split_half_k(pg, "chances", "oaa", 100),
+                     "yoy_oaa": yoy(fp, "mlbam", ["oaa"])["oaa"],
+                     "r_oaa": boot_r(j["oaa"], j["outs_above_average"], j["mlbam"])["r"]}
+    return out
+
+
 def demo():
     p = np.array([.7, .4])
     resp = np.zeros((2, 9))
@@ -296,6 +337,8 @@ def main(sealed=True):
                         f"FROM lb_outs_above_average_{s}").df().assign(season=s)
             sv.append(t[t["primary_pos_formatted"].isin(SAVANT_IF if g == "IF" else SAVANT_OF)])
         sv = pd.concat(sv).rename(columns={"player_id": "mlbam"})
+        if g == "OF":
+            sv_of = sv.copy()
         j = pl.merge(sv, on=["mlbam", "season"])
         ext = boot_r(j["oaa"], j["outs_above_average"], j["mlbam"])
         ext["verdict_ext"] = "PASS" if ext["ci"][0] > .50 else "FAIL"
@@ -305,13 +348,20 @@ def main(sealed=True):
                            "reliability": kk, "r_frp": round(float(j["runs"].corr(j["fielding_runs_prevented"])), 4),
                            "yoy": yoy(j, "mlbam", ["oaa", "outs_above_average"])}
         pl.loc[pl["g"] == g, "k"] = kk["k"]
+    if V4:
+        ofc = rg[(rg["pos"].isin(OF_POS)) & rg["reach"].notna()]
+        res["range"]["OF"]["reach"] = reach_split(ofc, sv_of)
+        key = pd.MultiIndex.from_arrays([pl["mlbam"], pl["season"]])
+        for name in ("within", "beyond"):
+            cc = ofc[ofc["reach"] == (1.0 if name == "within" else 0.0)].groupby(["mlbam", "season"])["runs"].sum()
+            pl[f"runs_{name}_reach"] = key.map(cc)
     pl["oaa_shrunk"] = pl["oaa"] * pl["chances"] / (pl["chances"] + pl["k"])
     pl["runs_shrunk"] = pl["runs"] * pl["chances"] / (pl["chances"] + pl["k"])
     pl.round(3).to_csv(RES / f"defense_players{SFX}.csv", index=False)
 
     if V3:
         print(json.dumps({k: v for k, v in res.items() if k != "meta"}, indent=1))
-        (RES / "defense_v3_SEALED.json").write_text(json.dumps(res, indent=1, default=str))
+        (RES / f"defense{SFX}_SEALED.json").write_text(json.dumps(res, indent=1, default=str))
         return
 
     # framing
