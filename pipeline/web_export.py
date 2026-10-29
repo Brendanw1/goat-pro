@@ -133,6 +133,7 @@ FAM_NEEDS = {
     "aging": set(),         # league aging curves, per-player age tracks, decline flags, prospect-age bridges
     "mechanism": set(),    # the physics study's published tables (MECHANISM-MLB.md) as site content
     "deception": set(),   # swing disruption vs each batter's own norm (bat tracking; probe item 4)
+    "framing": set(),     # Framing+ board from results/framing_plus.csv (pre-registered, gated vs Savant)
 }
 
 
@@ -4681,6 +4682,63 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             }, sort_keys=True)
             counts["deception_files"] = n_dec
             print(f"deception files: {n_dec}")
+
+    # ------------------------------------------------------------------ framing
+    # Framing+ (D-13 leg 1), the model-lane request the owner redirected here:
+    # results/framing_plus.csv from pipeline/framing_plus.py (PREREG first,
+    # catcher-grouped 5-fold, gates vs Savant PASSED — mean r .946, YTY
+    # non-inferior). This family only re-publishes the scored artifact with
+    # names and the referee's own numbers beside ours.
+    print(f"[{time.time() - t0:.0f}s] framing", flush=True)
+    if "framing" not in fams:
+        pass
+    elif level == "aaa":
+        print("framing: MLB-only — skipped at AAA")
+    else:
+        fp_csv = ROOT / "pipeline" / "results" / "framing_plus.csv"
+        if not fp_csv.exists():
+            print("framing: results/framing_plus.csv missing — run pipeline/framing_plus.py first")
+        else:
+            fr = pd.read_csv(fp_csv)
+            names = dict(con.sql(
+                "SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register "
+                "WHERE TRY_CAST(key_mlbam AS BIGINT) IS NOT NULL").fetchall())
+            sav = []
+            for s in sorted(fr["season"].unique()):
+                try:
+                    tb = con.sql(f"SELECT id, rv_tot FROM lb_catcher_framing_{int(s)}").df()
+                except Exception:  # noqa: BLE001
+                    continue
+                tb["season"] = int(s)
+                sav.append(tb)
+            sav_df = pd.concat(sav, ignore_index=True) if sav else pd.DataFrame(columns=["id", "rv_tot", "season"])
+            sav_map = {(int(r_.id), int(r_.season)): round(float(r_.rv_tot), 2) for r_ in sav_df.itertuples()}
+            zone_grids: dict = {}
+            zfp = ROOT / "pipeline" / "results" / "framing_zone.parquet"
+            if zfp.exists():
+                zn = pd.read_parquet(zfp)
+                for r_ in zn.itertuples():
+                    zone_grids.setdefault((int(r_.catcher), int(r_.season)), {})[f"{int(r_.zi)}-{int(r_.xi)}"] = {
+                        "r": float(r_.resid_mean), "n": int(r_.n)}
+            rows_out: dict = {}
+            for r_ in fr.itertuples():
+                rows_out.setdefault(str(int(r_.season)), []).append({
+                    "id": str(int(r_.catcher)), "name": names.get(int(r_.catcher)),
+                    "taken": int(r_.taken), "strikes": float(r_.strikes_above),
+                    "runs": float(r_.runs), "plus": float(r_.plus),
+                    "savantRv": sav_map.get((int(r_.catcher), int(r_.season))),
+                    "zone": zone_grids.get((int(r_.catcher), int(r_.season)) or {}) or None})
+            jwrite(out / "framing_plus.json", {
+                "_comment": ("Framing+ — strikes stolen above a catcher-grouped called-strike model's "
+                             "expectation (PREREG-framing-plus.md; gates: per-season r vs Savant's board "
+                             "mean .946 2021-26, YTY .602 vs their .600, location-dominant). runs value each "
+                             "stolen strike at the season's empirical count run-value gap (~.15); 100/10 "
+                             "scale among 2,500+ taken-pitch catchers. savantRv is THEIR board, shown beside, "
+                             "positive-good on both"),
+                "seasons": {k: sorted(v, key=lambda e: -e["plus"]) for k, v in sorted(rows_out.items())},
+            }, sort_keys=True)
+            counts["framing_rows"] = sum(len(v) for v in rows_out.values())
+            print(f"framing rows: {counts['framing_rows']}")
 
     # ------------------------------------------------------------------ swing
     # Hitter swing profiles from bat tracking (depth list item 1). MLB-only:

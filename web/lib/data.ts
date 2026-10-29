@@ -200,6 +200,11 @@ export async function getBucketBoard(season: number | string, type: string, leve
   return fetchFromR2<any>(lv(level, `buckets/${season}-${type}.json`)).catch(() => null);
 }
 
+/** Framing+ board per season with zone grids (gated vs Savant; PREREG). */
+export async function getFramingPlus(): Promise<any | null> {
+  return fetchFromR2<any>("framing_plus.json", { shared: true }).catch(() => null);
+}
+
 /** Swing-disruption profile per pitcher-season (item 10). */
 export async function getDeception(id: string, season: string | number): Promise<any | null> {
   return fetchGzippedJson<any>(`deception/${id}-${season}.json.gz`).catch(() => null);

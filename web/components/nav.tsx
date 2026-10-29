@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "@/components/search";
+import { LavaPill } from "@/components/ui/lava-bar";
 
 const NAV_ITEMS = [
   { href: "/pitchers", label: "Pitchers" },
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/abs", label: "ABS" },
   { href: "/wpa", label: "WPA" },
   { href: "/aging", label: "Aging" },
+  { href: "/framing", label: "Framing" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/buckets", label: "Buckets" },
   { href: "/scouting/savant", label: "Savant boards" },
@@ -59,12 +61,13 @@ export function Nav() {
                 shrink-0 whitespace-nowrap px-2 py-1.5 rounded-full text-[13px] font-medium press-scale nav-glow lg:px-2.5 xl:px-3 xl:text-sm 2xl:px-4
                 ${
                   isActive
-                    ? "nav-pill-active text-text-primary"
+                    ? "relative text-white overflow-hidden"
                     : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03]"
                 }
               `}
             >
-              {item.label}
+              {isActive && <LavaPill />}
+              <span className="relative">{item.label}</span>
             </Link>
           );
         })}

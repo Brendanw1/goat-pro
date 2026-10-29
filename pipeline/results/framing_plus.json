@@ -1,0 +1,80 @@
+{
+ "prereg": "pipeline/PREREG-framing-plus.md",
+ "n_taken": 2258929,
+ "min_taken": 2500,
+ "seed": 7,
+ "oof_auc": 0.9861,
+ "brier": 0.0436,
+ "top_gains": [
+  [
+   "plate_x",
+   7465105.1
+  ],
+  [
+   "plate_z",
+   3341234.4
+  ],
+  [
+   "z_h",
+   2646137.8
+  ],
+  [
+   "strikes",
+   91561.9
+  ],
+  [
+   "season_c",
+   73884.9
+  ]
+ ],
+ "location_dominant": true,
+ "gate1_agreement": [
+  {
+   "season": 2021,
+   "n": 59,
+   "r": 0.931,
+   "spearman": 0.901
+  },
+  {
+   "season": 2022,
+   "n": 59,
+   "r": 0.966,
+   "spearman": 0.951
+  },
+  {
+   "season": 2023,
+   "n": 61,
+   "r": 0.963,
+   "spearman": 0.965
+  },
+  {
+   "season": 2024,
+   "n": 57,
+   "r": 0.96,
+   "spearman": 0.949
+  },
+  {
+   "season": 2025,
+   "n": 56,
+   "r": 0.966,
+   "spearman": 0.936
+  },
+  {
+   "season": 2026,
+   "n": 56,
+   "r": 0.891,
+   "spearman": 0.886
+  }
+ ],
+ "gate1_mean_r": 0.946,
+ "gate1_pass": true,
+ "gate1_kill": false,
+ "gate2_ours_yty": 0.602,
+ "gate2_savant_yty": 0.6,
+ "gate2_ratio": 1.003,
+ "gate2_pass": true,
+ "gate2_kill": false,
+ "verdict": "SHIP",
+ "scored_catcher_seasons": 366,
+ "rv_gap_mean": 0.1468
+}
