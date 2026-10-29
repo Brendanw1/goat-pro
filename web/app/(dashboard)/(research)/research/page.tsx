@@ -7,11 +7,23 @@ const BLURB: Record<string, string> = {
   "/depth": "Where hitters meet the ball, how damage changes with it, and who is late on velocity.",
   "/plane": "Whether the bat's path matches the pitch's, and how a matched plane forgives timing.",
   "/archetypes": "Two broad swing shapes from six bat-tracking traits, each hitter's five closest swings, and how each shape ages.",
-  "/aging": "League age curves for velocity, bat speed, exit velocity and wOBA, with each player's track.",
+  "/aging": "League age curves for velocity, bat speed, exit velocity, wOBA and sprint speed, with each player's track.",
   "/tunneling": "How long pitch pairs look alike on the way in, and what it buys.",
   "/fatigue": "Times through the order, rest days and velocity fade within an outing.",
   "/buckets": "Pitch movement buckets: what each shape does against hitters, by velocity and break.",
   "/mechanism": "The physics study behind Whiff+: which pitch traits drive whiffs, and why.",
+};
+
+/** The RESULTS-MLB verdict behind each card, so the landing states what was tested, not just what is shown. */
+const VERDICT: Record<string, string> = {
+  "/depth": "§89 · descriptive",
+  "/plane": "§90b · confirmed read",
+  "/archetypes": "§94 · descriptive",
+  "/aging": "measured · descriptive",
+  "/tunneling": "§74 · descriptive",
+  "/fatigue": "descriptive",
+  "/buckets": "descriptive",
+  "/mechanism": "physics study · descriptive",
 };
 
 export default function ResearchIndex() {
@@ -25,7 +37,12 @@ export default function ResearchIndex() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {RESEARCH_SECTIONS.map((s) => (
           <Link key={s.href} href={s.href} className="glass-panel block p-4 transition-colors hover:bg-white/[0.04]">
-            <div className="text-sm font-semibold text-text-primary">{s.label}</div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-text-primary">{s.label}</span>
+              <span className="shrink-0 rounded border border-usf-gold/40 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-usf-gold">
+                {VERDICT[s.href]}
+              </span>
+            </div>
             <p className="mt-1 text-xs text-text-dim">{BLURB[s.href]}</p>
           </Link>
         ))}

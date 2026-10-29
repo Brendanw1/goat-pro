@@ -114,7 +114,9 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
                       ? r.savOaa - r.oaaOurs : null;
                     const note = gap != null && Math.abs(gap) >= 8
                       ? `Differs from our ${fmt(r.oaaOurs)} by ${fmt(Math.abs(gap))} runs — the measured elite-range compression (RESULTS-MLB §97/§100): Savant grades per-play positioning and routes that public data does not carry.`
-                      : undefined;
+                      : c.key === "jumpBurst" && typeof r.jumpBurst === "number"
+                        ? `Savant Jump, feet vs league — burst ${fmt(r.jumpBurst)}, reaction ${fmt(r.jumpReaction, 1)}, routing ${fmt(r.jumpRouting, 1)}, bootup ${fmt(r.jumpBootup, 1)}. Shown beside our runs per §100: what their per-play tracking sees that public chance data cannot.`
+                        : undefined;
                     return (
                       <td key={c.key} title={note} className={`px-2 py-1.5 text-right ${c.key === sortKey ? "text-text-primary" : "text-text-secondary"}`}>
                         {fmt(r[c.key], c.key === "chances" ? 0 : 1)}

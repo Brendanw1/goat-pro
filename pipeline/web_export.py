@@ -4841,13 +4841,16 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             POS_LABEL = {3: "1B", 4: "2B", 5: "3B", 6: "SS", 7: "LF", 8: "CF", 9: "RF"}
             SAV_OF = {"LF", "CF", "RF", "OF"}
             spd = {}
-            spd_f = ROOT / "pipeline" / "results" / "speed_players.csv"  # D-39: Sprint / Speed Score / Jump burst
+            spd_f = ROOT / "pipeline" / "results" / "speed_players.csv"  # D-39: Sprint / Speed Score / Jump parts
             if spd_f.exists():
                 for sr in pd.read_csv(spd_f).itertuples():
                     spd[(int(sr.id), int(sr.season))] = {
                         "sprint": round(float(sr.sprint), 1) if pd.notna(sr.sprint) else None,
                         "speedScore": round(float(sr.speedScore), 1) if pd.notna(sr.speedScore) else None,
-                        "jumpBurst": round(float(sr.jumpBurst), 1) if pd.notna(sr.jumpBurst) else None}
+                        "jumpBurst": round(float(sr.jumpBurst), 1) if pd.notna(sr.jumpBurst) else None,
+                        "jumpReaction": round(float(sr.jumpReaction), 1) if pd.notna(sr.jumpReaction) else None,
+                        "jumpRouting": round(float(sr.jumpRouting), 1) if pd.notna(sr.jumpRouting) else None,
+                        "jumpBootup": round(float(sr.jumpBootup), 1) if pd.notna(sr.jumpBootup) else None}
             rows_out2: dict = {}
             for r_ in dv.itertuples():
                 if r_.chances < 30:
@@ -4867,7 +4870,10 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "runs": round(float(r_.runs), 1), "oaaOurs": round(float(r_.oaa), 1),
                     "savOaa": soaa, "savFrv": sav_frv.get((int(r_.mlbam), int(r_.season))),
                     "sprint": sv.get("sprint"), "speedScore": sv.get("speedScore"),
-                    "jumpBurst": sv.get("jumpBurst") if grp == "OF" else None})
+                    "jumpBurst": sv.get("jumpBurst") if grp == "OF" else None,
+                    "jumpReaction": sv.get("jumpReaction") if grp == "OF" else None,
+                    "jumpRouting": sv.get("jumpRouting") if grp == "OF" else None,
+                    "jumpBootup": sv.get("jumpBootup") if grp == "OF" else None})
             jwrite(out / "defense_index.json", {
                 "_comment": ("league range board: §81's chance model (Savant start positions + hang time, "
                              "game-grouped folds, AUC .94-.95 per season) — runs vs an average fielder at the "
@@ -5692,14 +5698,20 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             return [{"age": int(a), "n": int(r_["count"]), "mean": f(r_["mean"], 1)}
                     for a, r_ in g.iterrows() if r_["count"] >= 20]
 
+        # D-39: the sprint aging curve from speed_tool.py's per-age means (min 20 player-seasons per age);
+        # dict rows, not itertuples — the CSV's `count` column collides with tuple.count as an attribute.
+        spd_ag_f = ROOT / "pipeline" / "results" / "speed_aging.csv"
+        spd_ag = pd.read_csv(spd_ag_f).to_dict("records") if spd_ag_f.exists() else None
         jwrite(out / "aging" / "curves.json", {
             "_comment": ("league curves pooled 2020-26, one dot per qualified player-season (FF 100+, bat speed "
-                         "100+ swings, EV 50+ BIP, wOBA 100+ PA on Savant's scale); survival bias applies — "
-                         "each age's pool is only the players good enough to be there"),
+                         "100+ swings, EV 50+ BIP, wOBA 100+ PA on Savant's scale, sprint = Savant board rows); "
+                         "survival bias applies — each age's pool is only the players good enough to be there"),
             "ffVelo": curve(ag_ff.assign(v=ag_ff["v"].round(2)), "v"),
             "batSpeed": curve(ag_bs.assign(v=ag_bs["v"].round(2)), "v"),
             "ev": curve(ag_ev.assign(v=ag_ev["v"].round(2)), "v"),
             "woba": curve(ag_wo, "v", pooled=True),
+            **({"sprint": [{"age": int(rr["age"]), "n": int(rr["count"]), "mean": f(rr["mean"], 1)}
+                           for rr in spd_ag]} if spd_ag else {}),
         }, sort_keys=True)
 
         # per-player age tracks (any qualifying season type)

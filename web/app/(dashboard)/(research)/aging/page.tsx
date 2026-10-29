@@ -24,6 +24,7 @@ const METRICS = [
   { key: "batSpeed", label: "Bat speed", nd: 1 },
   { key: "ev", label: "Exit velocity", nd: 1 },
   { key: "woba", label: "wOBA", nd: 3 },
+  { key: "sprint", label: "Sprint speed (Sav)", nd: 1 },
 ];
 
 const fmt = (v: unknown, nd = 1): string =>
