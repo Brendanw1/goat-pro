@@ -170,6 +170,16 @@ export async function getSwingProfile(id: string, season: string | number, level
   return fetchGzippedJson<any>(lv(level, `swing/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** Per-game win-probability file: timeline + top swings (depth item 6). */
+export async function getGameWpa(gid: string, level: Level = "mlb"): Promise<any | null> {
+  return fetchGzippedJson<any>(lv(level, `wpa/${gid}.json.gz`)).catch(() => null);
+}
+
+/** League WPA boards per season + the year's biggest swings. */
+export async function getWpaIndex(): Promise<any | null> {
+  return fetchFromR2<any>("wpa_index.json", { shared: true }).catch(() => null);
+}
+
 /** Draft + rank hit-rate tables (depth item 5): public-source descriptive joins. */
 export async function getDraftHitRates(): Promise<any | null> {
   return fetchFromR2<any>("draft/hit_rates.json", { shared: true }).catch(() => null);

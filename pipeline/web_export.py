@@ -111,7 +111,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -129,6 +129,7 @@ FAM_NEEDS = {
     "load": set(),          # TTO / rest / velo-fade fatigue surfaces (self-contained; per-pitch columns)
     "draft": set(),         # draft + transactions surfaces (amateur_fetch.py outputs; MLB only)
     "pitches": set(),       # per-pitch explorer files (location/count/outcome/RV), both sides (self-contained)
+    "wpa": set(),           # win-probability layer: per-game swings + league WPA boards (self-contained)
 }
 
 
@@ -4896,6 +4897,146 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     n_tx += 1
             counts["transaction_files"] = n_tx
             print(f"hit-rate tables written; transaction files: {n_tx}")
+
+    # -------------------------------------------------------------------- wpa
+    # Win probability (depth list item 6): per-pitch delta_home_win_exp, home-
+    # team framed, 100% coverage 2020+ at both levels. A PA's batting-team
+    # swing is the telescoping per-PA sum x side (Bot +1, Top -1) — that equals
+    # the event's win-prob shift exactly. Descriptive: WPA prices context, not
+    # skill, and the glossary says so.
+    print(f"[{time.time() - t0:.0f}s] wpa", flush=True)
+    if "wpa" not in fams:
+        pass
+    else:
+        con.execute(f"""
+            CREATE OR REPLACE TEMP VIEW wpa_pa AS
+            SELECT p.game_pk, p.at_bat_number, p.season, p.batter, p.pitcher,
+                   p.inning, p.inning_topbot,
+                   first(p.home_win_exp ORDER BY p.pitch_number) AS we_home_start,
+                   sum(p.delta_home_win_exp) AS d_home,
+                   arg_max(p.events, p.pitch_number) AS ev,
+                   arg_max(p.des, p.pitch_number) AS des,
+                   arg_max(p.bat_score_diff, p.pitch_number) AS bat_diff
+            FROM pitches_all p
+            WHERE p.game_type = 'R' AND p.season IN ({season_list})
+              AND p.batter IS NOT NULL AND p.delta_home_win_exp IS NOT NULL
+            GROUP BY 1, 2, 3, 4, 5, 6, 7
+        """)
+        wpa_pa = con.sql(f"""
+            SELECT w.*, CASE WHEN w.inning_topbot = 'Bot' THEN w.d_home ELSE -w.d_home END AS swing,
+                   w.we_home_start + w.d_home AS we_home_end,
+                   r.name_first || ' ' || r.name_last AS batter_name,
+                   rp.name_first || ' ' || rp.name_last AS pitcher_name
+            FROM wpa_pa w
+            LEFT JOIN register r ON r.key_mlbam = w.batter
+            LEFT JOIN register rp ON rp.key_mlbam = w.pitcher
+        """).df()
+        # home_win_exp is stamped pre-pitch, so the PA's true end state is the
+        # first pitch's state plus the PA's deltas — end minus start IS the
+        # attribution by construction, whichever way the source stamps it.
+        wpa_pa["we_before"] = wpa_pa["we_home_start"].where(
+            wpa_pa["inning_topbot"] == "Bot", 1 - wpa_pa["we_home_start"]).round(3)
+        wpa_pa["we_after"] = wpa_pa["we_home_end"].where(
+            wpa_pa["inning_topbot"] == "Bot", 1 - wpa_pa["we_home_end"]).round(3)
+        wpa_game = con.sql(f"""
+            SELECT game_pk, season, min(game_date) AS date,
+                   min(away_team) AS away, min(home_team) AS home,
+                   max(post_away_score) AS away_runs, max(post_home_score) AS home_runs
+            FROM pitches_all
+            WHERE game_type = 'R' AND season IN ({season_list})
+              AND delta_home_win_exp IS NOT NULL
+            GROUP BY 1, 2
+        """).df()
+        n_wpa = 0
+        h_rows: dict = {}
+        p_rows: dict = {}
+        top_swings: dict = {}
+        by_game = dict(tuple(wpa_pa.groupby("game_pk", sort=True)))
+        player_games = None
+        if player is not None:
+            player_games = (set(wpa_pa.loc[wpa_pa["batter"] == player, "game_pk"])
+                            | set(wpa_pa.loc[wpa_pa["pitcher"] == player, "game_pk"]))
+        for g0 in wpa_game.itertuples():
+            if player_games is not None and g0.game_pk not in player_games:
+                continue
+            sub = by_game.get(g0.game_pk)
+            if sub is None:
+                continue
+            moments = sub.reindex(sub["swing"].abs().sort_values(ascending=False).index).head(8)
+            mom_out = [{"inning": int(m.inning), "half": m.inning_topbot,
+                        "batter": m.batter_name, "batterId": str(int(m.batter)),
+                        "pitcher": m.pitcher_name, "pitcherId": str(int(m.pitcher)),
+                        "des": m.des, "swing": f(m.swing, 3),
+                        "weBefore": f(m.we_before, 3), "weAfter": f(m.we_after, 3)}
+                       for m in moments.itertuples()
+                       if m.swing == m.swing and abs(m.swing) >= 0.05]
+            tl = sub.groupby("inning", sort=True)["we_home_end"].last()
+            timeline = [{"inning": int(k), "homeWe": f(v, 3)} for k, v in tl.items()]
+            jwrite_gz(out / "wpa" / f"{g0.game_pk}.json.gz", {
+                "gid": str(int(g0.game_pk)), "season": int(g0.season), "date": str(g0.date)[:10],
+                "away": g0.away, "home": g0.home,
+                "final": {"away": int(g0.away_runs), "home": int(g0.home_runs)},
+                "timeline": timeline, "moments": mom_out,
+            }, sort_keys=True)
+            n_wpa += 1
+            season = int(g0.season)
+            for m in sub.itertuples():
+                if m.swing != m.swing:
+                    continue
+                hc = h_rows.setdefault((int(m.batter), season),
+                                       {"id": str(int(m.batter)), "name": m.batter_name,
+                                        "pa": 0, "wpa": 0.0, "wpaPlus": 0.0, "lcWpa": 0.0, "lcPa": 0})
+                hc["pa"] += 1
+                hc["wpa"] += m.swing
+                if m.swing > 0:
+                    hc["wpaPlus"] += m.swing
+                lc = int(m.inning) >= 7 and m.bat_diff == m.bat_diff and abs(m.bat_diff) <= 1
+                if lc:
+                    hc["lcWpa"] += m.swing
+                    hc["lcPa"] += 1
+                pc = p_rows.setdefault((int(m.pitcher), season),
+                                       {"id": str(int(m.pitcher)), "name": m.pitcher_name,
+                                        "bf": 0, "wpa": 0.0, "wpaMinus": 0.0, "lcWpa": 0.0})
+                pc["bf"] += 1
+                pc["wpa"] -= m.swing
+                if m.swing < 0:
+                    pc["wpaMinus"] -= m.swing
+                if lc:
+                    pc["lcWpa"] -= m.swing
+            for mo in mom_out[:2]:
+                if abs(mo["swing"] or 0) >= 0.25:
+                    top_swings.setdefault(season, []).append(
+                        {"gid": str(int(g0.game_pk)), "date": str(g0.date)[:10],
+                         "away": g0.away, "home": g0.home, **mo})
+        idx: dict = {}
+        for (pid, season), c in h_rows.items():
+            if c["pa"] < 50:
+                continue
+            idx.setdefault(str(season), {}).setdefault("hitters", []).append({
+                **{k: c[k] for k in ("id", "name", "pa")},
+                "wpa": f(c["wpa"], 2), "wpaPlus": f(c["wpaPlus"], 2),
+                "lcWpa": f(c["lcWpa"], 2), "lcPa": c["lcPa"]})
+        for (pid, season), c in p_rows.items():
+            if c["bf"] < 50:
+                continue
+            idx.setdefault(str(season), {}).setdefault("pitchers", []).append({
+                **{k: c[k] for k in ("id", "name", "bf")},
+                "wpa": f(c["wpa"], 2), "wpaMinus": f(c["wpaMinus"], 2), "lcWpa": f(c["lcWpa"], 2)})
+        for season, sw in top_swings.items():
+            idx.setdefault(str(season), {})["topSwings"] = sorted(
+                sw, key=lambda e: -abs(e["swing"] or 0))[:12]
+        for season, doc in idx.items():
+            for key in ("hitters", "pitchers"):
+                if key in doc:
+                    doc[key] = sorted(doc[key], key=lambda e: -(e["wpa"] or 0))
+        jwrite(out / "wpa_index.json", {
+            "_comment": ("win probability per batting-team PA (telescoped from per-pitch delta_home_win_exp); "
+                         "positive = good for the batter / for the pitcher on wpa. Late & close = inning 7+ "
+                         "within one run. 50+ PA/BF gate. Descriptive: context, not skill"),
+            "seasons": dict(sorted(idx.items())),
+        }, sort_keys=True)
+        counts["wpa_files"] = n_wpa
+        print(f"wpa game files: {n_wpa}")
 
     # ----------------------------------------------------------------- meta
     # The manifest doubles as the sync audit: per-file bytes + sha (16) so a

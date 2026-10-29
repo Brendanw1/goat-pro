@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getGameReport } from "@/lib/data";
+import { getGameReport, getGameWpa } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { PitchType } from "@/types";
 
@@ -49,6 +49,7 @@ export default async function GameReportPage({ params, searchParams }: {
   const { gid } = await params;
   const level = (await searchParams)?.level === "aaa" ? "aaa" : "mlb";
   const g = await getGameReport(gid, level);
+  const wpa = await getGameWpa(gid, level);
   if (!g) {
     return (
       <div className="glass-panel p-8 text-center text-sm text-text-dim">
@@ -94,6 +95,48 @@ export default async function GameReportPage({ params, searchParams }: {
         <Link href={level === "aaa" ? "/minors" : "/pitchers"} className="text-[11px] text-text-dim hover:text-text-secondary">← Back</Link>
       </div>
 
+      {wpa?.timeline?.length ? (
+        <div className="glass-panel p-4">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Win probability</span>
+            <span className="text-[10px] text-text-dim">{wpa.home} win expectancy by inning — the swings below are the batting team&apos;s</span>
+          </div>
+          <svg viewBox="0 0 940 120" className="w-full" role="img" aria-label="home win probability by inning">
+            {(() => {
+              const W = 940, H = 120, PL = 8, PR = 8, PT = 10, PB = 16;
+              const pts = wpa.timeline;
+              const px = (i: number) => PL + (i / Math.max(1, pts.length - 1)) * (W - PL - PR);
+              const py = (v: number) => PT + (1 - Math.max(0, Math.min(1, v))) * (H - PT - PB);
+              const path = pts.map((p0: any, i: number) => `${i ? "L" : "M"}${px(i).toFixed(1)},${py(p0.homeWe).toFixed(1)}`).join("");
+              return (
+                <>
+                  <line x1={PL} y1={py(0.5)} x2={W - PR} y2={py(0.5)} stroke="#8b93a7" strokeWidth={0.6} strokeDasharray="3 3" opacity={0.5} />
+                  <path d={path} fill="none" stroke="#e3b341" strokeWidth={1.8} />
+                  {pts.map((p0: any, i: number) => (
+                    <text key={i} x={px(i)} y={H - 4} textAnchor="middle" fontSize={8.5} fill="#8b93a7">{p0.inning}</text>
+                  ))}
+                </>
+              );
+            })()}
+          </svg>
+          {wpa.moments?.length ? (
+            <div className="mt-2 grid gap-1 sm:grid-cols-2">
+              {wpa.moments.slice(0, 6).map((m: any, i: number) => (
+                <div key={i} className="flex items-baseline gap-2 text-[11px] border-b border-white/[0.03] py-1">
+                  <span className="font-data text-text-dim shrink-0">{m.half === "Bot" ? "B" : "T"}{m.inning}</span>
+                  <span className="text-text-secondary leading-snug flex-1">
+                    <Link href={`/player/${m.batterId}`} className="hover:underline">{m.batter}</Link>
+                    {" — "}{m.des}
+                  </span>
+                  <span className="font-data shrink-0" style={{ color: (m.swing ?? 0) > 0 ? "#5ba88f" : "#e0654f" }}>
+                    {(m.swing ?? 0) > 0 ? "+" : ""}{m.swing?.toFixed(3)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-5 xl:grid-cols-2">
         <div className="glass-panel overflow-hidden">
           <div className="px-4 py-2.5 border-b border-border-subtle">
