@@ -39,16 +39,18 @@ export function Nav() {
       <LavaNav />
 
       {/* Logo / Brand — a white shader badge sitting on top of the field:
-          sphere gloss top-left, a faint reflection of the lava below-right,
-          inner rim shading, hairline ring. */}
+          the base is a sphere gradient (white top-left into cool grey) so the
+          specular spot reads; a faint reflection of the lava lands bottom-right;
+          inner rim shading and a hairline ring finish it. */}
       <Link
         href="/"
         aria-label="GOAT-Pro home"
-        className="relative z-10 shrink-0 grid place-items-center w-12 h-12 rounded-full bg-white transition-transform duration-200 hover:scale-105 active:scale-95 ring-1 ring-slate-900/20
-          shadow-[0_4px_16px_rgba(2,6,12,0.55),0_1px_3px_rgba(2,6,12,0.4),inset_0_-5px_9px_rgba(96,108,128,0.38),inset_0_3px_5px_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(22,30,44,0.07)]"
+        className="relative z-10 shrink-0 grid place-items-center w-12 h-12 rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 ring-1 ring-slate-900/25
+          bg-[linear-gradient(135deg,#ffffff_0%,#f7f9fb_45%,#e7ecf2_100%)]
+          shadow-[0_4px_16px_rgba(2,6,12,0.55),0_1px_3px_rgba(2,6,12,0.4),inset_0_-6px_10px_rgba(96,108,128,0.42),inset_0_3px_6px_rgba(255,255,255,0.9),inset_0_0_0_1px_rgba(22,30,44,0.07)]"
       >
         <span aria-hidden className="absolute inset-0 rounded-full
-          bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0)_40%),radial-gradient(circle_at_70%_92%,rgba(125,200,215,0.35)_0%,rgba(125,200,215,0)_46%)]" />
+          bg-[radial-gradient(circle_at_30%_24%,rgba(255,255,255,1)_0%,rgba(255,255,255,0)_42%),radial-gradient(circle_at_72%_92%,rgba(96,190,205,0.5)_0%,rgba(96,190,205,0)_50%)]" />
         <span className="relative text-center leading-none">
           <span className="block text-[12px] font-extrabold tracking-tight text-[#131c2b]">GOAT</span>
           <span className="mt-[3px] block text-[8.5px] font-bold tracking-[0.22em] text-[#5c6b82]">-PRO</span>
