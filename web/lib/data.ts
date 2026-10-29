@@ -567,9 +567,10 @@ export async function getParks(): Promise<any | null> {
   return fetchFromR2<any>("parks.json").catch(() => null);
 }
 
-/** meta.json: export version, model-card fingerprints, per-file manifests. */
+/** Site meta: export version, model-card fingerprints, counts — meta_site.json is meta.json minus its
+ * ~18 MB per-file manifest, which nothing on the site reads. */
 export async function getMeta(): Promise<any | null> {
-  return fetchFromR2<any>("meta.json").catch(() => null);
+  return fetchFromR2<any>("meta_site.json").catch(() => null);
 }
 
 /** /minors stat-line boards (minors_export.py): one season of every level, pitchers or hitters. */
