@@ -3447,3 +3447,20 @@ and the single read go below as §98a.
 `(ρA/2m) = 5.45e-3 /ft` (ρ 1.21 kg/m³ sea level, r 1.459 in, m 5.125 oz), so C_L = 0.24 gives ≈ 1g of lift at
 launch speed. The pre-declared C_L values (0.24 primary; 0.15 / 0.30 sensitivity) and everything else in this
 prereg are unchanged; a sea-level constant at altitude parks is part of the known proxy error.
+
+### §97 result (read once, 2026-10-29)
+
+Calibration passes every season (decile gaps .0015–.0027). Both groups CONFIRMED on the §75 gates — but **the lift fix did not move the model, and v5 does not ship; §81 v3 stays.**
+
+| | v5 r [95% CI] | §81 r [CI] | Δr | verdict | rel / k | YoY ours / Savant |
+|---|---|---|---|---|---|---|
+| IF | .581 [.527, .631] | .580 [.526, .630] | +.001 | gates PASS; shipping rule met within noise — not shipped (mixed-model complexity for a noise gain) | .24 / 968 | .27 / .44 |
+| OF | .717 [.673, .754] | .721 [.678, .757] | −.003 | gates PASS, shipping rule FAIL | .38 / 449 | .38 / .64 |
+
+**The compression check (the reason this re-test existed): unchanged.** Runs SD 4.29 vs Savant OAA SD 6.18 (OF, merged player-seasons). Top-10 CF of 2025 by Savant OAA, ours vs theirs: Crow-Armstrong 5.2 vs 24.0 (§81: 5.3), Rafaela 15.6 vs 21.0, Scott 4.9 vs 17.0, Young 4.8 vs 14.0, Clarke 12.9 vs 13.0, Isbel 6.6 vs 12.0, Rodríguez 5.0 vs 11.0, Pages 4.7 vs 11.0, Straw 7.7 vs 10.0, Varsho −1.0 vs 9.0.
+
+**Diagnosis (the pre-registered contingency fires).** *Handling:* the lift fix worked as designed — deep-fly hang rose +0.9–1.5 s (§81's stated error), p moved on exactly the long plays, calibration held. *Modeling:* the compression did not move, because the proxy error was **monotone and rank-preserving**: LightGBM orders plays by difficulty and the cross-fit isotonic maps p to observed conversion within season, so a feature change that preserves the ordering of plays is absorbed by recalibration and the credit sums — which rank, not calibrate, players — barely move. What rank order cannot express is precisely the missing input: per-play fielder positioning and routes. **Per the §97 prereg, the r-vs-Savant program is declared at its public-data ceiling**: further re-tests of p (the opportunity model) are retired; effort moves to the validation and decomposition surfaces — D-49's Jump components (does our residual track burst/routing?), the star-band calibration transfer (which difficulty bands carry the disagreement), and `des` depth mining (the one per-play public signal left).
+
+**Sensitivity (pre-declared, reported only):** C_L 0.15 and 0.30 runs recorded in `defense_v5_cl{0.15,0.30}_SEALED.json` — r only, read after the primary verdict, never selected after the fact.
+
+**Shipped: nothing changes.** §81 v3 remains the site's range model. Artifacts: `defense_v5_SEALED.json`, `defense_chances_v5.parquet`, `defense_fielders_v5.csv`, `defense_players_v5.csv`, logs `cache/defense_v5*.log`.
