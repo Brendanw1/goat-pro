@@ -322,3 +322,27 @@ Pre-registration, catalog and smoke test: `pipeline/RESULTS-MLB.md` §99.
 - NumPyro SVI: about 15k hitters plus 15k pitchers per fold, roughly 5–10 min per fold, so 1–2 h for the dev folds.
 - NUTS on the frozen spec: one fit, several hours at nice +10. A subsample check runs first.
 - Memory stays under 4 GB if lines are padded per fold.
+
+## 8. Full build, phase 2 (§99f, 2026-10-29): dev, frozen spec, holdout read once
+
+Code: `pipeline/prospect_backtest.py` (`--dev`, `--summary`, `--holdout`) and `pipeline/prospect_bayes.py` (`--folds`,
+`--prior-check`, `--nuts`). Results: `pipeline/results/prospect_99_{dev,holdout,frozen,nuts,prior_check}.json`.
+
+**Holdout read once (§99f):**
+- **Value ranking: PASS.** The joint NumPyro model (latent K/BB/HR skills, plus GB for pitchers; Pipeline as an ordinal
+  measurement; a hurdle on debut and control-years playing time). NDCG@100 .505 vs B1 .430, +.076 [+.027, +.121].
+- **Arrival probability: FAIL.** The frozen choice, LightGBM, ranks best (AUC .911) but is miscalibrated after the 2020 break:
+  Brier .0740 vs B1 .0717, ECE .062.
+- **Sleeper board: FAIL.** +5 pp [−2, +13], short on power.
+
+**Data fix found in phase 2.** The pre-2011 MLB lines were missing, so 2011 veterans counted as prospects. Fixed before dev.
+
+**NumPyro.** The SVI posterior is the fit. NUTS on a subsample is clean (0 divergences, R̂ ≤ 1.004 on coefficients), but the
+full-scale NUTS fit is estimated at over 6 hours.
+
+**Next.**
+1. Pre-register an era-aware recalibration of arrival.
+2. Fit a low-rank guide for the globals.
+3. Re-read sleepers when more matured years exist.
+
+Nothing is displayed until the owner reviews it.

@@ -299,52 +299,52 @@
   {
    "snap": "eos",
    "as_of": 2010,
-   "n": 7778
+   "n": 6627
   },
   {
    "snap": "eos",
    "as_of": 2011,
-   "n": 6788
+   "n": 6465
   },
   {
    "snap": "eos",
    "as_of": 2012,
-   "n": 6406
+   "n": 6235
   },
   {
    "snap": "eos",
    "as_of": 2013,
-   "n": 6441
+   "n": 6364
   },
   {
    "snap": "eos",
    "as_of": 2014,
-   "n": 6520
+   "n": 6483
   },
   {
    "snap": "eos",
    "as_of": 2015,
-   "n": 6278
+   "n": 6259
   },
   {
    "snap": "eos",
    "as_of": 2016,
-   "n": 6353
+   "n": 6342
   },
   {
    "snap": "eos",
    "as_of": 2017,
-   "n": 6446
+   "n": 6440
   },
   {
    "snap": "eos",
    "as_of": 2018,
-   "n": 6713
+   "n": 6710
   },
   {
    "snap": "eos",
    "as_of": 2019,
-   "n": 6474
+   "n": 6472
   },
   {
    "snap": "eos",
@@ -374,62 +374,62 @@
   {
    "snap": "list",
    "as_of": 2011,
-   "n": 7803
+   "n": 6695
   },
   {
    "snap": "list",
    "as_of": 2012,
-   "n": 9057
+   "n": 8495
   },
   {
    "snap": "list",
    "as_of": 2013,
-   "n": 8858
+   "n": 8554
   },
   {
    "snap": "list",
    "as_of": 2014,
-   "n": 8675
+   "n": 8508
   },
   {
    "snap": "list",
    "as_of": 2015,
-   "n": 8795
+   "n": 8714
   },
   {
    "snap": "list",
    "as_of": 2016,
-   "n": 8843
+   "n": 8804
   },
   {
    "snap": "list",
    "as_of": 2017,
-   "n": 8893
+   "n": 8871
   },
   {
    "snap": "list",
    "as_of": 2018,
-   "n": 9006
+   "n": 8998
   },
   {
    "snap": "list",
    "as_of": 2019,
-   "n": 9308
+   "n": 9302
   },
   {
    "snap": "list",
    "as_of": 2020,
-   "n": 9372
+   "n": 9370
   },
   {
    "snap": "list",
    "as_of": 2021,
-   "n": 9352
+   "n": 9350
   },
   {
    "snap": "list",
    "as_of": 2022,
-   "n": 9744
+   "n": 9743
   },
   {
    "snap": "list",
@@ -456,62 +456,62 @@
   "2011": {
    "org": 240,
    "top100": 50,
-   "unlisted": 7513
+   "unlisted": 6405
   },
   "2012": {
    "org": 499,
    "top100": 100,
-   "unlisted": 8458
+   "unlisted": 7896
   },
   "2013": {
    "org": 499,
    "top100": 100,
-   "unlisted": 8259
+   "unlisted": 7955
   },
   "2014": {
    "org": 483,
    "top100": 100,
-   "unlisted": 8092
+   "unlisted": 7925
   },
   "2015": {
    "org": 798,
    "top100": 100,
-   "unlisted": 7897
+   "unlisted": 7816
   },
   "2016": {
    "org": 799,
    "top100": 100,
-   "unlisted": 7944
+   "unlisted": 7905
   },
   "2017": {
    "org": 798,
    "top100": 100,
-   "unlisted": 7995
+   "unlisted": 7973
   },
   "2018": {
    "org": 820,
    "top100": 100,
-   "unlisted": 8086
+   "unlisted": 8078
   },
   "2019": {
    "org": 799,
    "top100": 100,
-   "unlisted": 8409
+   "unlisted": 8403
   },
   "2020": {
    "org": 799,
    "top100": 99,
-   "unlisted": 8474
+   "unlisted": 8472
   },
   "2021": {
    "org": 800,
    "top100": 99,
-   "unlisted": 8453
+   "unlisted": 8451
   },
   "2022": {
    "org": 797,
    "top100": 100,
-   "unlisted": 8847
+   "unlisted": 8846
   },
   "2023": {
    "org": 801,
@@ -554,7 +554,7 @@
   "lg_r_bf": 0.996,
   "org_id": 0.995,
   "venue_id": 0.996,
-  "lvl_gain_1y": 0.669,
+  "lvl_gain_1y": 0.674,
   "lvl_per_yr": 0.996,
   "hz_k_l1": 0.469,
   "hz_k_2y": 0.469,
@@ -590,28 +590,28 @@
   "sc_h_xwobacon": 0.006,
   "sc_h_season": 0.006,
   "sc_p_chasePct": 0.012,
-  "sc_p_kPlus": 0.01,
+  "sc_p_kPlus": 0.011,
   "sc_p_nPitches": 0.012,
-  "sc_p_preventionPlus": 0.01,
+  "sc_p_preventionPlus": 0.011,
   "sc_p_stuffPlus": 0.012,
   "sc_p_velo": 0.012,
   "sc_p_whiffPct": 0.012,
   "sc_p_zContactPct": 0.012,
   "sc_p_season": 0.012,
   "drafted": 1.0,
-  "pick": 0.344,
-  "round": 0.338,
-  "bonus": 0.154,
-  "log_pick": 0.344,
-  "yrs_since_draft": 0.344,
-  "draft_age": 0.342,
-  "list_year": 0.967,
-  "top_rank": 0.006,
-  "org_rank": 0.054,
-  "org_frac": 0.054,
-  "org_list_len": 0.054,
+  "pick": 0.35,
+  "round": 0.344,
+  "bonus": 0.156,
+  "log_pick": 0.35,
+  "yrs_since_draft": 0.35,
+  "draft_age": 0.348,
+  "list_year": 0.972,
+  "top_rank": 0.007,
+  "org_rank": 0.055,
+  "org_frac": 0.055,
+  "org_list_len": 0.055,
   "pos_rank": 0.005,
-  "list_state": 0.967,
+  "list_state": 0.972,
   "eta_gap": 0.032,
   "g_hit": 0.003,
   "g_power": 0.003,
@@ -627,7 +627,7 @@
   "g_cutter": 0.0,
   "g_curve": 0.0,
   "g_splitter": 0.0,
-  "pos_main": 0.466,
+  "pos_main": 0.467,
   "fld_rf9": 0.464,
   "fld_err_rate": 0.463,
   "premium_pos_share": 1.0,
@@ -639,103 +639,103 @@
   "snap": 1.0,
   "mle_kPct": 0.042,
   "mle_bbPct": 0.042,
-  "mle_iso": 0.041,
-  "debut_season": 0.123,
-  "t_debut": 0.123,
-  "exit_season": 0.718,
+  "mle_iso": 0.042,
+  "debut_season": 0.118,
+  "t_debut": 0.118,
+  "exit_season": 0.72,
   "event": 1.0,
   "followup_seasons": 1.0,
-  "debut_k1": 0.959,
-  "debut_k2": 0.935,
-  "debut_k3": 0.878,
-  "debut_k4": 0.82,
-  "debut_k5": 0.764,
-  "debut_k6": 0.704,
-  "ctrl_pa": 0.931,
-  "ctrl_bf": 0.946,
+  "debut_k1": 0.958,
+  "debut_k2": 0.934,
+  "debut_k3": 0.877,
+  "debut_k4": 0.817,
+  "debut_k5": 0.76,
+  "debut_k6": 0.699,
+  "ctrl_pa": 0.933,
+  "ctrl_bf": 0.949,
   "ctrl_war": 1.0,
-  "ctrl_seasons_obs": 0.123,
-  "ctrl_war_seasons_obs": 0.123,
+  "ctrl_seasons_obs": 0.118,
+  "ctrl_war_seasons_obs": 0.118,
   "value_censored": 1.0
  },
  "event_by_snap_year": {
   "2010": {
    "censored": 2,
-   "debut": 1696,
-   "debuted_before": 47,
-   "exit": 6033
+   "debut": 1019,
+   "debuted_before": 0,
+   "exit": 5606
   },
   "2011": {
    "censored": 7,
-   "debut": 2694,
-   "debuted_before": 47,
-   "exit": 11843
+   "debut": 1936,
+   "debuted_before": 43,
+   "exit": 11174
   },
   "2012": {
    "censored": 11,
-   "debut": 2050,
-   "debuted_before": 73,
-   "exit": 13329
+   "debut": 1926,
+   "debuted_before": 70,
+   "exit": 12723
   },
   "2013": {
    "censored": 19,
-   "debut": 2089,
-   "debuted_before": 79,
-   "exit": 13112
+   "debut": 2049,
+   "debuted_before": 77,
+   "exit": 12773
   },
   "2014": {
    "censored": 30,
-   "debut": 2068,
-   "debuted_before": 81,
-   "exit": 13016
+   "debut": 2053,
+   "debuted_before": 79,
+   "exit": 12829
   },
   "2015": {
    "censored": 45,
-   "debut": 1953,
-   "debuted_before": 117,
-   "exit": 12958
+   "debut": 1944,
+   "debuted_before": 115,
+   "exit": 12869
   },
   "2016": {
    "censored": 77,
-   "debut": 2003,
-   "debuted_before": 114,
-   "exit": 13002
+   "debut": 1995,
+   "debuted_before": 112,
+   "exit": 12962
   },
   "2017": {
    "censored": 145,
-   "debut": 2045,
-   "debuted_before": 121,
-   "exit": 13028
+   "debut": 2039,
+   "debuted_before": 120,
+   "exit": 13007
   },
   "2018": {
    "censored": 300,
-   "debut": 2039,
+   "debut": 2035,
    "debuted_before": 118,
-   "exit": 13262
+   "exit": 13255
   },
   "2019": {
    "censored": 671,
-   "debut": 1966,
+   "debut": 1963,
    "debuted_before": 94,
-   "exit": 13051
+   "exit": 13046
   },
   "2020": {
    "censored": 524,
-   "debut": 1175,
+   "debut": 1174,
    "debuted_before": 98,
-   "exit": 7575
+   "exit": 7574
   },
   "2021": {
    "censored": 1712,
-   "debut": 1721,
+   "debut": 1720,
    "debuted_before": 129,
-   "exit": 12044
+   "exit": 12043
   },
   "2022": {
    "censored": 3197,
    "debut": 1564,
    "debuted_before": 85,
-   "exit": 11197
+   "exit": 11196
   },
   "2023": {
    "censored": 5104,

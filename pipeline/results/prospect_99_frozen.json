@@ -1,0 +1,3 @@
+{"frozen": true, "date": "2026-10-29", "section": "RESULTS-MLB §99f", "M_arr": "LGB", "M_val": "NPY_ev",
+ "arr_holdout": [2022, 2023], "val_holdout": [2016, 2017], "npy": {"steps": 4000, "cap": 20000, "guide": "AutoNormal", "draws": 200},
+ "lgb": "wide -> backward family elimination on last training year -> grid {15,31}x{50,200} -> inner Platt", "bootstrap": 2000}

@@ -1,0 +1,12 @@
+{
+ "HalfNormal(0.05)": {
+  "org_sd_kpct_q50": 1.74,
+  "org_sd_kpct_q90": 4.28,
+  "best_worst_gap_q90": 17.88
+ },
+ "HalfNormal(0.02)": {
+  "org_sd_kpct_q50": 0.69,
+  "org_sd_kpct_q90": 1.75,
+  "best_worst_gap_q90": 7.26
+ }
+}

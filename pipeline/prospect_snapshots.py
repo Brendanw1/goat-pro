@@ -88,7 +88,8 @@ def load_tables() -> dict:
         d = d[d.level.isin(LVL) & (d.league_name != "MEX")].copy()   # sportId 11 held the unaffiliated Mexican League to 2020
         d["avail"] = eos(d.season).values
         T[kind] = d
-        m = pd.concat([pd.read_parquet(MILB / f"hist_mlb_{kind}.parquet"), pd.read_parquet(MILB / f"mlb_{kind}.parquet")])
+        m = pd.concat([pd.read_parquet(MILB / f"hist_mlb_pre2011_{kind}.parquet"),   # pre-2011 debuts (§99 phase 2)
+                       pd.read_parquet(MILB / f"hist_mlb_{kind}.parquet"), pd.read_parquet(MILB / f"mlb_{kind}.parquet")])
         m = m.drop_duplicates(["mlbam_id", "season", "team_id"])
         m["avail"] = eos(m.season).values
         T[f"mlb_{kind}"] = m

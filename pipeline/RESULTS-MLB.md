@@ -3653,3 +3653,115 @@ n 661 OF fielder-seasons (262 players, 2020–2026, matched join). **The pre-reg
 **Reading.** The negative burst/bootup tilt is the compression seen through Jump: our OAA does track explosiveness (+.52 with burst, +.53 with bootup — the outcomes Savant's tracking measures), but less strongly than Savant's own number, so the residual inherits a negative tilt on exactly the most explosive fielders. Once that scale effect is removed, **the residual has no relationship with any measured component of range skill** — it is the compression plus noise. There is no public decomposition of what our range model is missing; the missing thing (per-play positioning and routes) is exactly what no leaderboard publishes.
 
 **What this steers.** The site should show Savant's Jump components *beside* our range runs (they validate the shared signal) and never present our residual as a skill measure. D-39's speed-tool profile: Jump burst/bootup columns next to our runs, labelled; the §97-ceiling statement stands, now with evidence instead of only a diagnosis.
+
+## §99f Prospect model phase 2: dev results and the frozen spec, written 2026-10-29 after dev and before any holdout read
+
+(§99a–e are the phase-1 sections above. This section continues §99 and uses only §99 numbers.)
+
+**Fixes before dev, all found in phase 2 and all before any holdout read.**
+- *Data.* The 2011 snapshots counted MLB veterans as undebuted, because the MLB lines started in 2011. The 2011 debut rate
+  read 0.185 against about 0.10 in every other year. MLB lines for 1995–2010 were added
+  (`hist_mlb_pre2011_*.parquet`), the store was rebuilt (234,616 rows, 35,804 players) and the leakage test passes again.
+  The first dev run was discarded; its files are in `results/_p99_stale/`.
+- *Handling.* B1 and v0u dropped columns that are constant in the training window. Before the 2011 draft no player has a pick,
+  so those columns had been extrapolating.
+- *Identification (NumPyro).*
+  - Skill is AAA-anchored: μ ~ N(logit AAA rate, 0.1), α[AAA] = 0.
+  - Season effects are centred within level, and league effects are centred within level.
+  - Drift priors tightened to N(0, .05) and N(0, .02).
+  - sd_org ~ HalfNormal(0.02). Prior predictive (`prospect_99_prior_check.json`): the median org SD in K% is 0.69 pts and the
+    90th percentile 1.75 pts, against 1.74 and 4.28 under the old HalfNormal(0.05).
+  - Posterior sd_org across the 20 dev fits is 0.003–0.05, not the smoke test's 1.0.
+- *Pitcher block added.* K, BB+HBP and HR per BF, and GB per ball in play.
+
+**Dev results.** Out of fold, arrival test years 2015–21 and value test years 2013–15.
+
+| arrival (debut within 4) | Brier | log loss | ECE | AUC |
+|---|---|---|---|---|
+| B1 (Platt) | .0828 | .334 | .062 | .775 |
+| v0u (Platt) | .0734 | .286 | .041 | .854 |
+| **LGB (Platt)** | **.0695** | **.235** | .032 | **.883** |
+| NPY (Platt, from 2019 on) | .0835 | .282 | .065 | .852 |
+
+| value (EV, control-years FSE) | NDCG@100 | Spearman | sleeper precision@50 |
+|---|---|---|---|
+| B1 | **.428** | .212 | .053 |
+| v0u | .382 | .368 | .140 |
+| LGB | .364 | .365 | .147 |
+| **NPY** | .412 | **.378** | **.227** |
+
+- LGB beats B1 on Brier in 7 of 7 dev years.
+- **Ablation (LGB, drop one family; + means the family helps).**
+  - Arrival ΔBrier: env +.0081, rates +.0043, pipeline +.0011, position +.0006, promotion +.0002, org 0, draft −.0013,
+    health 0. Health is structurally absent: no IL rows exist before 2019 in any training window.
+  - Value ΔNDCG: position +.055, pipeline +.047, promotion +.028, rates +.015, org +.012, draft −.003, env −.021.
+- Inner selection kept env and health in 20 of 20 fits, draft and position in 19, rates 18, pipeline 16, org 11 and
+  promotion 10.
+- **Read on dev.** On NDCG@100, no candidate beats B1. Pipeline orders the top 100 best. The models win on Spearman and on
+  sleepers. Gate (b) is therefore expected to fail.
+
+**Frozen spec** (`results/prospect_99_frozen.json`; code as of this section).
+- **M_arr = LGB.** The full procedure is frozen, not one fitted model: wide start → backward family elimination on the last
+  training year → 4-point grid → Platt on inner predictions. It is re-run inside each holdout training window.
+- **M_val = NPY.** The joint NumPyro model in `prospect_bayes.py`: SVI with AutoNormal, 4,000 steps, a cap of 20k training
+  entities, and EV = mean over 200 draws of p × E[FSE].
+- NPY arrival probabilities are calibrated by Platt on NPY dev predictions from list years ≤ Y − 4.
+- Gates are exactly as in §99d.
+- NUTS is a diagnostic only: 2 chains of 500 warm-up and 500 draws on a 750-entity hitter subsample of the 2018 fold.
+  A full-scale NUTS fit (about 25k entities × 10 seasons × 3–4 skills ≈ 1M latent parameters per fit) is estimated at well
+  over 6 hours, so the SVI posterior is the shipped fit.
+
+### §99f result (holdout read once, 2026-10-29; `results/prospect_99_holdout.json`)
+Arrival: 18,259 rows from the 2022–23 lists, base rate .098. Value: 17,443 rows from the 2016–17 lists. Player-clustered
+bootstrap, 2,000 draws.
+
+| arrival | Brier | ECE | AUC | value | NDCG@100 | Spearman | sleeper p@50 |
+|---|---|---|---|---|---|---|---|
+| B1 | .0717 | .055 | .839 | B1 | .430 | .268 | .12 |
+| v0u | .0624 | .033 | .893 | v0u | .442 | .400 | .24 |
+| **LGB (M_arr)** | .0740 | .062 | **.911** | LGB | .462 | **.404** | .19 |
+| NPY | **.0609** | **.018** | .887 | **NPY (M_val)** | **.505** | .390 | .17 |
+
+- **Gate (a) FAIL.** M_arr = LGB vs B1: ΔBrier **+.0023** [+.00002, +.0047], meaning LGB is worse. ECE is .062, above the .02
+  limit. No arrival probability ships.
+- **Gate (b) PASS.** M_val = NPY vs B1: ΔNDCG@100 **+.076** [+.027, +.121]. Against LGB it is +.044 [−.011, +.104], so it
+  does not lose.
+- **Gate (c) FAIL.** Sleeper precision@50 is .17 against B1's .12: +5.0 pp [−2, +13]. The CI includes 0. No sleeper board.
+
+**Diagnosis of (a): data, plus our handling. Not ranking.**
+- LGB has the highest AUC (.911), but every forward model over-predicts the 2022–23 cohorts.
+  - Mean predicted P is LGB .160 and B1 .152, against .098 observed.
+  - On org-list rows: observed .48, B1 .69, LGB .84.
+- *Data.* The training windows (lists ≤ 2018/19) are pre-2020. The 2022–23 cohorts carry the lost 2020 season and the
+  2021 MiLB contraction, and their k = 4 debut rate for listed players fell (org-list rows: .47–.49 on the 2021–23 lists, against .50–.64 on the 2011–19 training lists). That is
+  population drift in the base rate.
+- *Handling (ours).* M_arr's Platt map is fitted on one inner year, so it cannot see the drift, and it made LGB worse
+  (raw .0725 vs Platt .0740).
+- NPY's Platt map came from four forward dev years, and NPY landed near the base rate (mean .088, ECE .018).
+  - This is exploratory, read after the verdict. It is not a pass: M was frozen as LGB.
+- *Re-test to pre-register.* Recalibrate on the most recent closed years with an explicit era term (pre/post-2020), then
+  re-read on the 2024 list once its k = 4 window closes, after 2027.
+
+**Diagnosis of (c): power.** 50 picks per year over 2 years means about ±7 pp of sampling noise alone. The point estimate
+sits exactly at the +5 pp bar. Dev was .227 vs .053, so the holdout is directionally consistent.
+
+**NumPyro fit quality.**
+- SVI: 28 fits (14 folds × 2 roles), 40–170 s each, every loss finite. Posterior sd_org .003–.05 per season step.
+- NUTS diagnostic (750 entities, 2 × 500 draws, 221 s):
+  - 0 divergences; R̂ max 1.066 (sd_eta, ESS 21), with 0.02% of parameters above 1.01.
+  - Every coefficient and global except sd_eta has R̂ ≤ 1.004 and ESS ≥ 269.
+- SVI vs NUTS: SVI attenuates the outcome weights a little (arrival weight on K −1.94 vs −1.98; rank weight on HR 1.24 vs 1.47).
+  It shrinks sd_org (.002–.006 vs .009–.020), as mean-field does.
+- Full-scale NUTS (about 25k entities, ≈1M latents) is estimated at > 6 h per fit, so **the SVI posterior is the fit**.
+  Before any display, use a full-rank or low-rank guide on the globals, or NUTS on the frozen holdout fit if the owner
+  grants about a day of compute.
+
+**v0 re-run without the Mexican League (§97, `results/prospect_97_nomex.json`).**
+- ΔAUC .0261 → .0261; ΔSpearman .0593 → .0588; sleepers lift +32.2 → +31.9 pp; Y3 Spearman of M .215 → .214.
+- §97 does not move.
+
+**Verdict.**
+- The value ranking (NPY) passes its pre-registered gate.
+- Arrival probabilities and the sleeper board fail.
+- Nothing is displayed: owner review comes first (coordinator rule). If the value rank is shown, it is labelled
+  "forecast, value gate passed (§99f); arrival probabilities not calibrated".

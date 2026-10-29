@@ -1,0 +1,141 @@
+{
+ "spec": {
+  "frozen": true,
+  "date": "2026-10-29",
+  "section": "RESULTS-MLB \u00a799f",
+  "M_arr": "LGB",
+  "M_val": "NPY_ev",
+  "arr_holdout": [
+   2022,
+   2023
+  ],
+  "val_holdout": [
+   2016,
+   2017
+  ],
+  "npy": {
+   "steps": 4000,
+   "cap": 20000,
+   "guide": "AutoNormal",
+   "draws": 200
+  },
+  "lgb": "wide -> backward family elimination on last training year -> grid {15,31}x{50,200} -> inner Platt",
+  "bootstrap": 2000
+ },
+ "arr": {
+  "B1": {
+   "brier": 0.0717,
+   "logloss": 0.25991,
+   "ece": 0.0549,
+   "slope_int": [
+    0.829,
+    -0.964
+   ],
+   "auc": 0.8394
+  },
+  "v0u": {
+   "brier": 0.06244,
+   "logloss": 0.21651,
+   "ece": 0.0332,
+   "slope_int": [
+    0.815,
+    -0.738
+   ],
+   "auc": 0.8931
+  },
+  "LGB": {
+   "brier": 0.07404,
+   "logloss": 0.24923,
+   "ece": 0.0624,
+   "slope_int": [
+    0.668,
+    -1.314
+   ],
+   "auc": 0.9105
+  },
+  "NPY": {
+   "brier": 0.06085,
+   "logloss": 0.21165,
+   "ece": 0.0179,
+   "slope_int": [
+    1.23,
+    0.563
+   ],
+   "auc": 0.8874
+  },
+  "n": 18259,
+  "per_year": {
+   "2022": {
+    "B1": 0.07113,
+    "v0u": 0.06008,
+    "LGB": 0.07213,
+    "NPY": 0.05948
+   },
+   "2023": {
+    "B1": 0.07234,
+    "v0u": 0.06508,
+    "LGB": 0.07618,
+    "NPY": 0.06238
+   }
+  },
+  "gate_a": {
+   "M": "LGB",
+   "dbrier_M_minus_B1": 0.00234,
+   "ci": [
+    2e-05,
+    0.00468
+   ],
+   "ece_M": 0.0624,
+   "dbrier_M_minus_LGB": 0.0,
+   "ci_vs_LGB": [
+    0.0,
+    0.0
+   ]
+  }
+ },
+ "val": {
+  "B1_ev": {
+   "ndcg100": 0.4296,
+   "spearman": 0.2677,
+   "prec50_sleeper": 0.12
+  },
+  "v0u_ev": {
+   "ndcg100": 0.4415,
+   "spearman": 0.4,
+   "prec50_sleeper": 0.24
+  },
+  "LGB_ev": {
+   "ndcg100": 0.4615,
+   "spearman": 0.4036,
+   "prec50_sleeper": 0.19
+  },
+  "NPY_ev": {
+   "ndcg100": 0.5052,
+   "spearman": 0.3899,
+   "prec50_sleeper": 0.17
+  },
+  "n": 17443,
+  "gate_b": {
+   "M": "NPY_ev",
+   "dndcg_M_minus_B1": 0.0756,
+   "ci": [
+    0.02674,
+    0.12081
+   ],
+   "dndcg_M_minus_LGB": 0.0438,
+   "ci_vs_LGB": [
+    -0.01081,
+    0.10355
+   ]
+  },
+  "gate_c": {
+   "prec50_M": 0.17,
+   "prec50_B1": 0.12,
+   "dprec_pp": 5.0,
+   "ci_pp": [
+    -2.0,
+    13.0
+   ]
+  }
+ }
+}

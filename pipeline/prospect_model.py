@@ -24,6 +24,7 @@ LIST_YEARS = range(2011, 2020)
 LEVEL_ORD = {"ROK": 0, "A-": 1, "A": 2, "A+": 3, "AA": 4, "AAA": 5}
 HIT_STATS = ["k", "bb", "iso", "babip", "sb"]
 PIT_STATS = ["k", "bb", "hr", "gb"]
+NO_MEX = False
 
 
 def fetch() -> None:
@@ -170,6 +171,8 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
     df["yrs_since"] = 0.0
     for kind, pit in (("hitters", False), ("pitchers", True)):
         lines = pd.read_parquet(MILB / f"hist_{kind}.parquet")
+        if NO_MEX:   # §99: sportId 11 held the unaffiliated Mexican League to 2019
+            lines = lines[lines.league_name != "MEX"]
         eb = eb_features(lines, pit)
         idx = pd.MultiIndex.from_arrays([df.id, df.year - 1])
         sub = eb.reindex(idx)
@@ -321,9 +324,13 @@ def score(o):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fetch", action="store_true")
+    ap.add_argument("--no-mex", action="store_true", help="§99 re-run: drop Mexican League lines -> prospect_97_nomex.json")
     args = ap.parse_args()
     if args.fetch:
         return fetch()
+    global NO_MEX, OUT
+    if args.no_mex:
+        NO_MEX, OUT = True, OUT.with_name("prospect_97_nomex.json")
     df = features(population())
     df["yr"] = df.year.astype(str)
     audit = {"rows": len(df), "players": int(df.id.nunique()), "pitcher_share": round(df.pitcher.mean(), 3),
