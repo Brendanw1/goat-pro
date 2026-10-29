@@ -358,7 +358,10 @@ def observe(d: pd.DataFrame) -> None:
 
 
 PT_CODES = ["FF", "SI", "CT", "SL", "SW", "CB", "CH", "FS"]
-LG_PLATE = {"yFront": 27.9, "xCenter": 27.7}  # league mean batter position vs the plate (Savant swing path, 2025)
+# Savant stance: y = hips behind the plate's front edge, x = hips off the plate's INSIDE edge. The plate centre is
+# half a plate (8.5 in.) further out: pitches at plate_x 0 are met 36.2 in. from the body vs a 27.7 in. stance (2025).
+HALF_PLATE = 8.5
+LG_PLATE = {"yFront": 27.9, "xCenter": round(27.7 + HALF_PLATE, 1)}  # league mean stance (Savant swing path, 2025)
 
 
 def pctile(s: pd.Series) -> pd.Series:
@@ -434,7 +437,7 @@ def bake(d: pd.DataFrame) -> None:
         }
         doc = {"id": str(pid), "season": int(s), "side": side, "sides": sorted(g["stand"].unique().tolist()),
                "n": int(len(g)), "nBip": int(a.nBip),
-               "plate": {"yFront": round(pos[0], 1), "xCenter": round(pos[1], 1), "src": "savant"} if pos
+               "plate": {"yFront": round(pos[0], 1), "xCenter": round(pos[1] + HALF_PLATE, 1), "src": "savant"} if pos
                else {**LG_PLATE, "src": "league"},
                "summary": {"depth": _m(a.depth, 1), "xw": _m(a.xw, 3), "ev": _m(a.ev, 1), "late": _m(a.late, 1),
                            "fbDepth": _m(g.loc[g["fam"] == "FB", "y"].mean(), 1),

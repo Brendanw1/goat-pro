@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getBucketBoard, getGameReport, getHitterProfile, getHitters, getPlaneHitter, getPlanePitchers, getPlayerProfile, getPostseason } from "@/lib/data";
+import { getBucketBoard, getGameReport, getHitterProfile, getHitters, getPitchers, getPlaneHitter, getPlanePitchers, getPlayerProfile, getPostseason } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { gradeColor } from "@/lib/grades";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
@@ -42,11 +42,37 @@ function read(diff: number | null, n: number): { text: string; tone: string } {
   return { text: "near league", tone: "text-text-secondary" };
 }
 
+/** Every pitcher with 10+ IP that season, grouped by club, for the pitcher dropdowns. */
+async function pitcherGroups(season: string): Promise<[string, { id: string; name: string }[]][]> {
+  const rows = (await getPitchers()).filter((r) => String(r.season) === season && (r.ip ?? 0) >= 10 && r.name);
+  const by = new Map<string, { id: string; name: string }[]>();
+  for (const r of rows) {
+    const t = typeof r.team === "string" ? r.team : "Other";
+    by.set(t, [...(by.get(t) ?? []), { id: String(r.id), name: String(r.name) }]);
+  }
+  return [...by.entries()].sort(([a], [b]) => a.localeCompare(b))
+    .map(([t, ps]) => [t, ps.sort((a, b) => a.name.localeCompare(b.name))] as [string, { id: string; name: string }[]]);
+}
+
+function PitcherSelect({ groups, value }: { groups: [string, { id: string; name: string }[]][]; value?: string }) {
+  return (
+    <select name="pitcher" defaultValue={value ?? ""} aria-label="Pitcher"
+      className="max-w-[220px] rounded-md border border-border-subtle bg-transparent px-2 py-1 text-[11px] text-text-secondary">
+      <option value="">Pitcher…</option>
+      {groups.map(([t, ps]) => (
+        <optgroup key={t} label={t}>
+          {ps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 export default async function MatchupPage({ searchParams }: { searchParams?: Promise<Q> }) {
   const q = (await searchParams) ?? {};
   const pid = (q.pitcher ?? "").replace(/\D/g, "");
   const chip = "rounded-md border border-border-subtle px-2 py-1 text-[11px] text-text-secondary";
-  const prof = pid ? await getPlayerProfile(pid, q.season || undefined) : null;
+  const prof = pid ? await getPlayerProfile(pid, q.season || q.bs || undefined) : null;
   if (!prof || !prof.pitches?.length) {
     // no pitcher yet: the latest postseason starters, then the D-50 league-wide lineup browser (any team, any season)
     const ps = await getPostseason();
@@ -79,7 +105,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
           ))}
         </ul>
         <div className="space-y-2 border-t border-border-subtle pt-4">
-          <p className="text-text-secondary">Or browse any lineup, any season — then scout it from any pitcher&apos;s profile:</p>
+          <p className="text-text-secondary">Or pick a season, an opponent and a pitcher (leave the pitcher blank to just browse the lineup). Change the season and press Go to refresh the pitcher list:</p>
           <form method="get" action="/matchup" className="flex flex-wrap items-center gap-1">
             <select name="bs" defaultValue={bs} className="rounded-md border border-border-subtle bg-transparent px-2 py-1 text-[11px] text-text-secondary">
               {seasons.map((s) => <option key={s} value={s}>{s} season</option>)}
@@ -88,6 +114,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
               <option value="">Team…</option>
               {bteams.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
+            <PitcherSelect groups={await pitcherGroups(bs)} />
             <button className={chip}>Go</button>
           </form>
           {bt ? (
@@ -125,7 +152,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
   const allHitters = await getHitters();
   const seasonHitters = allHitters.filter((r) => String(r.season) === season);
   const teams = [...new Set(seasonHitters.map((r) => r.team).filter((t) => typeof t === "string"))].sort() as string[];
-  const team = (q.team ?? "").toUpperCase();
+  const team = (q.team || q.bt || "").toUpperCase();
   let ids: string[] = (q.hitters ?? "").split(",").map((x) => x.replace(/\D/g, "")).filter(Boolean).slice(0, 12);
   let source = ids.length ? "chosen lineup" : "";
   if (!ids.length && q.game && team) {
@@ -197,8 +224,8 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
           </p>
         </div>
         <form method="get" action="/matchup" className="flex items-center gap-1">
-          <input type="hidden" name="pitcher" value={pid} />
           <input type="hidden" name="season" value={season} />
+          <PitcherSelect groups={await pitcherGroups(season)} value={pid} />
           <select name="team" defaultValue={team} className="rounded-md border border-border-subtle bg-transparent px-2 py-1 text-[11px] text-text-secondary">
             <option value="">Opponent…</option>
             {teams.map((t) => <option key={t} value={t}>{t}</option>)}

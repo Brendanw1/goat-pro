@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { fmtIp } from "@/lib/ip";
 
 /**
  * The game-log tab (wave 2c): one measured line per game, both sides. A
@@ -198,7 +199,7 @@ export function GameLogPanel({ data, playerId, season, level }: {
                 <div className="w-[48px] text-xs font-data text-text-secondary">{g.o}</div>
                 {pitcher ? (
                   <>
-                    <div className="w-[44px] text-right text-xs font-data text-text-primary">{g.ip}</div>
+                    <div className="w-[44px] text-right text-xs font-data text-text-primary">{typeof g.ip === "number" ? fmtIp(g.ip) : g.ip}</div>
                     <div className="w-[36px] text-right text-xs font-data text-text-secondary">{g.h}</div>
                     <div className="w-[36px] text-right text-xs font-data text-text-secondary">{g.r}</div>
                     <div className="w-[36px] text-right text-xs font-data text-text-secondary">{g.bb}</div>

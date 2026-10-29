@@ -45,7 +45,7 @@ const DESCRIPTIVE = {
 };
 
 /** Hitter profile rows that are style, not skill: ranked, never coloured (D-34). */
-const HITTER_NEUTRAL = new Set(["pullPct", "laSd", "swingLength", "attackAngle", "wobaMinusXwoba"]);
+const HITTER_NEUTRAL = new Set(["pullPct", "oppoPct", "laSd", "swingLength", "attackAngle", "wobaMinusXwoba"]);
 /** Pitcher rows ranked without a verdict colour: luck is RV/100 minus xRV/100 (§71), neither good nor bad skill. */
 const PITCHER_NEUTRAL = new Set(["rvLuck"]);
 

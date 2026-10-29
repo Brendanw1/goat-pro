@@ -3,6 +3,7 @@ import { getGameReport, getGameWpa } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
 import type { PitchType } from "@/types";
+import { fmtIp } from "@/lib/ip";
 
 export const dynamic = "force-dynamic";
 
@@ -204,7 +205,7 @@ export default async function GameReportPage({ params, searchParams }: {
                   <Link href={`/player/${p.id}?season=${String(g.d).slice(0, 4)}`} className="text-text-primary hover:underline">{p.n ?? p.id}</Link>
                 </div>
                 <div className="w-[36px] text-right text-xs font-data text-text-dim">{p.tm}</div>
-                <div className="w-[44px] text-right text-xs font-data text-text-primary">{p.ip}</div>
+                <div className="w-[44px] text-right text-xs font-data text-text-primary">{typeof p.ip === "number" ? fmtIp(p.ip) : p.ip}</div>
                 <div className="w-[32px] text-right text-xs font-data text-text-secondary">{p.h}</div>
                 <div className="w-[32px] text-right text-xs font-data text-text-secondary">{p.r}</div>
                 <div className="w-[36px] text-right text-xs font-data text-text-secondary">{p.bb}</div>

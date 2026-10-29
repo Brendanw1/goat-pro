@@ -84,7 +84,7 @@ export default function CoachGuidePage() {
           six points more than everyone.
         </p>
         <p>
-          <strong>wOBA</strong> on this site uses weights derived from our own run data (league average reads .310).
+          <strong>wOBA</strong> on this site uses weights derived from our own run data (scaled so league wOBA equals league OBP each season).
           Contact quality is EV90, max EV, hard-hit and barrel rates — batted-ball samples need about 25 balls before
           they mean anything, and the hollow-rank treatment marks anything thinner. The{" "}
           <strong>pitches-faced table</strong> on the Splits tab is the hitter&apos;s arsenal read: what he saw, and

@@ -73,6 +73,7 @@ MODELS_FILE = ROOT / "data" / "export" / "mlb_pitcher_models.json"  # P7 family 
 P7_FIELDS = {"k_plus": "kPlus", "k_proj": "kProj", "prevention_plus": "preventionPlus",
              "control_plus": "controlPlus", "pitching_runs_per100": "pitchingRunsPer100"}
 from paths import MART_DIR  # noqa: E402
+PEOPLE_PARQUET = ROOT / "data" / "milb" / "people.parquet"  # Stats API people cache (prospects_fetch / milb lines)
 sys.path.insert(0, str(MART_DIR))
 import mart  # noqa: E402
 
@@ -1292,6 +1293,12 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     # Same pitch gates as the board: a position player's lobbed eephus never
     # reaches the graded rows, so it must not count toward his IP either.
     thin_uncovered = {(int(row.pitcher), int(row.season)) for row in ip_uncovered.itertuples() if row.ip < 2.0}
+    # No roster snapshot, but the Stats API people cache says position player (Ruf, Davidson, E. Rivera):
+    # a mop-up season under 10 IP is not a pitcher-season. A real conversion (10+ IP) stays.
+    people_pos = PEOPLE_PARQUET.exists() and dict(pd.read_parquet(PEOPLE_PARQUET, columns=["id", "pos"]).itertuples(index=False))
+    if people_pos:
+        thin_uncovered |= {(int(row.pitcher), int(row.season)) for row in ip_uncovered.itertuples()
+                           if row.ip < 10.0 and people_pos.get(int(row.pitcher)) not in (None, "P", "TWP")}
     print(f"excluded: {len(non_pitchers)} non-pitcher ids (roster evidence); "
           f"{len(thin_uncovered)} thin uncovered pitcher-seasons")
 
@@ -2814,15 +2821,15 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         zw_map = {(int(row.id), int(row.season)): int(row.n_zone_whiff) for row in zw.itertuples()}
         hag["n_zone_whiff"] = [zw_map.get((int(rr.id), int(rr.season)), 0) for rr in hag.itertuples()]
 
-        # the scale: league average reads .310, everything moves proportionally
-        league_rows = hag[hag["pa"] >= 100]
+        # the scale: league wOBA = league OBP each season (Tango / FanGraphs / Savant convention), over every
+        # hitter's PA, so seasons keep their run environment (a fixed .310 over 100+ PA read ~.011 low)
+        league_rows = hag
         hfactor = {}
         for s in seasons:
             sub = league_rows[league_rows["season"] == s]
             if not len(sub):
                 continue
-            num = 0.0
-            den_all = 0.0
+            num = den_all = ob_num = ob_den = 0.0
             for t in sub.itertuples():
                 ab = t.pa - t.bb - t.hbp - t.sf - t.sh - t.ci
                 d = ab + (t.bb - t.ibb) + t.hbp + t.sf
@@ -2833,8 +2840,11 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                        + woba[s]["triple"] * t.s3 + woba[s]["home_run"] * t.hr)
                 num += raw
                 den_all += d
+                ob_num += (t.s1 + t.s2 + t.s3 + t.hr) + t.bb + t.hbp
+                ob_den += ab + t.bb + t.hbp + t.sf
             lg_raw = num / den_all if den_all else 0.28
-            hfactor[s] = 0.310 / lg_raw if lg_raw else 1.0
+            lg_obp = ob_num / ob_den if ob_den else 0.315
+            hfactor[s] = lg_obp / lg_raw if lg_raw else 1.0
         print("wOBA scale factors:", {s: round(v, 4) for s, v in hfactor.items()})
 
         def woba_of(t, s):
@@ -5846,6 +5856,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         "savant_boards": savant_meta if "savant" in fams else prev.get("savant_boards", []),
     }
     jwrite(out / "meta.json", meta, sort_keys=True)
+    # a slim site-facing copy: the `files` manifest is ~18 MB and the site's only meta consumer
+    # (the glossary) reads version/model_card/counts. meta.json itself stays whole for --check.
+    jwrite(out / "meta_site.json", {k: v for k, v in meta.items() if k != "files"}, sort_keys=True)
 
     # ------------------------------------------------------------ write rest
     print(f"[{time.time() - t0:.0f}s] pitchers", flush=True)  # per-family timing

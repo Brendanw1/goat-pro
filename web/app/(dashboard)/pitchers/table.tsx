@@ -20,6 +20,7 @@ import type { FilterColumn } from "@/lib/column-filters";
 import { FilterBuilder, useUrlFilters } from "@/components/ui/filter-builder";
 import { PAGE_SIZE } from "@/lib/boards/shared";
 import { useBoardPage } from "@/lib/boards/use-board-page";
+import { fmtIp } from "@/lib/ip";
 
 // Columns, defaults, the filter/sort and the league medians live in
 // lib/boards/pitchers.ts, shared with the route that pages this board.
@@ -41,7 +42,8 @@ function fmt(value: any, key: string): string {
   if (key === "era" || key === "fip") return value.toFixed(2);
   if (key.endsWith("Pct")) return value.toFixed(1);
   if (PLUS_KEYS.has(key)) return Math.round(value).toString();
-  if (["ip", "velo", "ivb"].includes(key)) return value.toFixed(1);
+  if (key === "ip") return fmtIp(value);
+  if (["velo", "ivb"].includes(key)) return value.toFixed(1);
   return String(value);
 }
 

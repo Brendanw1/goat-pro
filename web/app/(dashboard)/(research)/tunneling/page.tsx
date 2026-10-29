@@ -3,6 +3,7 @@ import { sortComparator } from "@/lib/table-sort";
 import { getPitchers } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
+import { fmtIp } from "@/lib/ip";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,7 @@ export default async function TunnelingPage({ searchParams }: { searchParams?: P
                 <td className={`px-2 py-1.5 text-right ${c2(r.tunnelPlus, i)}`}>{fmt(r.tunnelPlus, 1)}</td>
                 <td className="px-2 py-1.5 text-right text-text-secondary">{fmt(r.tunnelPairsN, 0)}</td>
                 <td className="px-2 py-1.5 text-right text-text-dim">{fmt(r.tunnelReliability, 2)}</td>
-                <td className="px-2 py-1.5 text-right text-text-secondary">{fmt(r.ip, 1)}</td>
+                <td className="px-2 py-1.5 text-right text-text-secondary">{typeof r.ip === "number" ? fmtIp(r.ip) : "—"}</td>
                 <td className="px-2 py-1.5 text-right text-text-secondary">{fmt(r.kPct, 1)}</td>
                 <td className="px-2 py-1.5 text-right text-text-secondary">{fmt(r.chasePct, 1)}</td>
               </tr>

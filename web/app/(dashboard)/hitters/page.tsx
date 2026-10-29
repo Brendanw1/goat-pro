@@ -256,7 +256,7 @@ export default async function HittersPage({ searchParams }: {
       </div>
       <p className="text-xs text-text-dim">
         Measured only: the slash line, batted-ball quality and plate discipline. wOBA uses weights derived from this
-        site&apos;s own run-expectancy data (league average reads .310). No expected-stats model yet — that is what the
+        site&apos;s own run-expectancy data (scaled so league wOBA equals league OBP each season). No expected-stats model yet — that is what the
         Savant expected-stats board carries in the meantime.
       </p>
       <GradePctProvider data={null}>

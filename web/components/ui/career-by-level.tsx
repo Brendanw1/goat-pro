@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getHitters, getMinorsIndex, getMinorsLines, getPitchers } from "@/lib/data";
+import { fmtIp } from "@/lib/ip";
 
 /**
  * Every season x level a player has a line at: MLB rows from the site's boards (2023+), Rookie
@@ -89,7 +90,7 @@ export async function CareerByLevel({ id }: { id: string }) {
     <div className="space-y-4 mt-5">
       {pRows.length > 0 && (
         <Table id={id} title="Career by level · pitching" rows={sortRows(pRows)} cols={[
-          { key: "ip", label: "IP", fmt: (r) => num(r.ip, 1) },
+          { key: "ip", label: "IP", fmt: (r) => (typeof r.ip === "number" ? fmtIp(r.ip) : "—") },
           { key: "bf", label: "BF", fmt: (r) => (typeof r.bf === "number" ? String(r.bf) : "—") },
           { key: "fip", label: "FIP", fmt: (r) => num(r.fip, 2) },
           { key: "whip", label: "WHIP", fmt: (r) => num(r.whip, 2) },

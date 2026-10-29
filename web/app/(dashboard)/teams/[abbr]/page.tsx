@@ -5,6 +5,7 @@ import { getPitchers, getHitters, getParks , getRecentGames } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 import { ordinal } from "@/lib/percentiles";
+import { fmtIp } from "@/lib/ip";
 
 export const metadata = { title: "Team" };
 
@@ -149,7 +150,7 @@ function Board({ title, rows, cols, sort, sortBase, dirQ, link }: {
                 </td>
                 <td className="px-2 py-1.5 text-right text-text-dim">{r.season}</td>
                 {cols.map((c) => (
-                  <td key={c.key} className={`px-2 py-1.5 text-right ${c.key === sort ? "text-text-primary" : "text-text-secondary"}`}>{fmt(r[c.key], c.nd)}</td>
+                  <td key={c.key} className={`px-2 py-1.5 text-right ${c.key === sort ? "text-text-primary" : "text-text-secondary"}`}>{c.key === "ip" && typeof r.ip === "number" ? fmtIp(r.ip) : fmt(r[c.key], c.nd)}</td>
                 ))}
               </tr>
             ))}

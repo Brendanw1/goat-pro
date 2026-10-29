@@ -6,6 +6,7 @@
  */
 import Link from "next/link";
 import { type Level, getWpaIndex, getSavantBoard, getWarIndex } from "@/lib/data";
+import { fmtIp } from "@/lib/ip";
 
 const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.'’]/g, "").toLowerCase().trim();
 const sgn = (v: number, nd = 2) => `${v > 0 ? "+" : ""}${v.toFixed(nd)}`;
@@ -16,7 +17,7 @@ function warTip(side: "hitters" | "pitchers", r: any, rank: number, of: number, 
   if (side === "pitchers") {
     return [head,
       `Built from FIP: strikeouts, walks, HBP and home runs against the league run environment`,
-      `${r.ip.toFixed(1)} IP, FIP ${r.fip.toFixed(2)} (on the RA/9 scale, before the park adjustment)`,
+      `${fmtIp(r.ip)} IP, FIP ${r.fip.toFixed(2)} (on the RA/9 scale, before the park adjustment)`,
       ...(r.gs < r.g / 2 && r.gmli ? [`Reliever: credit scaled by the leverage he entered in (gmLI ${r.gmli.toFixed(2)}, 1.00 = average)`] : []),
       `Runs become wins at ${rpw.toFixed(1)} runs per win`,
       `Method: RESULTS-MLB §85 and the glossary (WAR). Click for the league board`].join(" · ");
@@ -74,7 +75,7 @@ export async function WpaAbsStrip({ id, season, level, name, team }: {
           {side === "hitters" ? (
             <span> · runs: bat {sgn(r.bat, 1)}, BsR {sgn(r.bsr, 1)}, field {sgn(r.fld, 1)}, pos {sgn(r.posn, 1)}, repl {sgn(r.rep + r.lg, 1)}</span>
           ) : (
-            <span> · {r.ip.toFixed(1)} IP · FIP {r.fip.toFixed(2)}{r.gs < r.g / 2 && r.gmli ? ` · gmLI ${r.gmli.toFixed(2)}` : ""}</span>
+            <span> · {fmtIp(r.ip)} IP · FIP {r.fip.toFixed(2)}{r.gs < r.g / 2 && r.gmli ? ` · gmLI ${r.gmli.toFixed(2)}` : ""}</span>
           )}
         </Link>
       ))}

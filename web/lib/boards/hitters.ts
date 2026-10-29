@@ -26,7 +26,7 @@ export const HITTER_RESULT_COLUMNS = [
 ] as const;
 
 export const HITTER_QUALITY_COLUMNS = [
-  { key: "woba", label: "wOBA", w: "w-[54px]", align: "right", tip: "wOBA on linear weights derived from this site's own run-expectancy data, league average centred at .310 — descriptive, like everything on this site." },
+  { key: "woba", label: "wOBA", w: "w-[54px]", align: "right", tip: "wOBA on linear weights derived from this site's own run-expectancy data, scaled so league wOBA equals league OBP each season — descriptive, like everything on this site." },
   { key: "ev90", label: "EV90", w: "w-[48px]", align: "right", tip: "90th percentile exit velocity of his balls in play — the hard contact he carries, not the lucky one." },
   { key: "maxEv", label: "MaxEV", w: "w-[52px]", align: "right", tip: "Hardest ball in play this season." },
   { key: "hardHitPct", label: "HH%", w: "w-[48px]", align: "right", tip: "Balls in play at 95 mph or harder." },

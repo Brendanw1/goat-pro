@@ -41,6 +41,7 @@ import { RV100_TIP } from "@/lib/rv-cells";
 import { TrendPanel } from "@/components/ui/trend-panel";
 import { RollingPanel } from "@/components/ui/rolling-panel";
 import { ProjectionBand, LeagueScatter } from "@/components/ui/league-views";
+import { fmtIp } from "@/lib/ip";
 
 const int0 = (v: number) => Math.round(v).toString();
 const pct1 = (v: number) => v.toFixed(1) + "%";
@@ -340,7 +341,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
   const perTypeBp = percentiles?.pitchers_per_type ?? null;
   const totalPitches = pitches.reduce((a: number, p: any) => a + (p.n_pitches ?? p.nPitches ?? 0), 0);
   const sampleLine = [
-    typeof profile.ip === "number" ? `${profile.ip.toFixed(1)} IP` : null,
+    typeof profile.ip === "number" ? `${fmtIp(profile.ip)} IP` : null,
     typeof profile.battersFaced === "number" ? `${profile.battersFaced.toLocaleString("en-US")} BF` : null,
     totalPitches > 0 ? `${totalPitches.toLocaleString("en-US")} pitches` : null,
     typeof profile.season === "number" ? `${profile.season} season` : null,

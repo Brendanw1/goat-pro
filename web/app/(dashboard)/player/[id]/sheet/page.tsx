@@ -5,6 +5,7 @@ import { getPitcherPercentileRank, getStatPercentileRank, ordinal } from "@/lib/
 import { GradeScopeToggle } from "@/components/ui/grade-pct";
 import { GradePctProvider } from "@/components/ui/grade-pct";
 import { PrintButton } from "@/components/ui/print-button";
+import { fmtIp } from "@/lib/ip";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,7 @@ export default async function PlayerSheetPage({ params, searchParams }: {
               </>
             ) : (
               <>
-                <Stat label="IP" value={profile.ip != null ? profile.ip.toFixed(1) : "—"} />
+                <Stat label="IP" value={profile.ip != null ? fmtIp(profile.ip) : "—"} />
                 <Stat label="K%" value={profile.kPct != null ? `${profile.kPct}%` : "—"} sub={rankPct("kPct", profile.kPct)} />
                 <Stat label="BB%" value={profile.bbPct != null ? `${profile.bbPct}%` : "—"} sub={rankPct("bbPct", profile.bbPct)} />
                 <Stat label="CSW%" value={profile.cswPct != null ? `${profile.cswPct}%` : "—"} sub={rankPct("cswPct", profile.cswPct)} />
