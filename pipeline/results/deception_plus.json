@@ -1,0 +1,38 @@
+{
+ "prereg": "pipeline/PREREG-deception-plus.md",
+ "n_seasons": 1587,
+ "n_pairs": 781,
+ "min_swings": 200,
+ "k_shrink": 400.0,
+ "gate1_split_half": {
+  "d_bs": {
+   "split_half": 0.621,
+   "n_split": 1587
+  },
+  "d_ic": {
+   "split_half": 0.82,
+   "n_split": 1587
+  }
+ },
+ "gate1_yty": {
+  "d_bs": {
+   "yty": 0.626,
+   "n": 781
+  },
+  "d_ic": {
+   "yty": 0.787,
+   "n": 781
+  }
+ },
+ "traits_pass": true,
+ "gate2_r2": {
+  "naive": 0.3776,
+  "naive_stuff": 0.4182,
+  "with_deception": 0.4286,
+  "delta": 0.0104
+ },
+ "gate2_coef_d_bs": -0.19,
+ "gate2_coef_d_icpt": 0.1875,
+ "forecast_pass": true,
+ "verdict": "SHIP"
+}

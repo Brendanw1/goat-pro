@@ -4649,6 +4649,15 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             names = dict(con.sql(
                 "SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register "
                 "WHERE TRY_CAST(key_mlbam AS BIGINT) IS NOT NULL").fetchall())
+            # Deception+ (model request 2): the gated grade joins the descriptive
+            # panel — SHIP verdict, results/deception_plus.json (split-half
+            # .62/.82, YTY .63/.79, dR2 +.0104 over naive+Stuff+).
+            plus_map = {}
+            dp_fp = ROOT / "pipeline" / "results" / "deception_plus_scores.csv"
+            if dp_fp.exists():
+                dpsc = pd.read_csv(dp_fp)
+                for r_ in dpsc.itertuples():
+                    plus_map[(int(r_.pitcher), int(r_.season))] = float(r_.plus)
             dec = dec.sort_values(["season", "d_bs"]).reset_index(drop=True)
             n_dec = 0
             index_rows: dict = {}
@@ -4663,6 +4672,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                         "nSwings": int(r_.n),
                         "batSpeedVsNorm": f(r_.d_bs, 2), "batSpeedPct": float(r_.pctBs) if pd.notna(r_.pctBs) else None,
                         "timingDisruption": f(r_.d_icpt, 1),
+                        "plus": plus_map.get((int(r_.pitcher), s)),
                         "_comment": ("per-swing bat speed minus THAT batter's season mean (100+ swing norms), "
                                      "averaged over the pitcher's tracked swings (200+); timing disruption is the "
                                      "mean absolute contact-point shift off the batter's norm, inches. Descriptive."),
@@ -4670,6 +4680,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     index_rows.setdefault(str(s), []).append({
                         "id": str(int(r_.pitcher)), "name": names.get(int(r_.pitcher)), "nSwings": int(r_.n),
                         "batSpeedVsNorm": f(r_.d_bs, 2), "timingDisruption": f(r_.d_icpt, 1),
+                        "plus": plus_map.get((int(r_.pitcher), s)),
                         "pctBs": float(r_.pctBs) if pd.notna(r_.pctBs) else None})
                     n_dec += 1
             jwrite(out / "deception_index.json", {

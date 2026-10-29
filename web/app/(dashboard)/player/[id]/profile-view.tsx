@@ -606,8 +606,13 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               <span className="text-xs font-data text-text-secondary">
                 timing shifted <span className="text-text-primary">{deception.timingDisruption}&quot;</span> off their contact point
               </span>
+              {deception.plus != null && (
+                <span className="text-xs font-data text-text-primary">
+                  Deception+ <span className="text-text-primary">{deception.plus.toFixed(1)}</span>
+                </span>
+              )}
               <span className="text-[10px] text-text-dim">
-                {deception.nSwings?.toLocaleString()} tracked swings · {deception.batSpeedPct != null ? `${Math.round(deception.batSpeedPct)}th pct` : ""} · descriptive
+                {deception.nSwings?.toLocaleString()} tracked swings · {deception.batSpeedPct != null ? `${Math.round(deception.batSpeedPct)}th pct` : ""}
               </span>
             </div>
           )}
