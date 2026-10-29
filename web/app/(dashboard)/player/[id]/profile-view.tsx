@@ -159,7 +159,7 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
     return getPitcherPercentileRank(metric, v, bp);
   };
   const pctChip = (pct: number | null | undefined, title: string) =>
-    typeof pct === "number" && Number.isFinite(pct) ? <PctChip p={pct} title={`${Math.round(pct)}th — ${title}`} /> : null;
+    typeof pct === "number" && Number.isFinite(pct) ? <PctChip neutral p={pct} title={`${Math.round(pct)}th — ${title}`} /> : null;
   // Δ columns: the chip shows the two-sided rank; the value tints when it clearly
   // stands out from his slot band (the "more movement than expected" scan).
   const deltaCell = (value: number | null | undefined, pct: number | null | undefined, what: string) => {
@@ -167,7 +167,7 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
     const stands = p !== null && (p >= STANDOUT_PCT || p <= 100 - STANDOUT_PCT);
     return (
       <>
-        <span className="font-data" style={stands && p !== null ? { color: percentileColor(p), fontWeight: 600 } : undefined}>
+        <span className="font-data" style={stands ? { fontWeight: 600 } : undefined}>
           {signedFixed(value, 1)}
         </span>
         {pctChip(p, `of his slot band's ${what}s (${stands ? "stands out from the band" : "within the band's range"})`)}
@@ -240,16 +240,16 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
               </div>
               <div className="w-[74px] flex items-center justify-end gap-1 text-xs font-data text-text-secondary">
                 {f1(r.ivb)}
-                {sameSeason && typeRank(r, "ivb") !== null && <PctChip p={typeRank(r, "ivb")!} title={`among this season's ${typeNoun}s (signed IVB)`} />}
+                {sameSeason && typeRank(r, "ivb") !== null && <PctChip neutral p={typeRank(r, "ivb")!} title={`among this season's ${typeNoun}s (signed IVB)`} />}
               </div>
               <div className="w-[74px] flex items-center justify-end gap-1 text-xs font-data text-text-secondary">
                 {f1(r.hb)}
-                {sameSeason && typeRank(r, "hb") !== null && <PctChip p={typeRank(r, "hb")!} title={`among this season's ${typeNoun}s (signed HB)`} />}
+                {sameSeason && typeRank(r, "hb") !== null && <PctChip neutral p={typeRank(r, "hb")!} title={`among this season's ${typeNoun}s (signed HB)`} />}
               </div>
               <div className="w-[74px] flex items-center justify-end gap-1 text-xs font-data text-text-secondary">
                 {typeof r.spin === "number" ? Math.round(r.spin) : "—"}
                 {sameSeason && perTypeBp?.[r.type]?.spin && typeof r.spin === "number" && (
-                  <PctChip p={getPitcherPercentileRank("spin", r.spin, perTypeBp[r.type].spin)} title={`among this season's ${typeNoun}s`} />
+                  <PctChip neutral p={getPitcherPercentileRank("spin", r.spin, perTypeBp[r.type].spin)} title={`among this season's ${typeNoun}s`} />
                 )}
               </div>
               <div className="w-[48px] text-right text-xs font-data text-text-secondary">{f1(r.relH)}</div>

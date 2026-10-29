@@ -4,7 +4,7 @@
  * and `signedFixed` likewise from its signed-stat helper.
  */
 import type { ReactNode } from "react";
-import { percentileColor } from "@/lib/percentiles";
+import { NEUTRAL_GREY, percentileColor } from "@/lib/percentiles";
 
 /** Relative luminance of a hex colour, 0–1. */
 export function luminance(hex: string): number {
@@ -17,8 +17,9 @@ export function luminance(hex: string): number {
 }
 
 /** A percentile as a filled chip (colour = the site ramp, dark or light text for contrast). `children` overrides the label. */
-export function PctChip({ p, title, children }: { p: number; title?: string; children?: ReactNode }) {
-  const bg = percentileColor(p);
+/** `neutral`: rank shown in grey, for stats with no good/bad direction. */
+export function PctChip({ p, title, children, neutral }: { p: number; title?: string; children?: ReactNode; neutral?: boolean }) {
+  const bg = neutral ? NEUTRAL_GREY : percentileColor(p);
   return (
     <span data-pct={Math.round(p)} title={title ?? `${Math.round(p)}th percentile`}
       className="inline-flex min-w-[1.9rem] justify-center rounded-md px-1 py-[1px] font-data text-[10px] font-semibold leading-4 tabular-nums"
