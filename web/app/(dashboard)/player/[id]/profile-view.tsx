@@ -167,10 +167,10 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
     const stands = p !== null && (p >= STANDOUT_PCT || p <= 100 - STANDOUT_PCT);
     return (
       <>
-        <span className="font-data" style={stands ? { fontWeight: 600 } : undefined}>
+        <span className="font-data" style={stands && p !== null ? { color: percentileColor(p), fontWeight: 600 } : undefined}>
           {signedFixed(value, 1)}
         </span>
-        {pctChip(p, `of his slot band's ${what}s (${stands ? "stands out from the band" : "within the band's range"})`)}
+        {p !== null && <PctChip p={p} title={`${Math.round(p)}th — of his slot band's ${what}s (${stands ? "stands out from the band" : "within the band's range"})`} />}
       </>
     );
   };
