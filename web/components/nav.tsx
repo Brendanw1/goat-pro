@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "@/components/search";
 import { LavaNav } from "@/components/ui/lava-bar";
@@ -68,6 +68,16 @@ export function Nav() {
   // moves (or the back button takes it somewhere else) with no effect to reset it.
   const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
   const target = pending && pending.from === pathname ? pending.href : null;
+  const meta = useRef(new Set<string>());
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.code === "MetaLeft" || e.code === "MetaRight") meta.current.add(e.code); };
+    const up = (e: KeyboardEvent) => meta.current.delete(e.code);
+    const clear = () => meta.current.clear();
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", clear);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", clear); };
+  }, []);
 
   return (
     <nav className="glass-nav sticky top-0 z-50 relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:gap-x-4">
@@ -81,6 +91,12 @@ export function Nav() {
       <Link
         href="/"
         aria-label="GOAT-Pro home"
+        onClick={(e) => {
+          if (meta.current.size < 2) return;
+          e.preventDefault();
+          meta.current.clear();
+          window.open("http://localhost:3000/admin", "_blank", "noopener,noreferrer");
+        }}
         className="relative z-10 shrink-0 grid place-items-center w-12 h-12 rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 ring-1 ring-slate-900/25
           bg-[linear-gradient(135deg,#ffffff_0%,#f7f9fb_45%,#e7ecf2_100%)]
           shadow-[0_4px_16px_rgba(2,6,12,0.55),0_1px_3px_rgba(2,6,12,0.4),inset_0_-6px_10px_rgba(96,108,128,0.42),inset_0_3px_6px_rgba(255,255,255,0.9),inset_0_0_0_1px_rgba(22,30,44,0.07)]"
