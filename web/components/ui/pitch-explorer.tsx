@@ -12,7 +12,7 @@ import type { PitchType } from "@/types";
 type File = {
   side: "P" | "H"; season: number; types: string[]; outcomes: string[]; zone: [number, number]; start: string;
   t: number[]; x: number[]; z: number[]; h: number[]; c: number[]; o: number[]; r: number[];
-  e: (number | null)[]; w: (number | null)[]; d: number[];
+  e: (number | null)[]; w: (number | null)[]; d: number[]; q?: number[];
 };
 
 const colorOf = (t: string) => PITCH_CONFIG[t as PitchType]?.color ?? "#8C9591";
@@ -129,10 +129,12 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
     const ws = ix.map((i) => file.w[i]).filter((w): w is number => w !== null);
     const es = ix.map((i) => file.e[i]).filter((e): e is number => e !== null);
     const rv = ix.reduce((a, i) => a + file.r[i], 0) / 1000;
+    const ooz = file.q ? ix.filter((i) => file.q![i] === 0) : [];
+    const chase = ooz.length ? (100 * ooz.filter((i) => SWING.has(file.o[i])).length) / ooz.length : null;
     let cum = 0;
     const path = ix.map((i) => { cum += file.r[i] / 1000; return [file.d[i], cum] as [number, number]; });
     return { t, n, usage: base.length ? (100 * n) / base.length : 0, rv100: n ? (100 * rv) / n : null, rv,
-      whiff: sw ? (100 * wh) / sw : null, csw: n ? (100 * csw) / n : null,
+      whiff: sw ? (100 * wh) / sw : null, csw: n ? (100 * csw) / n : null, chase,
       xw: ws.length ? ws.reduce((a, b) => a + b, 0) / ws.length / 1000 : null,
       ev: es.length ? es.reduce((a, b) => a + b, 0) / es.length / 10 : null, path };
   }).filter((r) => r.n > 0);
@@ -182,14 +184,14 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
         <div className="space-y-3 overflow-x-auto">
           <table className="text-[11px] font-data">
             <thead className="text-text-dim"><tr>
-              {["Type", "Pitches", "Usage", "RV/100", "Runs", "Whiff%", "CSW%", "xwOBA", "EV"].map((h) => <th key={h} className="pr-3 text-right first:text-left font-normal">{h}</th>)}
+              {["Type", "Pitches", "Usage", "RV/100", "Runs", "Whiff%", "Chase%", "CSW%", "xwOBA", "EV"].map((h) => <th key={h} className="pr-3 text-right first:text-left font-normal">{h}</th>)}
             </tr></thead>
             <tbody>{byType.map((r) => (
               <tr key={r.t} className="text-text-secondary">
                 <td className="pr-3" style={{ color: colorOf(r.t) }}>{r.t}</td>
                 <td className="pr-3 text-right">{r.n}</td><td className="pr-3 text-right">{f(r.usage, 1)}%</td>
                 <td className="pr-3 text-right" style={{ color: r.n >= 50 && r.rv100 !== null ? percentileColor(good("rv", r.rv100)) : undefined }}>{f(r.rv100, 2)}</td>
-                <td className="pr-3 text-right">{f(r.rv, 1)}</td><td className="pr-3 text-right">{f(r.whiff, 1)}</td>
+                <td className="pr-3 text-right">{f(r.rv, 1)}</td><td className="pr-3 text-right">{f(r.whiff, 1)}</td><td className="pr-3 text-right">{f(r.chase, 1)}</td>
                 <td className="pr-3 text-right">{f(r.csw, 1)}</td><td className="pr-3 text-right">{r.xw === null ? "—" : r.xw.toFixed(3).replace(/^0/, "")}</td>
                 <td className="pr-3 text-right">{f(r.ev, 1)}</td>
               </tr>

@@ -662,14 +662,15 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
     location in hundredths of a foot (catcher's view, as Statcast), h opponent hand (0 L, 1 R), c count
     (balls * 3 + strikes), o outcome index into `outcomes`, r run value in thousandths of a run from the
     file owner's side (pitcher: delta_pitcher_run_exp; hitter: its negative), e exit velo x10 and w xwOBA
-    x1000 on balls in play (null otherwise), d day of season (0 = his first game)."""
+    x1000 on balls in play (null otherwise), d day of season (0 = his first game), q in the zone
+    (Statcast zone 1-9) or not."""
     n_files = 0
     for season in seasons:
         df = con.sql(f"""
             SELECT pitcher, batter, CAST(game_date AS DATE) AS gd, {site_case} AS site, plate_x, plate_z,
                    stand, p_throws, balls, strikes, description, events, delta_pitcher_run_exp AS rv,
                    launch_speed, estimated_woba_using_speedangle AS xw, bb_type, sz_top, sz_bot,
-                   game_pk, at_bat_number, pitch_number
+                   game_pk, at_bat_number, pitch_number, zone
             FROM pitches_all
             WHERE game_type = 'R' AND season = {season} AND pitch_type IS NOT NULL
               AND plate_x IS NOT NULL AND plate_z IS NOT NULL AND pitcher IS NOT NULL AND batter IS NOT NULL
@@ -683,7 +684,8 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
                 "c": (df["balls"].clip(0, 3) * 3 + df["strikes"].clip(0, 2)).to_numpy().astype(int), "o": o,
                 "e": np.where(bip & df["launch_speed"].notna(), np.round(df["launch_speed"].fillna(0) * 10), np.nan),
                 "w": np.where(bip & df["xw"].notna(), np.round(df["xw"].fillna(0) * 1000), np.nan),
-                "rv": df["rv"].fillna(0).to_numpy()}
+                "rv": df["rv"].fillna(0).to_numpy(),
+                "q": df["zone"].between(1, 9).to_numpy().astype(int)}
         for side, who, opp_hand, sign in (("P", "pitcher", "stand", 1), ("H", "batter", "p_throws", -1)):
             ids = df[who].to_numpy()
             hand = (df[opp_hand] == "R").to_numpy().astype(int)
@@ -703,7 +705,7 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
                                 round(float(np.nanmean(df["sz_top"].to_numpy()[ix])), 2)],
                        "t": [tix[t] for t in sites], "x": cols["x"][ix].tolist(), "z": cols["z"][ix].tolist(),
                        "h": hand[ix].tolist(), "c": cols["c"][ix].tolist(), "o": cols["o"][ix].tolist(),
-                       "r": np.round(sign * cols["rv"][ix] * 1000).astype(int).tolist(),
+                       "r": np.round(sign * cols["rv"][ix] * 1000).astype(int).tolist(), "q": cols["q"][ix].tolist(),
                        "e": nul(cols["e"][ix]), "w": nul(cols["w"][ix]), "d": day.tolist()}
                 jwrite_gz(out / "pitches" / f"{side}{int(pid)}-{season}.json.gz", doc)
                 n_files += 1
