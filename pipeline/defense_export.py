@@ -3,6 +3,12 @@
     python defense_export.py [--out DIR]   # default data/export/web
     python defense_export.py --demo        # self-check of the interval and the percentile
 
+Each chance carries its game (g), batter and play text from Statcast, and, once
+pipeline/savant_play_ids.py has run, Savant's play_id (pid, for the video link) and the number of parks it
+would have left (hr, Savant's homeRunBallparks). Each file also carries `savant`: that season's Savant
+fielding run value components (range, arm, DP, 1B receiving, catcher) and directional OAA, labelled Savant's,
+with the 1B receiving distribution of every first baseman for the strip chart.
+
 Ships only what passed its gate: a range group (IF / OF) if its §81 (else §80, else §75) verdict is CONFIRMED, framing
 if §76 is. Per card: runs and OAA (raw, shrunk by the measured k), a 90% interval, a within-position
 percentile among qualified players (reliability >= .25), and the chance list for the drill map. Catchers: framing
@@ -56,6 +62,58 @@ def demo():
     print("demo ok")
 
 
+def play_lookup(ch: pd.DataFrame) -> pd.DataFrame:
+    """(game_pk, hx, hy) -> batter name, play text, and Savant play_id / HR parks when fetched. hx/hy are
+    Statcast hc_x/hc_y rounded to 0.01, recovered from the chance's feet coordinates."""
+    from paths import MART_DIR
+    sys.path.insert(0, str(MART_DIR))
+    import mart
+    con = mart.connect()
+    games = ",".join(map(str, sorted(ch["game_pk"].astype(int).unique())))
+    lk = con.sql(f"""SELECT game_pk, round(hc_x, 2) AS hx, round(hc_y, 2) AS hy, at_bat_number, pitch_number,
+                            any_value(player_name) AS batter, any_value(des) AS des
+                     FROM pitches_all WHERE game_pk IN ({games}) AND hc_x IS NOT NULL AND events IS NOT NULL
+                     GROUP BY ALL""").df()
+    bip = PIPE.parent / "data" / "milb" / "savant_bip.parquet"
+    if bip.exists():
+        sv = pd.read_parquet(bip, columns=["game_pk", "at_bat_number", "pitch_number", "play_id", "hr_parks"]).dropna(subset=["play_id"])
+        sv = sv.astype({"game_pk": int, "at_bat_number": int, "pitch_number": int})
+        lk = lk.merge(sv, on=["game_pk", "at_bat_number", "pitch_number"], how="left")
+    return lk.drop_duplicates(["game_pk", "hx", "hy"], keep=False)
+
+
+def savant_blocks(seasons) -> tuple[dict, dict]:
+    """{(id, season): block} from Savant's FRV and OAA leaderboards, and {season: sorted 1B receiving runs}."""
+    from paths import MART_DIR
+    sys.path.insert(0, str(MART_DIR))
+    import mart
+    con = mart.connect()
+    have = {r[0] for r in con.sql("SELECT table_name FROM information_schema.tables").fetchall()}
+    out, rec = {}, {}
+    num = lambda v: None if v is None or pd.isna(v) else round(float(v), 2)  # noqa: E731
+    for s in seasons:
+        if f"lb_fielding_run_value_{s}" in have:
+            f = con.sql(f"SELECT * FROM lb_fielding_run_value_{s}").df()
+            rec[int(s)] = sorted(round(float(v), 2) for v in f["fielding_runs_prevented_on_rec1b"].dropna())
+            for r in f.itertuples():
+                out.setdefault((int(r.id), int(s)), {})["frv"] = {
+                    "total": num(r.total_runs), "range": num(r.range_runs), "arm": num(r.arm_runs), "dp": num(r.dp_runs),
+                    "rec1b": num(r.fielding_runs_prevented_on_rec1b), "framing": num(r.framing_runs),
+                    "throwing": num(r.throwing_runs), "blocking": num(r.blocking_runs),
+                    "outs": {p: int(getattr(r, f"outs_{n}")) for n, p in ((2, "c"), (3, "1b"), (4, "2b"), (5, "3b"), (6, "ss"), (7, "lf"), (8, "cf"), (9, "rf"))
+                             if getattr(r, f"outs_{n}", 0)}}
+        if f"lb_outs_above_average_{s}" in have:
+            o = con.sql(f"SELECT * FROM lb_outs_above_average_{s}").df()
+            for r in o.to_dict("records"):
+                out.setdefault((int(r["player_id"]), int(s)), {})["oaa"] = {
+                    "pos": r["primary_pos_formatted"], "oaa": num(r["outs_above_average"]),
+                    "front": num(r["outs_above_average_infront"]), "to3b": num(r["outs_above_average_lateral_toward3bline"]),
+                    "to1b": num(r["outs_above_average_lateral_toward1bline"]), "back": num(r["outs_above_average_behind"]),
+                    "rhh": num(r["outs_above_average_rhh"]), "lhh": num(r["outs_above_average_lhh"]),
+                    "success": r["actual_success_rate_formatted"], "expected": r["adj_estimated_success_rate_formatted"]}
+    return out, rec
+
+
 def main(out: Path):
     ok, framing_ok, k = verdicts()
     v3 = CACHE / "defense_chances_v3.parquet"  # §81 fit when present
@@ -73,16 +131,22 @@ def main(out: Path):
     cards["qualified"] = cards["w"] >= 0.25
     q = cards[cards["qualified"]]
     cards["pct"] = q.groupby(["season", "pos"])["runs_s"].transform(pct_rank)
+    lk = play_lookup(ch)
+    ch = ch.assign(hx=(ch["fx"] / 2.5 + 125.42).round(2), hy=(198.27 - ch["fy"] / 2.5).round(2)).merge(
+        lk, on=["game_pk", "hx", "hy"], how="left")
     files: dict = {}
     for c in cards[cards["chances"] >= MIN_CHANCES].itertuples():
         lo, hi = interval(c.runs_s, np.sqrt(c.v_runs), c.w)
         sub = ch[(ch["mlbam"] == c.mlbam) & (ch["season"] == c.season) & (ch["pos"] == c.pos) & (ch["chances"] >= 0.2)]
-        of = c.pos >= 7
-        chances = [{"x": rnd(r.fx, 1) if of else None, "y": rnd(r.fy, 1) if of else None,
-                    "dir": None if of else rnd(r.spray, 1), "ev": rnd(r.ev, 1), "la": rnd(r.la, 0),
+        txt = lambda v: None if not isinstance(v, str) else v  # noqa: E731
+        chances = [{"x": rnd(r.fx, 1), "y": rnd(r.fy, 1),
+                    "dir": rnd(r.spray, 1), "ev": rnd(r.ev, 1), "la": rnd(r.la, 0),
                     "p": rnd(r.p, 3), "made": bool(r.made), "share": rnd(r.chances, 2), "credit": rnd(r.oaa, 3),
                     "runs": rnd(r.runs, 3), "date": r.date, "inning": int(r.inning), "half": r.half,
-                    "outs": int(r.outs), "bats": r.stand, "event": r.event}
+                    "outs": int(r.outs), "bats": r.stand, "event": r.event, "g": int(r.game_pk),
+                    "batter": txt(r.batter), "des": txt(r.des),
+                    "pid": txt(getattr(r, "play_id", None)),
+                    "hr": None if pd.isna(getattr(r, "hr_parks", np.nan)) else int(r.hr_parks)}
                    for r in sub.sort_values(["date", "inning", "p"]).itertuples()]
         files.setdefault((int(c.mlbam), int(c.season)), {"cards": [], "catcher": None})["cards"].append({
             "pos": POS[c.pos], "group": GROUP[c.pos], "chances": rnd(c.chances, 1), "qualified": bool(c.qualified),
@@ -117,6 +181,10 @@ def main(out: Path):
                 "cells": cells, "games": [{"date": g.date, "n": int(g.n), "runs": rnd(g.runs, 2),
                                            "strikesVsExp": rnd(g.sv - g.ex, 1)} for g in games.itertuples()]}
 
+    sv, rec = savant_blocks(sorted(cards["season"].astype(int).unique()))
+    for key, blk in sv.items():  # Savant-only players (no site card) still get their Savant block
+        if key in files or (blk.get("frv") or {}).get("total") is not None:
+            files.setdefault(key, {"cards": [], "catcher": None})["savant"] = {**blk, "rec1bAll": rec.get(key[1]) if (blk.get("frv") or {}).get("rec1b") is not None else None}
     for (pid, s), doc in files.items():
         doc.update(_comment="D-12/D-13 (RESULTS-MLB §75/§76/§80/§81): site defense models refit on Statcast; runs vs an "
                             "average fielder at the position; framing vs an average catcher on the same pitches",
