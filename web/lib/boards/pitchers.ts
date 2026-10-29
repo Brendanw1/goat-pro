@@ -7,7 +7,7 @@
  */
 import { applyFilters, type FilterColumn } from "@/lib/column-filters";
 import { sortComparator } from "@/lib/table-sort";
-import { distinct, filterMeta, pageOf, project, rowKeys, type BoardPage, type BoardState, type FilterMeta } from "./shared";
+import { distinct, filterMeta, pageOf, project, rowKeys, type BoardPage, type BoardState, type FilterMeta, playedFor } from "./shared";
 import { PITCHING_TIP, STUFF_TIP, K_TIP, PREVENTION_TIP, CONTROL_TIP } from "@/lib/grades";
 import { RV100_TIP } from "@/lib/rv-cells";
 
@@ -119,7 +119,7 @@ export function filterPitchers(data: PitcherRowAny[], s: BoardState): PitcherRow
       (r) => r.name.toLowerCase().includes(q) || r.team.toLowerCase().includes(q),
     );
   }
-  if (filters.team) rows = rows.filter((r) => r.team === filters.team);
+  if (filters.team) rows = rows.filter((r) => playedFor(r, filters.team));
   if (filters.season) rows = rows.filter((r) => String(r.season) === String(filters.season));
   if (filters.minIP > 0) rows = rows.filter((r) => r.ip >= filters.minIP);
   if (filters.throws) rows = rows.filter((r) => r.throws === filters.throws);

@@ -16,7 +16,7 @@ import { logoUrl, teamPixels } from "@/lib/team-pixel";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { getStatPercentileRank, PROFILE_PCT_FLOOR } from "@/lib/percentiles";
-import { signedFixed } from "@/components/ui/shared-ui";
+import { signedFixed, TeamLine, TeamSplitsDetails } from "@/components/ui/shared-ui";
 import { useState } from "react";
 import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { SeasonArc } from "@/components/ui/season-arc";
@@ -191,8 +191,9 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
             <h2 className="text-xl font-bold text-text-primary">{profile.name}</h2>
           </div>
           <p className="mt-1 text-xs text-text-dim">
-            {profile.team ?? "—"} · {profile.bats ? `bats ${profile.bats}` : ""}{typeof profile.age === "number" ? ` · age ${Math.floor(profile.age)}` : ""} · {sampleLine}
+            <TeamLine team={profile.team} teams={profile.teams} /> · {profile.bats ? `bats ${profile.bats}` : ""}{typeof profile.age === "number" ? ` · age ${Math.floor(profile.age)}` : ""} · {sampleLine}
           </p>
+          <TeamSplitsDetails lines={(profile as any).teamSplits} cols={[["pa", "PA", 0], ["avg", "AVG", 3], ["obp", "OBP", 3], ["slg", "SLG", 3], ["woba", "wOBA", 3], ["hr", "HR", 0], ["kPct", "K%", 1], ["bbPct", "BB%", 1]]} />
         </div>
         <div className="flex flex-wrap gap-6 text-center">
           {[

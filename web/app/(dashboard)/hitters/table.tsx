@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { PlayerLink } from "@/components/ui/player-transition";
 import { BorderBeam } from "border-beam";
 import { FilterPanel } from "@/components/filter-panel";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/boards/hitters";
 import { getStatPercentileRank } from "@/lib/percentiles";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
+import { TeamCountButton, TeamSplitRows, multiTeam } from "@/components/ui/team-split-rows";
 import type { FilterColumn } from "@/lib/column-filters";
 import { FilterBuilder, useUrlFilters } from "@/components/ui/filter-builder";
 import { PAGE_SIZE } from "@/lib/boards/shared";
@@ -37,6 +38,8 @@ export function HittersTable({ meta, initial, percentiles }: {
   percentiles?: any;
 }) {
   const [sortBy, setSortBy] = useState("woba");
+  const [openTeams, setOpenTeams] = useState<Set<string>>(new Set());
+  const toggleTeams = (k: string) => setOpenTeams((o) => { const n = new Set(o); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const [colFilters, setColFilters] = useUrlFilters();
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [search, setSearch] = useState("");
@@ -145,6 +148,7 @@ export function HittersTable({ meta, initial, percentiles }: {
             </thead>
             <tbody>
               {pageData.map((row, i) => (
+                <Fragment key={`${row.id}-${row.season}`}>
                 <tr key={`${row.id}-${row.season}`}
                   className={`border-b border-white/[0.025] hover:bg-white/[0.04] transition-colors ${i % 2 === 1 ? "bg-white/[0.012]" : ""}`}
                   style={{ height: "36px" }}>
@@ -170,12 +174,16 @@ export function HittersTable({ meta, initial, percentiles }: {
                             <PixelTeamLogo team={row.team} size={16} className="mr-1.5" />
                             {value}
                           </PlayerLink>
-                        ) : value}
+                        ) : col.key === "team" && multiTeam(row) ? (
+                      <TeamCountButton row={row} open={openTeams.has(`${row.id}-${row.season}`)} onToggle={() => toggleTeams(`${row.id}-${row.season}`)} />
+                    ) : value}
                         {chipFor(row, col.key, raw)}
                       </Tag>
                     );
                   })}
                 </tr>
+                {openTeams.has(`${row.id}-${row.season}`) && <TeamSplitRows row={row} columns={columns} fmt={fmt} />}
+                </Fragment>
               ))}
             </tbody>
           </table>

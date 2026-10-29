@@ -30,7 +30,7 @@ import { baseCode, type PitchType, MovementPoint, ReleasePoint } from "@/types";
 import { DescriptiveChip, DESCRIPTIVE_LINE, PITCHING_TIP, K_TIP, PREVENTION_TIP, CONTROL_TIP, STUFF_TIP, gradeColor, confidenceBadge } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { logoUrl, teamPixels } from "@/lib/team-pixel";
-import { signedFixed, PctChip } from "@/components/ui/shared-ui";
+import { signedFixed, PctChip, TeamLine, TeamSplitsDetails } from "@/components/ui/shared-ui";
 import { PitchRvCard } from "@/components/ui/pitch-rv-card";
 import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { FatigueTab } from "@/components/ui/fatigue-tab";
@@ -530,9 +530,10 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               {profile.name}
             </h1>
             <p className="mt-0.5 text-xs text-text-secondary">
-              {profile.team} · {profile.throws === "L" || profile.throws === "Left" ? "LHP" : "RHP"}{typeof profile.age === "number" ? ` · age ${Math.floor(profile.age)}` : ""}
+              <TeamLine team={profile.team} teams={(profile as any).teams} /> · {profile.throws === "L" || profile.throws === "Left" ? "LHP" : "RHP"}{typeof profile.age === "number" ? ` · age ${Math.floor(profile.age)}` : ""}
               {typeof profile.season === "number" ? ` · ${profile.season}` : ""}
             </p>
+          <TeamSplitsDetails lines={(profile as any).teamSplits} cols={[["ip", "IP", 1], ["era", "RA9", 2], ["fip", "FIP", 2], ["kPct", "K%", 1], ["bbPct", "BB%", 1], ["whiffPct", "Whiff%", 1], ["velo", "Velo", 1]]} />
             <p className="mt-0.5 font-data text-[11px] text-text-dim">{sampleLine}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {badge && (

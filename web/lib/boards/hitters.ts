@@ -8,7 +8,7 @@
  */
 import { applyFilters, type FilterColumn } from "@/lib/column-filters";
 import { sortComparator } from "@/lib/table-sort";
-import { distinct, filterMeta, pageOf, project, rowKeys, type BoardPage, type BoardState, type FilterMeta } from "./shared";
+import { distinct, filterMeta, pageOf, project, rowKeys, type BoardPage, type BoardState, type FilterMeta, playedFor } from "./shared";
 
 export const HITTER_RESULT_COLUMNS = [
   { key: "name", label: "Name", w: "flex-[2.5] min-w-[150px]", align: "left" },
@@ -76,7 +76,7 @@ export function filterHitters(data: Record<string, any>[], s: BoardState): Recor
     const q = search.toLowerCase();
     rows = rows.filter((r) => r.name?.toLowerCase().includes(q) || r.team?.toLowerCase().includes(q));
   }
-  if (filters.team) rows = rows.filter((r) => r.team === filters.team);
+  if (filters.team) rows = rows.filter((r) => playedFor(r, filters.team));
   if (filters.season) rows = rows.filter((r) => String(r.season) === String(filters.season));
   if (filters.bats) rows = rows.filter((r) => r.bats === filters.bats);
   if (filters.minPA > 0) rows = rows.filter((r) => (r.pa || 0) >= filters.minPA);

@@ -562,6 +562,77 @@ def births() -> dict[int, pd.Timestamp]:
     return out
 
 
+def pitcher_team_splits(con, season_list: str, stints: dict, level: str, fip_c: dict) -> dict:
+    """(pid, season) -> one line per club for pitchers who changed teams, in stint order: raw stats only
+    (grades are season-long and stay on the combined row). Runs are RA9 while he pitched for that club."""
+    if not stints:
+        return {}
+    d = con.sql(f"""
+        SELECT pitcher AS id, season, CASE WHEN inning_topbot = 'Top' THEN home_team ELSE away_team END AS team,
+               COUNT(*) AS n_pitches, COUNT(DISTINCT game_pk) AS g,
+               COUNT(DISTINCT (game_pk, at_bat_number)) FILTER (WHERE events IS NOT NULL AND events <> 'truncated_pa') AS pa,
+               COUNT(*) FILTER (WHERE events IN ('strikeout','strikeout_double_play')) AS k,
+               COUNT(*) FILTER (WHERE events IN ('walk','intent_walk')) AS bb,
+               COUNT(*) FILTER (WHERE events = 'hit_by_pitch') AS hbp,
+               COUNT(*) FILTER (WHERE events IN {BB_EVENTS}) AS h,
+               COUNT(*) FILTER (WHERE events = 'home_run') AS hr,
+               SUM(CASE WHEN events IN {OUT_EVENTS_1} THEN 1 WHEN events IN {OUT_EVENTS_2} THEN 2
+                        WHEN events IN {OUT_EVENTS_3} THEN 3 ELSE 0 END) AS ev_outs,
+               SUM(post_bat_score - bat_score) AS runs,
+               COUNT(*) FILTER (WHERE description IN ('called_strike','swinging_strike','swinging_strike_blocked','foul_tip')) AS csw,
+               COUNT(*) FILTER (WHERE description IN {WHIFF}) AS whiff,
+               COUNT(*) FILTER (WHERE description IN {SWING}) AS swings,
+               SUM(delta_pitcher_run_exp) AS rv, AVG(release_speed) AS velo
+        FROM pitches_all
+        WHERE game_type = 'R' AND season IN ({season_list}) AND pitcher IS NOT NULL
+        GROUP BY 1, 2, 3""").df()
+    d = d[[(int(a), int(b)) in stints for a, b in zip(d["id"], d["season"])]]
+    oo = official_er(level)
+    out = {}
+    for (pid, season), grp in d.groupby(["id", "season"]):
+        key = (int(pid), int(season))
+        # ponytail: Statcast events miss outs on the bases, so the official season outs are shared out by
+        # each club's event-out share; exact per-club IP needs per-team official lines.
+        off = oo.get(key, (0, 0))[1]
+        tot = grp["ev_outs"].sum()
+        order = {st["team"]: i for i, st in enumerate(stints[key])}
+        lines = []
+        for t in grp.itertuples():
+            outs = off * t.ev_outs / tot if off and tot else t.ev_outs
+            ip = outs / 3
+            fip = (13 * t.hr + 3 * (t.bb + t.hbp) - 2 * t.k) / ip + fip_c.get(key[1], 3.1) if ip > 0 else None
+            lines.append({"team": t.team, "g": int(t.g), "ip": f(ip, 1), "era": f(9 * t.runs / ip, 2) if ip > 0 else None,
+                          "fip": f(fip, 2), "whip": f((t.h + t.bb) / ip, 2) if ip > 0 else None,
+                          "battersFaced": int(t.pa), "pitches": int(t.n_pitches),
+                          "kPct": f(100 * t.k / t.pa, 1) if t.pa else None, "bbPct": f(100 * t.bb / t.pa, 1) if t.pa else None,
+                          "kBbPct": f(100 * (t.k - t.bb) / t.pa, 1) if t.pa else None,
+                          "cswPct": f(100 * t.csw / t.n_pitches, 1), "whiffPct": f(100 * t.whiff / t.swings, 1) if t.swings else None,
+                          "rvPer100": f(100 * t.rv / t.n_pitches, 2), "velo": f(t.velo, 1)})
+        out[key] = sorted(lines, key=lambda x: order.get(x["team"], 99))
+    return out
+
+
+def team_stints(con, role: str, season_list: str) -> tuple[dict, dict]:
+    """Per player-season: his current team (the team of his most recent game) and, for players who
+    changed teams, the stints in order: [{"team", "from", "to", "g"}], dates as YYYY-MM-DD.
+    In the top half the home team fields and the away team bats (inning_topbot is 'Top' / 'Bot')."""
+    top, other = ("home_team", "away_team") if role == "pitcher" else ("away_team", "home_team")
+    df = con.sql(f"""
+        SELECT {role} AS id, season, CASE WHEN inning_topbot = 'Top' THEN {top} ELSE {other} END AS team,
+               MIN(game_date) AS first, MAX(game_date) AS last, COUNT(DISTINCT game_pk) AS g
+        FROM pitches_all
+        WHERE game_type = 'R' AND season IN ({season_list}) AND {role} IS NOT NULL
+        GROUP BY 1, 2, 3""").df().sort_values(["id", "season", "last", "first"])
+    current, stints = {}, {}
+    for (pid, season), grp in df.groupby(["id", "season"], sort=False):
+        key = (int(pid), int(season))
+        current[key] = grp["team"].iloc[-1]
+        if len(grp) > 1:
+            stints[key] = [{"team": r.team, "from": str(r.first)[:10], "to": str(r.last)[:10], "g": int(r.g)}
+                           for r in grp.sort_values(["first", "last"]).itertuples()]
+    return current, stints
+
+
 def season_age(pid, season) -> float | None:
     """Age on June 30 of the season (the Baseball-Reference convention; minors_export uses the same)."""
     b = births().get(int(pid))
@@ -843,6 +914,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     # One pitcher-season per row, per the FEATURE_SQL pitch gates so the raw
     # rates describe the same pitches the grades do.
     totals = team_map = tot_n = tot_team = tot_indexed = None
+    team_stints_p: dict = {}
+    team_split_p: dict = {}
     gs_map: dict = {}
     hitter_pct_out = None
     pitcher_shrunk_out = None
@@ -919,15 +992,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         totals["outs"] = [oo[k][1] if k in oo and oo[k][1] > 0 else o
                           for k, o in zip(zip(totals["id"], totals["season"].astype(int)), totals["outs"])]
         totals = totals.sort_values(["id", "season"])
-        team_mode = con.sql(f"""
-            SELECT pitcher AS id, season,
-                   mode(CASE WHEN inning_topbot = 'Top' THEN home_team ELSE away_team END) AS team
-            FROM pitches_all
-            WHERE game_type = 'R' AND season IN ({season_list})
-              AND pitcher IS NOT NULL
-            GROUP BY 1, 2
-        """).df().sort_values(["id", "season"])
-        team_map = {(int(row.id), int(row.season)): row.team for row in team_mode.itertuples()}
+        team_map, team_stints_p = team_stints(con, "pitcher", season_list)
         # G/GS: official lines first; Statcast fallback = games pitched, and games where he threw his
         # side's first pitch (first PA of the 1st inning, his half).
         gs_sc = con.sql(f"""
@@ -1024,6 +1089,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         lg["c"] = lg["ra9"] - lg["fip_raw"]
         fip_c = dict(zip(lg["season"], lg["c"]))
         print("league FIP constant:", {int(k): round(v, 3) for k, v in fip_c.items()})
+        team_split_p = pitcher_team_splits(con, season_list, team_stints_p, level, fip_c)
 
     # ------------------------------------------------------- per pitch type
     bytype = None
@@ -1192,7 +1258,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             c = fip_c.get(int(t["season"]), 3.1)
             fip = (13 * t["hr"] + 3 * (t["bb"] + t["hbp"]) - 2 * t["k"]) / ip + c if ip > 0 else None
             row = {
-                "id": str(t["id"]), "name": gr["name"], "team": tot_team.get(key),
+                "id": str(t["id"]), "name": gr["name"], "team": tot_team.get(key), "teams": team_stints_p.get(key),
+                "teamSplits": team_split_p.get(key),
                 "throws": t["throws"], "season": int(t["season"]), "age": season_age(t["id"], t["season"]),
                 "ip": f(ip, 1), "era": f(era_of(t["id"], t["season"], level, t["runs"], ip), 2),
                 "fip": f(fip, 2), "whip": f((t["h"] + t["bb"]) / ip, 2) if ip > 0 else None,
@@ -1667,7 +1734,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 player_index[str(pid)] = {"n": gr_row["name"], "t": "P", "tm": team_map.get(key),
                                           "bf": int(t["pa"]), "season": season}
             doc = {
-                "id": str(pid), "name": gr_row["name"], "team": team_map.get(key), "position": "P",
+                "id": str(pid), "name": gr_row["name"], "team": team_map.get(key), "teams": team_stints_p.get(key), "teamSplits": team_split_p.get(key),
+                "position": "P",
                 "throws": t["throws"], "season": season, "age": season_age(pid, season),
                 "ip": f(ip, 1), "era": f(era_of(pid, season, level, t["runs"], ip), 2),
                 "fip": f((13 * t["hr"] + 3 * (t["bb"] + t["hbp"]) - 2 * t["k"]) / ip + c, 2) if ip > 0 else None,
@@ -2435,8 +2503,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
 
         BARREL_SQL = "(launch_speed_angle = 6)::INT"  # Savant's own barrel flag (the old table stopped widening at 113 mph)
 
-        hag = con.sql(f"""
-            SELECT batter AS id, season,
+        hag_sql = f"""
+            SELECT batter AS id, season, {{team}}
                    COUNT(DISTINCT CASE WHEN events IS NOT NULL AND events <> 'truncated_pa' THEN (game_pk, at_bat_number) END) AS pa,
                    COUNT(*) AS pitches_seen,
                    SUM(CASE WHEN events = 'single' THEN 1 ELSE 0 END) AS s1,
@@ -2475,19 +2543,17 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND description IS NOT NULL {HITTER_GATE}
-            GROUP BY 1, 2
-        """).df()
+            GROUP BY ALL
+        """
+        hag = con.sql(hag_sql.format(team="")).df()
         hag["id"] = hag["id"].astype(int)
         hag = hag.sort_values(["id", "season"])
 
-        hteam = con.sql(f"""
-            SELECT batter AS id, season,
-                   mode(CASE WHEN inning_topbot = 'Bottom' THEN home_team ELSE away_team END) AS team
-            FROM pitches_all
-            WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
-            GROUP BY 1, 2
-        """).df().sort_values(["id", "season"])
-        hteam_map = {(int(row.id), int(row.season)): row.team for row in hteam.itertuples()}
+        hteam_map, team_stints_h = team_stints(con, "batter", season_list)
+        # per-club lines for hitters who changed teams (raw stats; the season row keeps the models)
+        hag_team = con.sql(hag_sql.format(
+            team="CASE WHEN inning_topbot = 'Top' THEN away_team ELSE home_team END AS team, COUNT(DISTINCT game_pk) AS g,")).df()
+        hag_team = hag_team[[(int(a), int(b)) in team_stints_h for a, b in zip(hag_team["id"], hag_team["season"])]]
 
         # zone whiffs must be exact: re-pull just that column rather than approximate.
         zw = con.sql(f"""
@@ -2565,6 +2631,31 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         h_fld = fielding(con, seasons) if level == "mlb" else {}
         h_depth = {(int(rr["id"]), int(rr["season"])): {k: f(rr[c], nd) for c, (k, nd) in HD.items() if c in rr}
                    for rr in hd.to_dict("records")}
+        def h_line(t) -> dict:
+            """One club's slash line for a hitter who changed teams."""
+            ab = t.pa - t.bb - t.hbp - t.sf - t.sh - t.ci
+            hits = t.s1 + t.s2 + t.s3 + t.hr
+            obp_den = ab + t.bb + t.hbp + t.sf
+            avg = f(hits / ab, 3) if ab else None
+            obp = f((hits + t.bb + t.hbp) / obp_den, 3) if obp_den else None
+            slg = f((t.s1 + 2 * t.s2 + 3 * t.s3 + 4 * t.hr) / ab, 3) if ab else None
+            wv = woba_of(t, t.season)
+            return {"team": t.team, "g": int(t.g), "pa": int(t.pa), "avg": avg, "obp": obp, "slg": slg,
+                    "ops": f(obp + slg, 3) if obp is not None and slg is not None else None,
+                    "woba": f(wv, 3) if wv is not None else None, "hr": int(t.hr),
+                    "kPct": f(100 * t.k / t.pa, 1) if t.pa else None, "bbPct": f(100 * t.bb / t.pa, 1) if t.pa else None,
+                    "hardHitPct": f(100 * t.n_hard / t.bip, 1) if t.bip else None,
+                    "barrelPct": f(100 * t.n_barrel / t.bip, 1) if t.bip else None,
+                    "whiffPct": f(100 * t.whiffs / t.swings, 1) if t.swings else None,
+                    "oSwingPct": f(100 * t.n_ooz_swing / t.n_ooz, 1) if t.n_ooz else None}
+
+        h_team_lines: dict = {}
+        for t in hag_team.itertuples():
+            h_team_lines.setdefault((int(t.id), int(t.season)), []).append(h_line(t))
+        for key, lines in h_team_lines.items():
+            order = {st["team"]: i for i, st in enumerate(team_stints_h[key])}
+            lines.sort(key=lambda x: order.get(x["team"], 99))
+
         hboard = []
         for t in hag.itertuples():
             key = (int(t.id), int(t.season))
@@ -2578,7 +2669,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                                                 "bip", "gb", "fb", "ld", "pu", "n_hard", "n_barrel",
                                                 "avg_ev", "avg_la", "ev90", "maxev")}
             row = {
-                "id": str(t.id), "name": h_names.get(int(t.id)), "team": hteam_map.get(key),
+                "id": str(t.id), "name": h_names.get(int(t.id)), "team": hteam_map.get(key), "teams": team_stints_h.get(key),
                 "bats": None, "season": int(t.season), "pa": int(t.pa), "age": season_age(t.id, t.season),
                 "woba": f(woba_v, 3) if woba_v is not None else None,
             }
@@ -2605,6 +2696,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             row.update(h_proj.get(key, {}))
             row.update(h_dec.get(key, {}))
             row.update(h_fld.get(key, {}))
+            row["teamSplits"] = h_team_lines.get(key)
             hboard.append(row)
         hj = con.sql(f"""
             SELECT batter AS id, season, mode(stand) AS bats
@@ -2877,7 +2969,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             obp_den = ab + t.bb + t.hbp + t.sf
             doc = {
                 "id": str(pid), "name": h_names.get(pid), "position": "H", "age": season_age(pid, season),
-                "team": hteam_map.get((pid, season)), "bats": bats_map.get((pid, season)),
+                "team": hteam_map.get((pid, season)), "teams": team_stints_h.get((pid, season)),
+                "teamSplits": h_team_lines.get((pid, season)),
+                "bats": bats_map.get((pid, season)),
                 "season": season,
                 "pa": int(t.pa), "pitchesSeen": int(t.pitches_seen),
                 "avg": f((t.s1 + t.s2 + t.s3 + t.hr) / ab, 3) if ab else None,

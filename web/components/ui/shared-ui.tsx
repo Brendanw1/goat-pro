@@ -48,3 +48,38 @@ export function signedFixed(x: number | null | undefined, dp: number): string {
 export function Signed({ v, dp, lowerIsGood = false, className = "font-data" }: { v: number | null | undefined; dp: number; lowerIsGood?: boolean; className?: string }) {
   return <span className={className} style={{ color: toneColor(v, lowerIsGood, dp) }}>{signedFixed(v, dp)}</span>;
 }
+
+export type TeamStint = { team: string; from: string; to: string; g: number };
+
+const md = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/** "DET → LAD (Aug 3)" for a player who changed teams (date = his first game for the latest club); else the team. */
+export function TeamLine({ team, teams }: { team?: string | null; teams?: TeamStint[] | null }) {
+  if (!teams || teams.length < 2) return <>{team ?? "—"}</>;
+  const last = teams[teams.length - 1];
+  return (
+    <span title={teams.map((t) => `${t.team}: ${t.g} G, ${md(t.from)}–${md(t.to)}`).join(" · ")}>
+      {teams.map((t) => t.team).join(" → ")} ({md(last.from)})
+    </span>
+  );
+}
+
+/** Expandable per-club lines under a profile header, for a player who changed teams. */
+export function TeamSplitsDetails({ lines, cols }: { lines?: any[] | null; cols: [key: string, label: string, digits: number][] }) {
+  if (!lines || lines.length < 2) return null;
+  const cell = (v: unknown, d: number) => (typeof v === "number" ? (d === 3 ? v.toFixed(3).replace(/^0/, "") : v.toFixed(d)) : "—");
+  return (
+    <details className="mt-1 text-[11px] text-text-dim">
+      <summary className="cursor-pointer select-none hover:text-text-secondary">Per-club lines</summary>
+      <table className="mt-1 font-data">
+        <thead><tr><th className="pr-3 text-left font-normal">Club</th><th className="pr-3 text-right font-normal">G</th>
+          {cols.map(([k, l]) => <th key={k} className="pr-3 text-right font-normal">{l}</th>)}</tr></thead>
+        <tbody>{lines.map((ln) => (
+          <tr key={ln.team}><td className="pr-3">{ln.team}</td><td className="pr-3 text-right">{ln.g}</td>
+            {cols.map(([k, , d]) => <td key={k} className="pr-3 text-right text-text-secondary">{cell(ln[k], d)}</td>)}</tr>
+        ))}</tbody>
+      </table>
+      <p className="mt-0.5">Raw stats for each club; grades cover the whole season.</p>
+    </details>
+  );
+}

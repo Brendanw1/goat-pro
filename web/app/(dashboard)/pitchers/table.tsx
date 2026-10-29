@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { PlayerLink } from "@/components/ui/player-transition";
 import { BorderBeam } from "border-beam";
 import { FilterPanel } from "@/components/filter-panel";
@@ -14,6 +14,7 @@ import { PITCHING_TIP, K_TIP, PREVENTION_TIP, CONTROL_TIP, STUFF_TIP, gradeColor
 import { RV100_TIP } from "@/lib/rv-cells";
 import { percentileColor, getPitcherPercentileRank, isNeutralStat } from "@/lib/percentiles";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
+import { TeamCountButton, TeamSplitRows, multiTeam } from "@/components/ui/team-split-rows";
 import type { FilterColumn } from "@/lib/column-filters";
 import { FilterBuilder, useUrlFilters } from "@/components/ui/filter-builder";
 import { PAGE_SIZE } from "@/lib/boards/shared";
@@ -65,6 +66,8 @@ const DISC_DEN: Record<string, string> = {
 
 export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { meta: PitchersMeta; initial: PitchersPage; percentiles?: any; pctBySeason?: any }) {
   const [sortBy, setSortBy] = useState("stuffPlus");
+  const [openTeams, setOpenTeams] = useState<Set<string>>(new Set());
+  const toggleTeams = (k: string) => setOpenTeams((o) => { const n = new Set(o); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const [colFilters, setColFilters] = useUrlFilters();
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [search, setSearch] = useState("");
@@ -280,6 +283,7 @@ export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { met
               )}
 
               {pageData.map((row, i) => (
+                <Fragment key={`${row.id}-${row.season}`}>
                 <tr
                   key={`${row.id}-${row.season}`}
                   className={`border-b border-white/[0.025] hover:bg-white/[0.04] transition-colors ${
@@ -326,6 +330,8 @@ export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { met
                         <PixelTeamLogo team={row.team} size={16} className="mr-1.5" />
                         {value}
                       </PlayerLink>
+                    ) : col.key === "team" && multiTeam(row) ? (
+                      <TeamCountButton row={row} open={openTeams.has(`${row.id}-${row.season}`)} onToggle={() => toggleTeams(`${row.id}-${row.season}`)} />
                     ) : value}
                     {GRADE_PCT_KEYS.has(col.key) && <GradePct metric={col.key} value={raw} n={gradedN(row)} season={row.season} />}
                     {isName && (row as any).confidence && (() => {
@@ -349,6 +355,8 @@ export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { met
                 );
               })}
                 </tr>
+                {openTeams.has(`${row.id}-${row.season}`) && <TeamSplitRows row={row} columns={columns} fmt={fmt} />}
+                </Fragment>
               ))}
             </tbody>
           </table>

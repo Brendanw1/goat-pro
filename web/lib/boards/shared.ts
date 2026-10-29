@@ -69,7 +69,7 @@ export function pageOf<R>(sorted: R[], page: number): BoardPage<R> {
  * ~43 KB unprojected, pitchers 26.7 KB against ~34 KB.
  */
 export function rowKeys(role: "hitter" | "pitcher", columnKeys: string[], extra: string[] = []): string[] {
-  const keys = new Set(["id", "name", "team", ...columnKeys, ...extra]);
+  const keys = new Set(["id", "name", "team", "teams", "teamSplits", ...columnKeys, ...extra]);
   for (const k of columnKeys) {
     const m = disciplineMetric(role, k);
     if (m) { keys.add(`${k}Shrunk`); keys.add(m.denom); }
@@ -131,3 +131,7 @@ export function fromParams(q: URLSearchParams, defaults: BoardState, sortKeys: r
     page: Number.isFinite(page) && page >= 1 ? Math.min(page, 100_000) : 1,
   };
 }
+
+/** A team filter matches the club he ended with or any club he played for that season. */
+export const playedFor = (r: { team?: string | null; teams?: { team: string }[] | null }, team: string) =>
+  r.team === team || !!r.teams?.some((t) => t.team === team);
