@@ -4318,7 +4318,16 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             # the rows are cleaned (rank stays Pipeline's; only the org is filled).
             RECON_NULL = {None, "", "Office of the Commissioner"}
 
-            def _clean_row(r: dict, hist_org: dict | None = None) -> dict:
+            # debut marks for list rows + the farm/riser tables (loaded before the
+            # year loop — _clean_row reads it while the loop runs)
+            ppl_fp0 = ROOT / "data" / "milb" / "people.parquet"
+            debut_year = {}
+            if ppl_fp0.exists():
+                for prow in pd.read_parquet(ppl_fp0).itertuples():
+                    if pd.notna(getattr(prow, "debut", None)):
+                        debut_year[int(prow.id)] = int(str(prow.debut)[:4])
+
+            def _clean_row(r: dict, hist_org: dict | None = None, year: int = 0) -> dict:
                 # Membership first: a club list's own players are that club's, at
                 # list time — the current org (a trade, a coaching job, the
                 # Commissioner's pool) must never overwrite the historical one.
@@ -4331,6 +4340,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "rank": int(r["rank"]), "id": str(r["id"]), "n": r["name"],
                     "pos": r["pos"], "org": org,
                     "eta": r.get("eta"), "age": r.get("age"), "bats": r.get("bats"),
+                    "debut": debut_year.get(int(r["id"])),
                     "gradesH": r.get("gradesHitting"), "gradesP": r.get("gradesPitching"),
                 }
 
@@ -4354,7 +4364,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                             hist_org[pid] = (int(r0["rank"]), abbr)
                 hist = {pid: abbr for pid, (_, abbr) in hist_org.items()}
                 for key, rows in sorted(lists.items()):
-                    cleaned = [_clean_row(r, hist) for r in rows]
+                    cleaned = [_clean_row(r, hist, int(year)) for r in rows]
                     if key == "top100":
                         season_out["top100"] = cleaned
                     else:
@@ -4417,7 +4427,122 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 n_rank_files += 1
             counts["prospect_season_files"] = n_season_files
             counts["prospect_rank_files"] = n_rank_files
-            print(f"prospect season files: {n_season_files}; rank files: {n_rank_files}")
+
+            # ------------------------------------------- farm output / risers (item 8)
+            # Org table on the MATURED window (2011-2019 lists: essentially every
+            # debut that will happen has happened). Tier mix matters — a farm with
+            # eight top-100s should graduate more than one with two — so the table
+            # shows the org's own reach rate against the league's rate on the SAME
+            # tier slots, plus a tier-weighted output index (top-10 4, 11-25 3,
+            # 26-50 2, 51-100 1, unranked 0.5) and the MLB playing time its alumni
+            # produced (PA + BF from the mart).
+            MATURED = range(2011, 2020)
+            t100 = {}   # (year, id) -> rank
+            for y0, lists in raw.items():
+                if int(y0) in MATURED:
+                    for r0 in lists.get("top100", []) or []:
+                        t100[(int(y0), int(r0["id"]))] = int(r0["rank"])
+
+            def tier_w(rank: int | None) -> float:
+                if rank is None:
+                    return 0.5
+                return 4.0 if rank <= 10 else 3.0 if rank <= 25 else 2.0 if rank <= 50 else 1.0
+
+            pa_made = {}
+            bf_made = {}
+            try:
+                made = con.sql("SELECT batter, count(DISTINCT (game_pk, at_bat_number)) AS pa FROM pitches_all WHERE game_type = 'R' GROUP BY 1").df()
+                pa_made = {int(r0.batter): int(r0.pa) for r0 in made.itertuples()}
+                made2 = con.sql("SELECT pitcher, count(DISTINCT (game_pk, at_bat_number)) AS bf FROM pitches_all WHERE game_type = 'R' GROUP BY 1").df()
+                bf_made = {int(r0.pitcher): int(r0.bf) for r0 in made2.itertuples()}
+            except Exception:  # noqa: BLE001
+                pass
+
+            orgs = {}
+            league_slots = {"n": 0, "reached": 0}
+            for y0, lists in raw.items():
+                if int(y0) not in MATURED:
+                    continue
+                for key, rows0 in lists.items():
+                    if not key.startswith("team:"):
+                        continue
+                    abbr = SLUG_ABBR.get(key.partition(":")[2])
+                    if not abbr:
+                        continue
+                    o = orgs.setdefault(abbr, {"slots": 0, "reached": 0, "t100": 0, "index": 0.0,
+                                               "pa": 0, "bf": 0, "names": []})
+                    for r0 in rows0:
+                        pid = int(r0["id"])
+                        rank = t100.get((int(y0), pid))
+                        reached = pid in debut_year
+                        o["slots"] += 1
+                        o["t100"] += 1 if rank else 0
+                        o["reached"] += 1 if reached else 0
+                        o["index"] += tier_w(rank) if reached else 0.0
+                        o["pa"] += pa_made.get(pid, 0)
+                        o["bf"] += bf_made.get(pid, 0)
+                        league_slots["n"] += 1
+                        league_slots["reached"] += 1 if reached else 0
+            lg_rate = league_slots["reached"] / max(1, league_slots["n"])
+            farm_rows = []
+            for abbr, o in orgs.items():
+                rate = o["reached"] / max(1, o["slots"])
+                farm_rows.append({"org": abbr, "slots": o["slots"], "top100": o["t100"],
+                                  "reached": o["reached"], "reachedPct": f(100 * rate, 1),
+                                  "vsLeague": f(100 * (rate - lg_rate), 1),
+                                  "outputIndex": f(o["index"], 0),
+                                  "mlbPa": o["pa"], "mlbBf": o["bf"]})
+            farm_rows.sort(key=lambda e: -float(e["outputIndex"] or 0))
+
+            # tier time-to-MLB curves: cumulative % debuted by years since the
+            # FIRST top-100 appearance (matured classes only)
+            first_seen: dict = {}
+            for (y0, pid), rank in t100.items():
+                if pid not in first_seen or y0 < first_seen[pid][0]:
+                    first_seen[pid] = (y0, rank)
+            tier_of_rank = lambda rk: "top 10" if rk <= 10 else "11-25" if rk <= 25 else "26-50" if rk <= 50 else "51-100"
+            curves_acc: dict = {}
+            for pid, (y0, rank) in first_seen.items():
+                tier = tier_of_rank(rank)
+                dy = debut_year.get(pid)
+                delta = (dy - y0) if dy is not None and dy >= y0 else None
+                c = curves_acc.setdefault(tier, {"n": 0, "by": [0] * 7})
+                c["n"] += 1
+                if delta is not None:
+                    for k in range(min(delta, 6), 7):
+                        c["by"][k] += 1
+            tier_curves = [{"tier": tier, "n": c["n"],
+                            "cumPct": [f(100 * c["by"][k] / c["n"], 1) for k in range(7)]}
+                           for tier, c in sorted(curves_acc.items(),
+                                                 key=lambda kv: ["top 10", "11-25", "26-50", "51-100"].index(kv[0]))]
+
+            # risers: consecutive top-100 rank deltas per year
+            t100_by_year: dict = {}
+            for y0, lists in raw.items():
+                t100_by_year[int(y0)] = {int(r0["id"]): int(r0["rank"]) for r0 in lists.get("top100", []) or []}
+            risers = {}
+            for y0 in sorted(t100_by_year):
+                if y0 - 1 not in t100_by_year:
+                    continue
+                prev = t100_by_year[y0 - 1]
+                cur = t100_by_year[y0]
+                moves = [(prev[pid] - rk, pid, prev[pid], rk) for pid, rk in cur.items() if pid in prev]
+                up = sorted(moves, reverse=True)[:8]
+                down = sorted(moves)[:5]
+                def row_of(mv):
+                    _, pid, p0, c0 = mv
+                    return {"id": str(pid), "name": draft_by_id.get(pid, {}).get("name") or per_player.get(str(pid), {}).get("n"),
+                            "from": p0, "to": c0, "debut": debut_year.get(pid)}
+                risers[str(y0)] = {"up": [row_of(m0) for m0 in up], "down": [row_of(m0) for m0 in down]}
+            jwrite(out / "prospects" / "farm.json", {
+                "_comment": ("org farm output on 2011-2019 lists (matured), tier-weighted index (top10 4 / "
+                             "11-25 3 / 26-50 2 / 51-100 1 / unranked 0.5, counted only when the player "
+                             "reached MLB); vs-league is the org's reach rate on its own slots minus the "
+                             "league's on the same window; risers are consecutive top-100 rank deltas"),
+                "leagueReachedPct": f(100 * lg_rate, 1),
+                "orgs": farm_rows, "tierCurves": tier_curves, "risers": risers,
+            }, sort_keys=True)
+            print(f"prospect season files: {n_season_files}; rank files: {n_rank_files}; farm: {len(farm_rows)} orgs")
         else:
             print("prospects: data/milb/prospects.json missing — run pipeline/prospects_fetch.py first")
 

@@ -200,6 +200,11 @@ export async function getBucketBoard(season: number | string, type: string, leve
   return fetchFromR2<any>(lv(level, `buckets/${season}-${type}.json`)).catch(() => null);
 }
 
+/** Farm-system output table + tier time-to-MLB curves + risers (item 8). */
+export async function getFarmOutput(): Promise<any | null> {
+  return fetchFromR2<any>("prospects/farm.json", { shared: true }).catch(() => null);
+}
+
 /** League WPA boards per season + the year's biggest swings. */
 export async function getWpaIndex(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "wpa_index.json"), { shared: true }).catch(() => null);
