@@ -128,16 +128,18 @@ export async function getHitters(level: Level = "mlb"): Promise<HitterRowAny[]> 
     if (level !== "mlb") return data;
     // the site's own fielding models, from their own families: range runs (all positions summed, the
     // position with the most chances) and Framing+ for catchers
-    const [range, framing, war] = await Promise.all([
+    const [range, framing, war, ts] = await Promise.all([
       seasonIndex("defense_index.json", (rs) => ({
         rangeRuns: Math.round(rs.reduce((a, r) => a + (r.runs ?? 0), 0) * 10) / 10,
         rangePos: [...rs].sort((a, b) => (b.chances ?? 0) - (a.chances ?? 0))[0]?.pos ?? null,
       })),
       seasonIndex("framing_plus.json", (rs) => ({ framingPlus: rs[0].plus ?? null })),
       seasonIndex("war_index.json", (rs) => ({ war: rs[0].war ?? null }), "hitters"),
+      getTwoStrikeAll(),
     ]);
     const k = (r: any) => `${r.id}|${r.season}`;
-    return data.map((r) => ({ ...r, ...range.get(k(r)), ...framing.get(k(r)), ...war.get(k(r)) }));
+    return data.map((r) => ({ ...r, ...range.get(k(r)), ...framing.get(k(r)), ...war.get(k(r)),
+      bs2kDelta: ts?.rows?.[`${r.id}-${r.season}`]?.dBS ?? null }));
   } catch {
     return [];
   }
@@ -219,6 +221,17 @@ export async function getSwingProfile(id: string, season: string | number, level
 /** Contact-depth league references (§89): the inverted U, depth vs velo, in-season trend, late-on-velo board. */
 export async function getContactDepthLeague(): Promise<any | null> {
   return fetchFromR2<any>("depth/league.json", { shared: true }).catch(() => null);
+}
+
+/** Swing plane match (§90b, pipeline/plane_match_v2.py): league curves, a hitter's cell planes, pitchers' cell usage. */
+export async function getPlaneLeague(): Promise<any | null> {
+  return fetchFromR2<any>("plane/league.json", { shared: true }).catch(() => null);
+}
+export async function getPlaneHitter(id: string, season: string | number): Promise<any | null> {
+  return fetchGzippedJson<any>(`plane/${id}-${season}.json.gz`).catch(() => null);
+}
+export async function getPlanePitchers(season: string | number): Promise<Record<string, any> | null> {
+  return fetchFromR2<Record<string, any>>(`plane/pitchers-${season}.json`, { shared: true }).catch(() => null);
 }
 
 /** League aging curves (depth item 7): FF velo / bat speed / EV / wOBA by age. */
@@ -565,3 +578,10 @@ export async function getTranslation(kind: "pitchers" | "hitters", season: numbe
 export async function getTranslationFactors(): Promise<any | null> {
   return fetchFromR2<any>("translation/factors.json", { shared: true }).catch(() => null);
 }
+
+/** Timing residual (pipeline/timing_residual.py, RESULTS-MLB §92): {meta, rows: {"id-season": {...}}}, one shared file. */
+export const getTimingAll = cache(async (): Promise<any | null> =>
+  fetchFromR2<any>("timing/timing.json", { shared: true }).catch(() => null));
+/** Two-strike adaptation (pipeline/two_strike.py, RESULTS-MLB §93): {meta, rows: {"id-season": {...}}}. */
+export const getTwoStrikeAll = cache(async (): Promise<any | null> =>
+  fetchFromR2<any>("twostrike/twostrike.json", { shared: true }).catch(() => null));

@@ -11,24 +11,35 @@ const NAV_ITEMS = [
   { href: "/hitters", label: "Hitters" },
   { href: "/minors", label: "Minors" },
   { href: "/prospects", label: "Prospects" },
-  { href: "/trades", label: "Trades" },
   { href: "/teams", label: "Teams" },
+  { href: "/trades", label: "Trades" },
   { href: "/postseason", label: "Postseason" },
   { href: "/matchup", label: "Matchup" },
-  { href: "/tunneling", label: "Tunneling" },
-  { href: "/fatigue", label: "Fatigue" },
-  { href: "/roles", label: "Roles" },
-  { href: "/abs", label: "ABS" },
-  { href: "/wpa", label: "WPA" },
-  { href: "/dong", label: "Dong" },
-  { href: "/depth", label: "Depth" },
-  { href: "/aging", label: "Aging" },
-  { href: "/framing", label: "Framing" },
-  { href: "/defense", label: "Defense" },
   { href: "/arsenal", label: "Arsenal" },
-  { href: "/buckets", label: "Buckets" },
-  { href: "/scouting/savant", label: "Savant boards" },
+  { href: "/defense", label: "Defense" },
   { href: "/glossary", label: "Glossary" },
+] as const;
+
+/* Everything else lives in the More menu, grouped, so the top row fits one line. */
+const MORE_GROUPS = [
+  { label: "Swing", items: [
+    { href: "/depth", label: "Contact depth" },
+    { href: "/plane", label: "Swing plane" },
+    { href: "/dong", label: "Would it dong" },
+  ] },
+  { label: "Pitching", items: [
+    { href: "/tunneling", label: "Tunneling" },
+    { href: "/fatigue", label: "Fatigue" },
+    { href: "/roles", label: "Roles" },
+    { href: "/buckets", label: "Buckets" },
+  ] },
+  { label: "League", items: [
+    { href: "/wpa", label: "WPA" },
+    { href: "/abs", label: "ABS" },
+    { href: "/aging", label: "Aging" },
+    { href: "/framing", label: "Framing" },
+    { href: "/scouting/savant", label: "Savant boards" },
+  ] },
 ] as const;
 
 /* Baseball seams for the badge, traced from the owner's reference (pngtree
@@ -127,10 +138,44 @@ export function Nav() {
         })}
       </div>
 
+      <MoreMenu pathname={pathname} />
+
       {/* Right side — search */}
       <div className="ml-auto flex shrink-0 items-center">
         <Search />
       </div>
     </nav>
+  );
+}
+
+function MoreMenu({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const active = MORE_GROUPS.some((g) => g.items.some((i) => pathname === i.href || pathname.startsWith(i.href + "/")));
+  return (
+    <div className="relative z-20 shrink-0" onMouseLeave={() => setOpen(false)}>
+      <button type="button" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)}
+        className={`relative z-10 whitespace-nowrap px-3 py-1.5 rounded-full text-[13px] font-semibold press-scale nav-glow xl:text-sm [text-shadow:0_1px_2px_rgba(10,14,20,0.85)] ${
+          active || open ? "bg-black/45 border border-white/25 text-white" : "text-text-primary/85 hover:text-white hover:bg-black/25"}`}>
+        More <span aria-hidden className="text-[10px]">▾</span>
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full mt-2 grid w-[440px] max-w-[90vw] grid-cols-3 gap-4 rounded-xl border border-white/10 bg-[#0b0f16]/95 p-4 shadow-2xl backdrop-blur">
+          {MORE_GROUPS.map((g) => (
+            <div key={g.label}>
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-dim">{g.label}</div>
+              {g.items.map((i) => {
+                const on = pathname === i.href || pathname.startsWith(i.href + "/");
+                return (
+                  <Link key={i.href} href={i.href} role="menuitem" onClick={() => setOpen(false)} aria-current={on ? "page" : undefined}
+                    className={`block rounded-md px-2 py-1 text-[13px] ${on ? "bg-white/10 text-white" : "text-text-secondary hover:bg-white/[0.06] hover:text-white"}`}>
+                    {i.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

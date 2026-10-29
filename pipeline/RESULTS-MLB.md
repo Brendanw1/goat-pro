@@ -3078,3 +3078,48 @@ timing error at matched vs mismatched planes). P3 + P4 → a hitter plane-fit tr
 league cell, with the contact read), and a /matchup plane column = the pitcher's pitch-cell usage weighted over the hitter's
 cell plane deviations, labelled as a contact (not damage) read. No pitcher-separation column (E null).
 **On a fail:** that piece does not ship; data vs handling vs modeling diagnosis below; no second 2026 read.
+
+### §90b verdict (2026-10-29, 2026 read once; `pipeline/results/plane_v2_confirm.json`)
+296,435 competitive 2026 swings, 657 hitters (112,535 BIP). Priors for P3 from 2025 (exploration data). Holm over P1–P3.
+- **P1 PASS.** Sweet-spot rate peaks at a matched plane: ss(0) − ss(+15) **+8.4 pp**, ss(0) − ss(−10) **+4.1 pp**; min +4.1 pp
+  (CI +2.8 to +5.4), p < .001, over the +2.0 pp minimum. Replicates the exploration (+8.5 / +5.1).
+- **P2 PASS.** xwOBAcon falls off faster with timing error when the plane is mismatched: **−.017** per 5 in. × IQR |s|
+  (CI −.021 to −.013), p < .001, over the −.008 minimum. Identical to exploration (−.017).
+- **P3 PASS.** A hitter's 2025 contact-swing plane in a pitch group × height cell predicts his 2026 contact there beyond his 2025
+  contact rate in the cell: **−2.0 pp** per 5.39° steeper (CI −2.9 to −1.1), p < .001, 444 hitters, over the −1.0 pp minimum.
+- **P4 PASS.** Cell-specific plane trait split-half r .74, Spearman–Brown **.85** (616 hitter-cells) ≥ .70.
+**Reading.** All four replicate at their exploration sizes. The scope is narrower than the §90 idea: matching steers the launch band
+and forgives timing on contact (descriptive: the swing's own AA is coupled to depth, r .81), and the hitter-level read is a signed
+*contact* trait (a steeper usual plane in a cell costs contact there), not a damage or |match| trait. B and E stay unclaimed.
+**What may ship (owner's call, nothing baked yet):** league reads for P1/P2 labelled "descriptive, not a forecast"; a hitter
+plane-fit trait (usual AA by cell vs the league cell, with its contact read) and a /matchup plane column (pitcher's cell usage over
+the hitter's cell plane deviations), labelled a contact read. No pitcher-separation column.
+
+### §92 result (read once, 2026-10-29; `results/timing_92.json`)
+442,546 competitive contact swings, 783 hitters, 2024–25. Stage-1 r .626 (depth SD 9.0 in., residual SD 6.25 in.). No 2026 outcome read.
+- **Gate (a) passes for five of seven traits** (Spearman–Brown, hitter-bootstrap 95% CI; units): FB **.84** [.81, .87] (854),
+  BR **.83** [.79, .86] (589), OS **.76** [.70, .82] (229), FB 92–95 **.64** [.57, .70] (704), FB 95+ **.70** [.64, .75] (654),
+  spread SD(e) **.83** [.79, .86] (743). **Fails:** FB < 92, .45 [.35, .53]. Both seasons agree (e.g. FB .84/.84, 95+ .67/.73).
+- **Gate (b) fails on both targets** (n 273): SD → K% 2025 ΔwR² −.001 [−.012, +.005] (base wR² .607); → xwOBAcon −.003 [−.018, +.006].
+  r(SD, next K%) .05, r(SD, next xwOBAcon) .04. The spread is a stable trait (YoY .71) that is not tied to bat speed (r .03) or
+  swing length (.09) and does not forecast either outcome.
+- YoY 2024 → 2025: FB .81, BR .77, OS .65, 92–95 .62, 95+ .64, < 92 .32, spread .71. **College's depth spread failed at r .25; with MLB
+  samples (~270 contacts per half) the spread is stable** — the college failure looks like sample size, not a non-trait.
+- Reported: faster bats are later on fastballs relative to their own average (r −.21). Stance check: biases correlate only weakly with
+  his mean lateral intercept (box position; FB −.18, BR +.18, 95+ −.17) and not with raw mean depth (|r| ≤ .08).
+- **Diagnosis of the (b) failure: modeling (the hypothesis).** Measurement and reliability are fine; timing scatter around a hitter's
+  own mean just does not carry next-season K% or contact quality beyond last season's value. Sub-92 fails on data (sample): the
+  band mixes sinkers/cutters from soft-tossers, few per half.
+- **Ships, descriptive:** Swing-tab timing panel (bias by group and 92–95/95+, shrunk, n per row; spread as a number, no forecast language);
+  `tags` (strongest first, e.g. "late on 95+") in `timing/timing.json` as the /matchup-ready field.
+
+### §93 result (read once, 2026-10-29; `results/twostrike_93.json`)
+641,719 non-bunt tracked swings 2024–25; 740 hitter-seasons over the floors. League, pitch-adjusted: ΔBS 2K −0.86 mph (SD 0.98; raw
+−2.03, so more than half the raw drop is the two-strike pitch mix), ΔSL −0.13 ft, depth −0.54 in. (deeper), contact +7.5 pp, xwOBAcon −.030.
+- **Gate (a) passes:** ΔBS 2K YoY r **.644** [.574, .712] (278 hitters). Split-half SB .73. Others: ΔSL .81, Δ depth .74, Δ contact .44,
+  competitive-swing ΔBS .73.
+- **Gate (b) passes:** K% ~ whiff 0–1K + swing 0–1K + bat speed + ΔBS 2K (704 hitter-seasons, 442 hitters): β .0116 per mph
+  [.0088, .0144], **1.14 pp of K% per SD** of ΔBS. Bigger slowdowns go with fewer strikeouts than the early-count whiff rate predicts.
+- Buys and costs (reported): each mph shed goes with +1.6 pp two-strike contact [1.3, 1.9] and −.009 xwOBAcon on two-strike contact
+  [.005, .013]. r(ΔBS, bat speed) .08: adaptation is not just the big swingers.
+- **Ships, descriptive:** Swing-tab two-strike panel and a neutral ΔBS 2K column on /hitters. Same-season association, not causal.

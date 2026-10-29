@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getBucketBoard, getGameReport, getHitterProfile, getHitters, getPlayerProfile, getPostseason } from "@/lib/data";
+import { getBucketBoard, getGameReport, getHitterProfile, getHitters, getPlaneHitter, getPlanePitchers, getPlayerProfile, getPostseason } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { gradeColor } from "@/lib/grades";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
@@ -126,6 +126,18 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
   });
 
   const hitters = await Promise.all(ids.map((id) => getHitterProfile(id, season)));
+  // §90b plane read: his cell-specific plane (contact pp) weighted by where this pitcher throws (pitch group × height)
+  const [planes, pCells] = await Promise.all([Promise.all(ids.map((id) => getPlaneHitter(id, season))), getPlanePitchers(season)]);
+  const usage: Record<string, number> = pCells?.[pid]?.cells ?? {};
+  const planeRead = (pl: any) => {
+    const cs = (pl?.cells ?? []).filter((c: any) => (usage[c.cell] ?? 0) > 0);
+    const w = cs.reduce((t: number, c: any) => t + usage[c.cell], 0);
+    if (!cs.length || w < 40) return null;  // his qualified cells must cover 40%+ of this pitcher's pitches
+    const worst = cs.filter((c: any) => usage[c.cell] >= 10).sort((a: any, b: any) => a.contactPp - b.contactPp)[0] ?? null;
+    return { pp: cs.reduce((t: number, c: any) => t + c.contactPp * usage[c.cell], 0) / w, cover: w, worst };
+  };
+  const CELL_NAME: Record<string, string> = { FF: "four-seamers", SI: "sinkers", FC: "cutters", SL: "sliders", CU: "curves", CH: "changeups" };
+  const cellLabel = (c: string) => { const [g, h] = c.split("-"); return `${CELL_NAME[g] ?? g} ${h === "high" ? "up" : h === "low" ? "down" : "middle"}`; };
   const chip = "rounded-md border border-border-subtle px-2 py-1 text-[11px] text-text-secondary";
 
   return (
@@ -204,6 +216,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                 <th className="px-3 py-2 text-left font-semibold">Hitter</th>
                 <th className="py-2 text-right font-semibold" title={`vs ${throws}HP: PA · wOBA · K%`}>vs {throws}HP</th>
                 <th className="py-2 pl-2 text-right font-semibold" title="usage-weighted bucket edge over this arsenal, RV/100 vs league (hitter side)">Arsenal</th>
+                <th className="py-2 pl-3 text-left font-semibold" title="§90b: his swing plane in the zones this pitcher lives in, as contact pp vs his norm; a contact read, not damage">Plane</th>
                 {pitches.map((p: any) => (
                   <th key={p.pitchType} className="px-2 py-2 text-left font-semibold" style={{ color: colorOf(p.pitchType) }}>{p.pitchType}</th>
                 ))}
@@ -225,6 +238,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                   return { p, ax, n: ax.length ? Math.round(n / ax.length) : 0, diff, fam, use: use ?? p.usage ?? 0 };
                 });
                 const wsum = cells.filter((c) => c.diff != null && c.n >= 30).reduce((s, c) => s + c.use, 0);
+                const pr = planeRead(planes[i]);
                 const edge = wsum ? cells.filter((c) => c.diff != null && c.n >= 30).reduce((s, c) => s + c.diff! * c.use, 0) / wsum : null;
                 return (
                   <tr key={id} className="border-t border-white/[0.04] align-top">
@@ -246,6 +260,16 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                     </td>
                     <td className="py-2 pl-2 text-right">
                       {edge == null ? <span className="text-text-dim">—</span> : <Signed v={edge} dp={1} />}
+                    </td>
+                    <td className="py-2 pl-3 text-[10px] leading-snug">
+                      {pr == null ? <span className="text-text-dim">no read</span> : (
+                        <>
+                          <div><Signed v={pr.pp} dp={1} /><span className="text-text-dim"> pp contact</span></div>
+                          {pr.worst && pr.worst.contactPp <= -0.5 ? (
+                            <div className="text-text-dim">misfits {cellLabel(pr.worst.cell)} ({usage[pr.worst.cell].toFixed(0)}% of his pitches)</div>
+                          ) : <div className="text-text-dim">fits his zones</div>}
+                        </>
+                      )}
                     </td>
                     {cells.map((c) => {
                       const r = read(c.diff, c.n);
@@ -275,7 +299,8 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
           <p className="px-3 py-2 text-[10px] text-text-dim border-t border-border-subtle">
             Per pitch: the read, then his RV/100 minus the league&apos;s in the velo · IVB · arm-HB buckets (pitches seen), his wOBA
             against that pitch family (either hand), and how often this pitcher throws it to his side of the plate. Arsenal = those
-            bucket edges weighted by that usage. vs {throws}HP = his line against {throws === "R" ? "right" : "left"}-handers.
+            bucket edges weighted by that usage. Plane = his swing plane by pitch group × height (§90b), as the contact it implies
+            vs his own norm, weighted by where this pitcher throws; a contact read, not damage, descriptive, not a forecast. vs {throws}HP = his line against {throws === "R" ? "right" : "left"}-handers.
           </p>
         </div>
       )}

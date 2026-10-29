@@ -120,3 +120,35 @@ When a formula changes, update this table and the glossary in the same commit.
 - Model: hitter-season-demeaned OLS of squared-up (`swing_common.squared_up`, per contact) on pitch group, plate speed,
   plate_z/x quadratics, count, centred depth (+²), AA + AA², VAA + VAA², + M. Hitter-clustered bootstrap, 1,000 draws.
 - Verdict: failed. β(M1) is positive (+2.8 pp squared-up per IQR); the mirror holds on low pitches and breaking/offspeed and reverses on four-seamers up in the zone.
+
+## Swing plane, refined (pipeline/plane_match_v2.py → plane/league.json, plane/{id}-{season}.json.gz, plane/pitchers-{season}.json; RESULTS-MLB §90b)
+
+- s = AA + VAA (deg, + = swing steeper than the pitch). Cells = pitch group (FF, SI, FC, SL/ST/SV, CU/KC, CH/FS) × plate_z (< 2.08, 2.08–2.68, ≥ 2.68 ft).
+- P1 curve: hitter-season-demeaned OLS of sweet spot (BIP, LA 8–32°) on a linear spline in s (knots −8.9, −2.9, 3.8, 10.4, 16.3) + controls
+  (pitch group, plate speed, plate_x/z quadratics + x·z, count, centred-depth spline with knots −15, −8, 0, 8, 15 in.); shown as f(s) − f(0) in pp, per cell, s P5–P95.
+- P2 curve: xwOBAcon centred within hitter-season (+ league mean), by |centred depth| bin, for |s| ≤ P25 (2.81°) vs |s| ≥ P75 (9.89°).
+- Hitter cell plane: aa_c = his mean AA on competitive contact swings in cell c (primary batting side; ≥ 20 swings, ≥ 10 contacts);
+  delta_c = aa_c − league aa_c (same season); offset = swing-weighted mean of delta_c; rel_c = delta_c − offset;
+  contactPp_c = rel_c × (−100 × 0.02034 / 5.39) = −0.377 pp per degree (the §90b P3 estimate). Hitter-season floor 150 competitive swings.
+- Matchup plane = Σ_c usage_c × contactPp_c / Σ_c usage_c over his qualified cells, usage = the pitcher's share of all regular-season pitches
+  in cell c (pitchers with ≥ 200); blank when his cells cover < 40% of the pitcher's pitches. "Misfits" = his lowest contactPp among cells
+  with ≥ 10% usage, if ≤ −0.5 pp. Descriptive; a contact read, not damage.
+
+## Timing residual (pipeline/timing_residual.py → timing/timing.json; RESULTS-MLB §92)
+
+- Competitive contact swings (foul + in play). y = `intercept_ball_minus_batter_pos_y_inches` (+ = out front).
+- ŷ0 = hitter-grouped out-of-fold LightGBM (per season) of y on plate speed, release speed, pitch type, pfx_x and plate_x
+  signed by batter hand, pfx_z, plate_z, balls, strikes, same-hand flag. r0 = y − ŷ0.
+- offset = mean r0 over his other games that season and side (leave-one-game-out). e = r0 − offset (in., + = early, − = late).
+- bias_g = mean e over group g (FB = FF/SI/FC, BR = SL/ST/SV/CU/KC/CS, OS = CH/FS/FO; FB bands 92–95, 95+), shown shrunk:
+  bias_g · n/(n + k_g), k from split halves (FB 56, BR 35, OS 35, 92–95 70, 95+ 51). Spread = SD(e).
+- Tags ("late on 95+"): shrunk bias beyond the season's 20th/80th percentile, half-floor n met (40 per group, 25 per band), strongest first.
+  Hitter-season floor 100 contacts. Descriptive.
+
+## Two-strike adaptation (pipeline/two_strike.py → twostrike/twostrike.json; RESULTS-MLB §93)
+
+- All non-bunt tracked swings (not the competitive filter). Residual = observed − hitter-grouped out-of-fold LightGBM expectation
+  from §92's pitch features without balls/strikes, for bat speed, swing length, contact (foul + in play vs whiff incl. foul tip) and
+  depth (contact swings, then centred within hitter × season × side).
+- Δ = mean residual with two strikes − mean residual at 0–1 strikes. ΔBS 2K (mph), ΔSL (ft), Δ depth (in.), Δ contact (pp).
+  Floors: 100 two-strike and 200 other swings. Board column ΔBS 2K = dBS. Descriptive.

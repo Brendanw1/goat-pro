@@ -51,6 +51,16 @@ Queued for later, in order (after the swing program, `docs/swing-program.md`):
    comps, hurdle WAR; vt_baseball/MLB_Draft_Model) for what transfers. Then exploration and early
    tests (matured 2011-19 lists as the backtest; pre-register; sleeper = model rank well above the Pipeline rank
    that later reached MLB).
+0b. **Team identities and org fingerprints** (owner, 2026-10-29). Clustering and ML on team-level deviations
+   from league average: hitters (approach, swing, batted-ball shape), pitchers (arsenal, shape, location,
+   usage), farm systems (which metrics and stats cluster within an org's minor leaguers) and draft tendencies
+   (the player types each club drafts: college or HS, position, tools, signing bonus). Questions: does an
+   org have a tell, which clubs draft well (outcomes vs slot, using the §85 WAR and the prospect model), and
+   what each aims for. Methods to compare: z-scored profiles with PCA/UMAP, GMM/hierarchical clustering,
+   permutation tests against random team labels, and stability across seasons; classifier "guess the team"
+   accuracy vs chance as the identity test. Site: fold Prospects, Trades and Draft into tabs on the team page
+   (Overview / Roster / Identity / Farm / Draft / Trades). That also cuts the top nav. Visuals must each
+   tell one story with n shown.
 1. Pre-2020 MLB backfill, using the college TrackMan-era methods.
 2. State-space player projections.
 3. Surplus value: projected WAR against salary and control years.

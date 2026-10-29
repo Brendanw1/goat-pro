@@ -42,10 +42,10 @@ joined with pitch and batted-ball data. MLB only: TrackMan bat tracking stays in
 | # | Piece | Kind | § | Status |
 |---|---|---|---|---|
 | 1 | Contact-depth explorer (MLB) + in-season and pitch-type trends | display + reliability gate on the per-hitter window | §89 | shipped: window gate failed (SB .21), league curve shown; /depth + Swing tab |
-| 2 | Swing plane match (attack angle vs pitch VAA) | research, within-hitter test | §90 | failed (sign reversed); not shipped |
+| 2 | Swing plane match (attack angle vs pitch VAA) | research, within-hitter test | §90, §90b | §90 failed (sign reversed); §90b 4/4 claims confirmed on 2026 (launch band, timing forgiveness, hitter cell-plane contact trait); shipped: /plane, Swing-tab plane map, /matchup Plane column (descriptive, contact read) |
 | 3 | Swing quality model (xDamage per swing, swing vs result split) | ML, forecast gate | §91 | validation and baselines first |
-| 4 | Timing residual (depth vs expected depth) + early/late by pitch type | model + scouting read | §92 | scoped |
-| 5 | Two-strike adaptation | descriptive, stability gate | §93 | scoped |
+| 4 | Timing residual (depth vs expected depth) + early/late by pitch type | model + scouting read | §92 | shipped descriptive: biases reliable (SB .70–.84), spread does not forecast |
+| 5 | Two-strike adaptation | descriptive, stability gate | §93 | shipped descriptive: YoY .64; adapters strike out less (1.1 pp/SD) |
 | 6 | Swing archetypes + comps + aging by type | unsupervised, stability gate | §94 | scoped |
 | 7 | Bat speed drift as a fatigue/injury flag | change detection, validated against IL stints | §95 | scoped |
 

@@ -1,0 +1,53 @@
+{
+ "n_swings": 296435,
+ "hitters": 657,
+ "claims": {
+  "P1": {
+   "est": 0.04056,
+   "ss0_minus_ss15": 0.08421,
+   "ss0_minus_ssm10": 0.04056,
+   "n": 112535,
+   "ci": [
+    0.02759,
+    0.05359
+   ],
+   "p_one_sided": 0.0,
+   "holm_reject": true,
+   "size_ok": true,
+   "pass_": true
+  },
+  "P2": {
+   "est": -0.01696,
+   "n": 112475,
+   "ci": [
+    -0.02053,
+    -0.01326
+   ],
+   "p_one_sided": 0.0,
+   "holm_reject": true,
+   "size_ok": true,
+   "pass_": true
+  },
+  "P3": {
+   "est": -0.02034,
+   "n": 199550,
+   "hitters": 444,
+   "ci": [
+    -0.02946,
+    -0.0106
+   ],
+   "p_one_sided": 0.0,
+   "holm_reject": true,
+   "size_ok": true,
+   "pass_": true
+  },
+  "P4": {
+   "est": 0.85344,
+   "hitter_cells": 616,
+   "cell_dev_split_half_r": 0.74435,
+   "spearman_brown": 0.85344,
+   "overall_aa_split_half_r": 0.7921,
+   "pass_": true
+  }
+ }
+}
