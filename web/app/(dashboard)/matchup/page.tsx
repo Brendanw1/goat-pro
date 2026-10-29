@@ -187,14 +187,17 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
       const lg = bd.lg?.[ax]?.[k];
       return { ax, ai, k, label: binLabel(bd.edges[ax], k, unit), lgRv: lg?.rv100 == null ? null : -lg.rv100, lgWhiff: lg?.whiff ?? null };
     }).filter(Boolean) as any[] : [];
+    // hitter rows vs THIS pitcher's hand only (side 2 = vs RHP, 3 = vs LHP): arm-side run moves in on one batter side
+    // and away from the other, so pooling hands mixes two different pitches. The league reference matches hand and side.
     const want = new Set(ids);
+    const hside = throws === "R" ? 2 : 3;
     const hrows = new Map<string, any>();
     for (const r of bd?.rows ?? []) {
-      if (r[1] !== 1 || !want.has(r[0])) continue;
+      if (r[1] !== hside || !want.has(r[0])) continue;
       const b = bins.find((x) => x.ai === r[2] && x.k === r[3]);
-      if (b) hrows.set(`${r[0]}|${b.ax}`, { n: r[4], rv: r[6], whiff: r[7], xwcon: r[8], diff: b.lgRv == null ? null : r[6] - b.lgRv });
+      if (b) hrows.set(`${r[0]}|${b.ax}`, { n: r[4], rv: r[6], whiff: r[7], xwcon: r[8], k: b.k });
     }
-    return { ...p, bins, hrows };
+    return { ...p, bins, hrows, lgh: bd?.lgh?.[throws] ?? null };
   });
 
   const hitters = await Promise.all(ids.map((id) => getHitterProfile(id, season)));
@@ -236,7 +239,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
       <p className="text-xs text-text-dim max-w-[90ch]">
         Scouting view, descriptive, not a forecast. For each pitch: where its velocity, induced vertical break and arm-side
         break sit among the league&apos;s {season} buckets for that pitch type, and for each hitter his run value per 100 pitches
-        in those same buckets against the league&apos;s there (pitches from either hand; hitter side, + = good for the hitter).
+        in those same buckets against {throws}HP only, compared with league hitters of his side against {throws}HP there (hitter side, + = good for the hitter).
         A read needs 30 pitches; under 150 it only &quot;leans&quot;. Family and hand lines are his {season} regular season.
       </p>
 
@@ -305,7 +308,13 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                 const stand = h?.bats === "S" ? (throws === "R" ? "L" : "R") : h?.bats;
                 const vh = (h?.vsHand ?? []).find((r: any) => r.v === throws);
                 const cells = pitches.map((p: any) => {
-                  const ax = AXES.map(([a]) => p.hrows.get(`${id}|${a}`)).filter(Boolean);
+                  // his RV/100 minus league hitters' of his side vs this hand, in the same bucket
+                  const ax = AXES.map(([a]) => {
+                    const x = p.hrows.get(`${id}|${a}`);
+                    if (!x) return null;
+                    const lg = stand ? p.lgh?.[stand]?.[a]?.[String(x.k)] : null;
+                    return { ...x, diff: lg == null ? null : x.rv - lg };
+                  }).filter(Boolean) as any[];
                   const n = ax.reduce((s: number, x: any) => s + x.n, 0);
                   const diff = ax.filter((x: any) => x.diff != null).length
                     ? ax.reduce((s: number, x: any) => s + (x.diff ?? 0) * x.n, 0) / Math.max(1, ax.filter((x: any) => x.diff != null).reduce((s: number, x: any) => s + x.n, 0))
@@ -362,7 +371,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                         <td key={c.p.pitchType} className="px-2 py-2 text-[10px] leading-snug">
                           <div className={`font-sans ${r.tone}`}>{r.text}</div>
                           {c.ax.length ? (
-                            <div className="text-text-dim" title="his RV/100 in this pitch's velo / IVB / arm-HB bucket minus the league's there; pitches seen per bucket">
+                            <div className="text-text-dim" title={`his RV/100 vs ${throws}HP in this pitch's velo / IVB / arm-HB bucket minus league ${stand ?? ""}HH vs ${throws}HP there; pitches seen per bucket`}>
                               {AXES.map(([a]) => {
                                 const x = c.p.hrows.get(`${id}|${a}`);
                                 return x ? <span key={a} className="mr-1.5"><Signed v={x.diff} dp={1} className="font-data" /><span className="text-text-dim"> ({x.n})</span></span> : null;
@@ -386,7 +395,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
           </table>
           <p className="px-3 py-2 text-[10px] text-text-dim border-t border-border-subtle">
             Per pitch: the read, then his RV/100 minus the league&apos;s in the velo · IVB · arm-HB buckets (pitches seen), his wOBA,
-            K% and average EV against that pitch family (either hand), and how often this pitcher throws it to his side of the plate.
+            K% and average EV against that pitch family (either hand; the bucket edge is hand-matched), and how often this pitcher throws it to his side of the plate.
             Arsenal = those bucket edges weighted by that usage. Plane = his swing plane by pitch group × height (§90b), as the contact
             it implies vs his own norm, weighted by where this pitcher throws; a contact read, not damage, descriptive, not a forecast.
             vs {throws}HP = his line against {throws === "R" ? "right" : "left"}-handers. Whiff+ L/R = the §73 platoon split of this
