@@ -31,7 +31,7 @@ tables below are the original plan and are kept as written.
 | xRV / xRV+ | failed twice, not shipped | §71, §78 |
 | Platoon Whiff+ | shipped descriptive; location-aware gap failed | §73, §79 |
 | **Tunnel+** | shipped descriptive | §74 |
-| **Range** (IF/OF) | v1 and v2 failed; v3 (Savant start positions + hang time) shipped | §75, §80, §81 |
+| **Range** (IF/OF) | v1 and v2 failed; v3 (Savant start positions + hang time) shipped; v4 (the fielder's own speed as a feature) confirmed valid but failed the r ≥ v3 shipping rule — not shipped | §75, §80, §81, §96 |
 | **Framing+** | confirmed against Savant, shipped | §76, `PREREG-framing-plus.md` |
 | **Deception+** | passed its gates, shipped | `PREREG-deception-plus.md` |
 | Topo Level-1 class as the grading key | failed on K% and RV (wins on CSW% and stability); not adopted | §40 |

@@ -3265,3 +3265,70 @@ stints are acute (HBP, hamstring, oblique) with nothing to precede. Handling che
 - OF direction uncertain: `req_speed` is already a feature, and conditioning p on the fielder may double-count what Savant's OAA already includes; risk is r flat or slightly lower, with the decomposition the real deliverable.
 - Risk either group: YoY shifts as stable speed credit is absorbed into p — the same direction as §81's positioning effect.
 
+
+## §97 Prospect model v0: hierarchical (empirical Bayes) sleeper ranking, pre-registered 2026-10-29 before any outcome read
+
+Owner ask (docs/model-inventory.md queue item 0). Research round, not a ship. `pipeline/prospect_model.py`,
+write-up in `docs/prospect-model.md`. Public data only: Pipeline lists (`prospects_fetch.py`), MLB Stats API season
+lines (MiLB 2010–19 and MLB 2011–25, fetched with `milb_lines.fetch` into `data/milb/hist_*.parquet`), draft picks
+(`amateur_fetch.py`), debuts (`people.parquet`). B-Ref WAR is not used anywhere. PyMC/NumPyro are not installed (not
+pip-installed), so v0 is empirical Bayes + statsmodels' variational-Bayes mixed GLM.
+
+**Population.** Every player on a 2011–19 Pipeline Top 100 or org list (position lists add nobody new), one row per
+player × list year. Hitter/pitcher from the list position (RHP/LHP/P = pitcher).
+
+**Outcomes (built before any model is scored).**
+- Y1 reached MLB: Stats API debut date on or before the end of season list_year + 4.
+- Y2 value: MLB playing time in seasons list_year..list_year+4, full-season equivalents (hitters PA/600,
+  pitchers BF/700); 0 if not reached.
+- Y3 (reported, not judged): Σ §85 WAR 2020–26 for the 2015–19 lists (the only lists whose window reaches §85 seasons).
+
+**Features.**
+- Prior (Pipeline + draft + age): log Top-100 rank, in-Top-100 flag, org rank / org list length, list length,
+  log overall draft pick (draft.json 2011+; flag when none: IFA or pre-2011 draftee), age on July 1 of the list year.
+- Performance (season list_year − 1, all MiLB levels): per stat a level × season mean and between-player SD; each
+  player's level line is a z-score shrunk by n/(n + k), k = the stat's within/between variance ratio at that level
+  (method of moments, the partial-pooling step), then PA/BF-weighted across his levels. Hitters K%, BB%, ISO, BABIP,
+  SB per time on base; pitchers K%, BB%, HR/BF, GB share. Plus highest level, age minus that level-season's
+  PA-weighted mean age, and log PA/BF. No line = every z at 0 (full shrinkage to the prior) and a flag.
+- Group effects: random intercepts for org and list year (BinomialBayesMixedGLM, VB). New years predict at 0.
+
+**Models.** B0 = raw Pipeline ordinal (Top-100 rank, else 100 + 30·(org rank − 1) + 15). B1 = prior features only.
+M = prior + performance + group effects. Hurdle: P(Y1) × E[Y2 | reached] (Gaussian GLM on log1p FSE among reached).
+Hitters and pitchers fit separately, scored together.
+
+**Folds.** Leave-one-list-year-out; every row of a test-year player is removed from training (player-grouped).
+
+**Gates (a).** M vs B1 on pooled out-of-fold predictions: ΔAUC(Y1) ≥ +0.010 and ΔSpearman(EV, Y2) ≥ +0.010, each with a
+player-clustered bootstrap 95% CI (1,000 draws) excluding 0. B0 is printed beside, not judged (B1 contains it).
+Reported: per-year wins (out of 9), hitters vs pitchers, Y3 Spearman.
+**Gate (b) sleepers.** Within each test year, sleeper = M percentile − B0 percentile ≥ +25 points. Peer rate = the Y1
+rate of non-sleepers in the same list year and B0 rank decile. Pass: n ≥ 100 sleepers and observed − peer-expected
+≥ +5 pp with the clustered CI excluding 0. Fallers (≤ −25) reported as the mirror.
+**Kill.** (a) fails: performance adds nothing measurable to Pipeline + draft, no model rank ships as a forecast.
+(b) fails: no sleeper board. Either way the write-up gives a data / handling / modeling diagnosis.
+
+**Survivorship, stated before the read.** Lists select on scouting, so this tests the increment over a scouted
+population, not prospect evaluation from scratch. Pipeline ranks already see the year − 1 stats. Debut is partly a
+club decision (40-man, depth). Playing time is a value proxy, not WAR (§85 starts 2020). The 2019 window holds the 2020
+short season. 2011 lists are top 50 / top 10 per org, 2012–14 top 20 per org. No slot for IFAs or pre-2011 draftees;
+bonus only from 2017. Top-100 Y1 base rate near 90% leaves little room at the top.
+
+### §96 result (read once, 2026-10-29)
+
+Calibration passes every season (decile gaps .0010–.0054, all ≤ .03). Both groups clear the §75 validity gate, so both v4 fits are CONFIRMED as valid models — but **neither meets the §96 shipping rule (r ≥ its §81 r), so neither ships; §81 v3 stays.**
+
+| | v4 r [95% CI] | §81 r [CI] | Δr | verdict | rel / k | YoY ours / Savant |
+|---|---|---|---|---|---|---|
+| IF | .572 [.518, .623] | .580 [.526, .630] | −.008 | gates PASS, shipping rule FAIL | .19 / 1294 | .27 / .44 |
+| OF | .650 [.598, .695] | .721 [.678, .757] | −.071 | gates PASS, shipping rule FAIL | .31 / 622 | .36 / .64 |
+
+**Diagnosis (shipping-rule failure, per the owner rule).** *Handling:* none — folds, isotonic, credit, runs and gates are the §81 machinery unchanged; the only model delta is the one pre-registered feature. *Data:* not missingness — the Step-0 join is 97.5–99.5% in every season. *Modeling:* the pre-registered OF risk is what happened. Savant's OAA probability is population-level, so a fast fielder converting hard plays earns OAA credit against it; v4's p already expects *him* to convert them, so (1 − p) shrinks and the fielder-season correlation with Savant OAA falls. OF −.071 is that double-count; reliability fell with it (OF .40 → .31, IF .23 → .19) because speed is a stable trait and absorbing it into p removes stable credit — the same direction as §81's positioning effect. IF's flat Δr (−.008) says the fielder-vs-runner speed gap carries no play-level signal for grounders beyond what EV/LA/distance already encode.
+
+**Decomposition (descriptive, OF, 1.18M chance rows; approximate by construction — average starts + a drag-only hang):**
+- Within reach (`f_sprint ≥ req_speed`): 67.1% of chances; rel .318 (k 527), YoY .21, r vs Savant OAA .569.
+- Beyond reach: 33.0%; split-half degenerate (too few qualifying players — reported null), YoY .15, r vs Savant OAA .336.
+- On responsible-fielder rows (resp ≥ .34, post-hoc, descriptive): within converts .725 vs mean p .773; beyond converts .068 vs mean p .083 — calibrated inside each class, and the speed-tool play (a catch your own speed says you cannot reach) is real but rare (~7%).
+- **Handling flag on the seal's row-level stats:** `made_rate` vs `mean_p` in `defense_v4_SEALED.json` are not comparable at row granularity (`made` is per-position, `p` is per-play), so within's .24 vs .78 is expected, not miscalibration. Use the responsible-row figures above.
+
+**Shipped: nothing changes.** §81 v3 remains the site's range model. The v4 artifacts (`defense_chances_v4.parquet`, `defense_v4_SEALED.json`, `defense_fielders_v4.csv`, `defense_players_v4.csv`) are recorded evidence; no export wiring, no bake. The speed surface for the site stays with D-39 (descriptive Savant speed profile).
