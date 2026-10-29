@@ -3132,3 +3132,101 @@ SL .22 (CT and SL labelled "a description of the season" on the board). Pitcher 
 each hitter's norm (535 pitchers, 50+ contacts per half): raw SB .92 (YoY .79), beyond type × velo .89 (YoY .83); per type
 FF .84 / .83, SL .89 / .83, CH .90 / .84. Type × velo norms fall back to family then all types for cells under 300 contacts
 (one pitcher can be a whole cell, e.g. Tyler Rogers's 83 mph sinker). Shipped descriptive on /depth.
+
+## §94 Swing archetypes, comps and aging by type (swing program piece 6), pre-registered 2026-10-29 before any read
+
+`pipeline/swing_archetypes.py` (`--gate`, then bake) → `results/archetypes_94.json`, `data/export/web/archetypes/archetypes.json`.
+Every swing definition from `swing_common.py`. No outcome is read before this section is written.
+
+**Units.** Hitter-seasons, regular season, competitive swings (`competitive_mask`), both batting sides pooled. Floor ≥ 300 competitive
+swings and ≥ 150 contact swings (foul + in play). **Six traits** (means): bat speed (mph), swing length (ft), attack angle (°),
+attack direction as pull (`attack_dir_pull`, + = pull), swing path tilt (°), contact depth = raw
+`intercept_ball_minus_batter_pos_y_inches` on contact swings only (raw, not centred: centring zeroes the between-hitter
+difference this piece clusters on; it carries stance depth, stated on every visual). Fit data 2024–25; 2026 is assigned with the
+frozen fit (display only, no gate). Standardisation = z-scores with the 2024–25 pooled mean and SD, frozen.
+
+**Clusterers (2024–25 pooled).** GMM (full covariance, n_init 5, seed 94), k chosen by minimum BIC over k = 2…10 → k*. Ward
+hierarchical and k-means (n_init 20, seed 94) at the same k*. Display: PCA (2 components) of the z-space (UMAP is not installed;
+PCA is the honest linear view). Stability also reported for k = 3…8 for every method.
+
+**Gate (a), stability (no outcomes).** For each method at k*:
+1. **Bootstrap:** 200 hitter-cluster resamples (all a hitter's seasons together, seed 94); refit on the resample, label every
+   original unit (GMM/k-means predict; Ward by nearest resample centroid); ARI vs the full-data fit. Bar: **median ARI ≥ .60**.
+2. **2024 vs 2025:** hitters over the floor both seasons, labels from the full-data fit. Bar: **ARI ≥ .40 and same-archetype
+   share ≥ .60** (chance share Σp² reported beside it).
+Passes if any method clears all three bars; the passing method with the highest median bootstrap ARI ships.
+
+**Claim (b), outcome information beyond bat speed.** Pairs S → S+1 (2024 → 2025 and 2025 → 2026, pooled; 2026 outcomes read once,
+here), archetype from the frozen fit in S, ≥ 75 BIP in S+1. Target xwOBAcon_{S+1} (mean Savant xwOBA on balls in play). Weighted
+(S+1 BIP) out-of-fold OLS, 5 hitter-grouped folds (crc32(batter) mod 5): base = bat speed_S + pair dummy; full = base + archetype
+dummies. **Pass:** ΔwR² (full − base) > 0 with the 2,000-draw hitter-cluster bootstrap 95% CI (seed 94) lower bound > 0.
+Reported, not judged: the same with base = bat speed + xwOBAcon_S (the naive baseline); the six continuous traits in place of the
+dummies (is the type more than its traits?).
+
+**Comps.** Top 5 Euclidean neighbours in the frozen z-space among all 2024–26 hitter-seasons, excluding his own seasons.
+
+**Aging by archetype (aging family conventions: `age_bat` max in season, ≥ 20 units per cell).** Delta method, pairs S → S+1 both
+over the floor: Δ bat speed and Δ swing length by archetype at S × age band (≤ 26, 27–30, 31+), mean and hitter-bootstrap CI.
+Survival caveat: only hitters who had a next season count.
+
+**Kill / what ships.** (a) passes → /archetypes research page (map, plain-word legend, profiles, n, outcomes, aging) and an
+archetype + comps chip on the Swing tab. (b) only decides whether the page may say types carry outcome information; failing it,
+types are labelled descriptive. (a) fails → data vs handling vs modeling diagnosis; no chip; the page ships descriptive (trait
+map + comps, "no stable types") or not at all.
+
+## §95 Bat speed drift as an injury flag (swing program piece 7), pre-registered 2026-10-29 before any read
+
+`pipeline/bat_speed_drift.py` (`--gate`) → `results/drift_95.json`. Swings via `swing_common.py`; IL from
+`data/milb/transactions.parquet` (fields: `id`, `date`, `type`, `desc`; there is no `typeCode`. IL placements are `type` SC with
+"placed … on the N-day injured list" in `desc`; "transferred" moves are not new stints).
+
+**Series.** Per hitter-game, mean bat speed over his competitive swings (≥ 4 in the game), regular season 2024–26. Within a
+hitter-season, baseline b_t = mean of his previous ≤ 30 qualifying games (≥ 10 required, else no read), σ_t = SD of those game means
+(floored 0.5 mph), z_t = (x_t − b_t)/σ_t. The competitive cut uses the whole season's 10th percentile (a small look-ahead that, if
+anything, trims a slowed game's slowest swings and weakens the signal).
+
+**Detectors (parameters fixed now, no tuning).**
+- **CUSUM (lower):** C_t = max(0, C_{t−1} − z_t − 0.5); alert when C_t ≥ 4, then reset C to 0.
+- **Bayesian online change point (Adams–MacKay)** on x_t, Gaussian, known variance σ² = his first-10-game SD² (floored 0.5²), conjugate
+  normal prior on a segment mean (his first-10-game mean, SD 1.5 mph), hazard 1/60. Alert at t when P(run length ≤ 4) ≥ .5 and the
+  mean of the games since the MAP change is ≥ 1.0 mph under the mean of his games before it; then 10 games without a new alert.
+- **Naive rule:** z_t ≤ −2 (one low bat-speed game vs his rolling baseline).
+
+**Events.** IL stint start = "retroactive to <date>" when stated, else the transaction date. Eligible if the hitter has a qualifying
+game in the 10 days before the start and a baseline (≥ 10 prior games) that season. **Hit:** an alert on a game dated 1–14 days before
+an eligible start. **Precision** = alerts that hit / alerts; **recall** = eligible stints with ≥ 1 alert in their 14-day window;
+**lead time** = start − alert date (median). **Permutation null:** within each hitter-season, shuffle alert flags over his eligible
+games (alert count kept), 1,000 draws, seed 95; lift = precision / mean null precision, p = (1 + #null ≥ obs)/1,001.
+
+**Gate (development, 2024–25 pooled).** A detector passes if (1) p < .05 after Holm over {CUSUM, BOCPD}; (2) lift ≥ 1.5; (3) F1 ≥ the
+naive rule's F1 and lift ≥ the naive rule's lift. **2026 replication (read once):** p < .05 and lift ≥ 1.5 for the passing detector.
+
+**Reverse causation, stated now.** A slowed bat before an IL stint is most plausibly a hitter already hurt and playing through it
+(or a club that waits, then backdates the stint), not a fatigue precursor of a future injury. Retroactive dates move the start up to
+a few days earlier, so some "pre-IL" games may already be post-injury play. A pass means "his bat slowed before the club put him on
+the IL", a descriptive flag, never a forecast that he will get hurt.
+
+**Kill / what ships.** Pass (both) → a descriptive drift strip on the Swing tab and a league "bat speed watch" research section.
+Fail → no site surface; recorded here with a data vs handling vs modeling diagnosis.
+
+## §94 Range v4: the responsible fielder's own speed (re-test of §81), pre-registered 2026-10-29 before any read
+
+**Why.** v3 (§81) uses only the batter's sprint speed (a covariate since §75); the fielder's own speed never enters the model, while Savant's OAA conditions on fielder speed and §81's diagnosis names compressed elite range as the remaining gap. Precedent for the decomposition: the Expected/Actual catch% split of the defense research doc (`BaseballGOAT-scopes/defense-research-doc.md` §5.2–5.3). Fielder identity is on every chance row (`fielder_3..9`), so the join is direct. Step-0 data check (2026-10-29, before this prereg was written, no model output read): the responsible fielder — argmin of §81's own `d_of`/`d_if` — has a `lb_sprint_speed_{s}` row for **97.5–99.5% of plays in every season 2020–2026** (all fielders 3–9: 82–91%; median fill covers the rest).
+
+**The change** (`defense_mlb.py --v4`; implies `--v3`, hence the §80 recalibration):
+- **One new model feature:** `f_sprint` = the sprint speed (`lb_sprint_speed_{s}`, median-filled like the batter's) of the responsible fielder — the position among 3–9 achieving the min of §81's own distances (`d_of` for air balls la ≥ 10, `d_if` otherwise). Nothing else added: `req_speed` is already a feature, and the model forms the speed margins (fielder − req_speed; fielder − runner) itself.
+- **Schema only, not model:** chance rows also emit `hang`, `req_speed`, `f_sprint` and `reach` (within = `f_sprint ≥ req_speed`, beyond otherwise; air balls only — grounders have no flight time), so the speed-tool split can ship.
+- **Nothing else changes:** folds (within-season, 5 game-grouped), isotonic recalibration, credit, runs, gates.
+
+**Judged (read once), per group (IF/OF), gates as §75/§80/§81:**
+- decile gap ≤ .03 in every season;
+- r vs Savant OAA, CI lower bound > .50.
+
+**Shipping rule:** a group ships v4 only if it passes both gates AND r ≥ its §81 r (IF .580, OF .721); otherwise §81 stays.
+
+**Reported:** Δr vs §81 per group; YoY; split-half k. Decomposition (descriptive, OF): chance share, conversion rate, and credit/runs by reach class; split-half reliability and YoY of within-reach vs beyond-reach runs per fielder-season; each half's r vs Savant OAA. Reach classes are labelled approximate (average starts + drag-only hang).
+
+**Expected:**
+- IF may gain more than OF: the fielder-vs-runner speed gap is genuinely new play-level signal for grounders (v3 has the runner's speed but not the fielder's).
+- OF direction uncertain: `req_speed` is already a feature, and conditioning p on the fielder may double-count what Savant's OAA already includes; risk is r flat or slightly lower, with the decomposition the real deliverable.
+- Risk either group: YoY shifts as stable speed credit is absorbed into p — the same direction as §81's positioning effect.
