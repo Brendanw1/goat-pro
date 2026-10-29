@@ -33,7 +33,8 @@ import { useEffect, useRef } from "react";
 
 const CELL_PX = 16; // css px per field cell (the browser smooths between)
 const CELLS_Y = 8;
-const FRAME_MS = 33; // ~30 fps cap
+const FRAME_MS = 33; // ~30 fps cap at rest
+const FRAME_MS_LIVE = 0; // while the raise is up: every display frame (the field is ~0.1 ms a frame)
 const HUE_BASE = 170;
 const HUE_DRIFT = 0.9; // deg/s — the base hue laps the wheel every ~7 minutes
 const HUE_SPAN = 120; // regional hue field — neighbouring areas differ
@@ -44,7 +45,7 @@ const RAISE_R = 5.5; // raise radius, cells (gaussian sigma across)
 const RAISE_LIG = 46; // lightness points at the peak
 const RAISE_SAT = 30; // saturation points at the peak
 const PULL = 0.55; // how far the trail drags the texture (fraction of the lag)
-const FOLLOW_S = 0.16; // seconds for the raise to catch the cursor
+const FOLLOW_S = 0.07; // seconds for the raise to catch the cursor
 const ALPHA = 77; // the field's resting opacity (~0.3), carried per pixel so the raise can lift it
 const RAISE_ALPHA = 90; // extra opacity at the raise's peak
 
@@ -177,7 +178,7 @@ export function LavaNav() {
       raf = 0;
       if (!visible || !inView) return; // stopped; resumes via start()
       const dt = last ? Math.min(0.25, (t - last) / 1000) : 0;
-      if (!last || t - last >= FRAME_MS) {
+      if (!last || t - last >= (hover || lift > 0.01 ? FRAME_MS_LIVE : FRAME_MS)) {
         last = t;
         target = scrollT + pointerT;
         shift += (target - shift) * (1 - Math.exp(-dt / EASE_S * 3));
@@ -186,7 +187,7 @@ export function LavaNav() {
         ey += (cy - ey) * k;
         // rises fast, settles slowly
         const on = hover && armed ? 1 : 0;
-        lift += (on - lift) * (1 - Math.exp(-dt / (on ? 0.22 : 0.6)));
+        lift += (on - lift) * (1 - Math.exp(-dt / (on ? 0.1 : 0.45)));
         draw(t);
       }
       raf = requestAnimationFrame(loop);
