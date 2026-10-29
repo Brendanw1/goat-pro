@@ -88,3 +88,16 @@ When a formula changes, update this table and the glossary in the same commit.
 - C_D per ball by bisection so the own-park flight (ρ_r of the venue) lands at hit_distance_sc. Balls < 250 ft or θ < 10° = 0 parks.
 - Park p: R_p(φ), H_p(φ) linear between the knots in `pipeline/data/park_dims.csv`, R shifted by `park_offsets.csv`. Clears p ⇔ height at x = R_p(φ) under ρ_r(p) > H_p(φ).
 - X/30 = parks cleared; xHR = Σ X/30; no-doubter X = 30, mostly gone 8–29, doubter ≤ 7 (HRs only); elsewhere = non-HR with X ≥ 1; best/worst park = argmax/argmin over p of Σ balls clearing p.
+
+## Deception+ percentile (web/lib/data.ts deceptionPcts, read-time over deception_index.json)
+
+- Per season, over the index rows (200+ tracked swings): pct(v) = round(100 · (#below + #equal/2) / n), clamped 1–99.
+- plusPct on Deception+; slowPct on −batSpeedVsNorm (slower swings rank high); timingPct on timingDisruption (more shift ranks high). All pitcher-good.
+- The baked batSpeedPct is the raw delta's percentile (low = good for the pitcher) and is not displayed.
+
+## ΔIVB / ΔHB vs slot (web/lib/boards/slot.ts enrichArsenal; /arsenal/[pitch] and the slot board)
+
+- hb_arm = −hb for RHP, hb for LHP (arsenal hb is Statcast pfx_x, catcher's view).
+- Peer pool = same pitch type, season and arm-slot band (slotBand of the slot file's primary-fastball arm angle), pitch-weighted by n_pitches.
+- ΔIVB = ivb − (Σ ivb·n − ivb_i·n_i) / (N − n_i); ΔHB likewise on hb_arm. Blank when N − n_i < 1,000 (SHAPE_PEER_MIN).
+- Neutral (no good/bad colour). Age = the pitchers board season age; Deception+ = the pitcher-season grade joined by (id, season).

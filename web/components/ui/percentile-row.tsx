@@ -22,6 +22,7 @@ import {
   getStatPercentileRank,
   isNeutralStat,
   percentileColor,
+  ordinal,
 } from "@/lib/percentiles";
 
 /** Alpha of a drawn-below-floor bar (was lib/game-plan FADE_ALPHA). */
@@ -127,7 +128,7 @@ export function PercentileRow({ row }: { row: PctRow }) {
               {provisional && <span aria-hidden="true">~</span>}
               {rank}
               <span className="sr-only">
-                th percentile{provisional ? ", provisional: mostly the league average" : ""}
+                {ordinal(rank).replace(/^-?\d+/, "")} percentile{provisional ? ", provisional: mostly the league average" : ""}
                 {small ? `, small sample: ${n} of ${floor}` : ""}
                 {neutral ? ", descriptive, no good or bad direction" : ""}
               </span>
@@ -158,7 +159,7 @@ export function PercentileDot({ rank, neutral, title }: { rank: number | null; n
     <span className="inline-flex items-center gap-1 font-data text-[10px] text-text-secondary" title={title}>
       <span aria-hidden="true" className="h-[7px] w-[7px] rounded-full" style={{ backgroundColor: color }} />
       {rank}
-      <span className="sr-only">th percentile</span>
+      <span className="sr-only">{ordinal(rank).replace(/^-?\d+/, "")} percentile</span>
     </span>
   );
 }

@@ -15,7 +15,7 @@ import { PITCH_CONFIG } from "@/lib/constants";
 import { MovementPlot } from "@/components/charts/movement-plot";
 import { ExpandableCard } from "@/components/ui/expandable-card";
 import { VAAGrid } from "@/components/charts/vaa-grid";
-import { PROFILE_PCT_FLOOR, GRADE_PCT_FLOOR, NEUTRAL_GREY, percentileColor, getPitcherPercentileRank } from "@/lib/percentiles";import { HeaderStat, PercentileGroup, PercentilePanel, ThinSampleBanner, statRow, type PctRow } from "@/components/ui/percentile-row";
+import { PROFILE_PCT_FLOOR, GRADE_PCT_FLOOR, NEUTRAL_GREY, percentileColor, getPitcherPercentileRank, ordinal } from "@/lib/percentiles";import { HeaderStat, PercentileGroup, PercentilePanel, ThinSampleBanner, statRow, type PctRow } from "@/components/ui/percentile-row";
 import { AboutThis } from "@/components/ui/discipline-block";
 import { ProfileTabs, ProfileTabPanel, TABS_FOR } from "@/components/ui/profile-tabs";
 import { GradePct, gradedN } from "@/components/ui/grade-pct";
@@ -278,6 +278,51 @@ function PlatoonCell({ pitch, h }: { pitch: any; h: "LHH" | "RHH" }) {
     <div className="w-[76px] text-right text-xs font-data leading-tight text-text-secondary" title={tip}>
       {Math.round(v)}
       <span className="block text-[9px] text-text-dim">{pitch[`usageVs${h}`]?.toFixed(1)}% use</span>
+    </div>
+  );
+}
+
+const DECEPTION_TIP =
+  "Deception+: how much slower and later batters swing against him than against their own norm (bat tracking, 2023 on), 100 = average. Percentile: high = more deceptive. Descriptive. See the glossary.";
+
+/** Deception rows for the percentile panel: ranks are pitcher-good (lib/data.ts deceptionPcts), so green = deceptive. */
+function deceptionRows(d: any | null | undefined): PctRow[] {
+  if (!d) return [];
+  const rows: PctRow[] = [];
+  if (typeof d.plus === "number")
+    rows.push({ key: "deceptionPlus", label: "Deception+", display: Math.round(d.plus).toString(), rank: d.plusPct ?? null, title: DECEPTION_TIP });
+  if (typeof d.batSpeedVsNorm === "number")
+    rows.push({ key: "decSlow", label: "Swing slowdown", display: `${d.batSpeedVsNorm > 0 ? "+" : ""}${d.batSpeedVsNorm.toFixed(2)}`, rank: d.slowPct ?? null,
+      title: "Bat speed vs each batter's own norm against him, mph. Slower (more negative) ranks higher." });
+  if (typeof d.timingDisruption === "number")
+    rows.push({ key: "decTiming", label: "Timing shift", display: `${d.timingDisruption}"`, rank: d.timingPct ?? null,
+      title: "Mean shift of the contact point off each batter's norm, inches. More shift ranks higher." });
+  return rows;
+}
+
+/** The two swing-disruption traits, each coloured by its pitcher-good percentile: slower swings and more timing shift are good. */
+function SwingDisruption({ d }: { d: any }) {
+  const trait = (label: string, value: string, sub: string, pct: number | null | undefined, tip: string) => (
+    <div className="min-w-[150px]" title={tip}>
+      <div className="text-[10px] text-text-dim">{label}</div>
+      <div className="font-data text-base font-bold leading-tight" style={pct != null ? { color: percentileColor(pct) } : undefined}>{value}</div>
+      <div className="text-[10px] text-text-secondary">{sub}{pct != null ? ` · ${ordinal(pct)} pct` : ""}</div>
+    </div>
+  );
+  const bs = d.batSpeedVsNorm as number;
+  return (
+    <div className="glass-panel px-4 py-3">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Swing disruption · bat tracking</span>
+        <span className="text-[10px] text-text-dim">{d.nSwings?.toLocaleString()} tracked swings · percentiles: high = more deceptive</span>
+      </div>
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
+        {typeof d.plus === "number" && trait("Deception+", Math.round(d.plus).toString(), "100 = average", d.plusPct, DECEPTION_TIP)}
+        {trait("Bat speed vs norm", `${Math.abs(bs).toFixed(2)} mph ${bs < 0 ? "slower" : "faster"}`, "than batters' own norm",
+          d.slowPct, "Bat speed vs each batter's own season norm, against him. Slower swings are good for the pitcher.")}
+        {typeof d.timingDisruption === "number" && trait("Timing shift", `${d.timingDisruption}"`, "off batters' contact point",
+          d.timingPct, "Mean shift of the contact point off each batter's own norm, inches. More shift is good for the pitcher.")}
+      </div>
     </div>
   );
 }
@@ -561,6 +606,10 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               <HeaderStat key={g.key} label={g.label} value={Math.round(g.value).toString()} title={g.tip}
                 rank={headerRank(g.key, g.value)} />
             ))}
+            {typeof deception?.plus === "number" && (
+              <HeaderStat label="Deception+" value={Math.round(deception.plus).toString()} title={DECEPTION_TIP}
+                rank={deception.plusPct ?? null} />
+            )}
           </div>
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
             {[
@@ -595,27 +644,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "arsenal" ? (
         <div className="space-y-5">
-          {deception?.batSpeedVsNorm != null && (
-            <div className="glass-panel px-4 py-3 flex flex-wrap items-baseline gap-x-6 gap-y-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">
-                Swing disruption · bat tracking
-              </span>
-              <span className="text-xs font-data text-text-secondary">
-                batters swing <span className="text-text-primary">{Math.abs(deception.batSpeedVsNorm).toFixed(2)} mph {deception.batSpeedVsNorm < 0 ? "slower" : "faster"}</span> than their own norm vs him
-              </span>
-              <span className="text-xs font-data text-text-secondary">
-                timing shifted <span className="text-text-primary">{deception.timingDisruption}&quot;</span> off their contact point
-              </span>
-              {deception.plus != null && (
-                <span className="text-xs font-data text-text-primary">
-                  Deception+ <span className="text-text-primary">{deception.plus.toFixed(1)}</span>
-                </span>
-              )}
-              <span className="text-[10px] text-text-dim">
-                {deception.nSwings?.toLocaleString()} tracked swings · {deception.batSpeedPct != null ? `${Math.round(deception.batSpeedPct)}th pct` : ""}
-              </span>
-            </div>
-          )}
+          {deception?.batSpeedVsNorm != null && <SwingDisruption d={deception} />}
           {careerArsenal && careerArsenal.length > 0 && <CareerArsenal seasons={careerArsenal} />}
           {/* Every model grade in one strip, so the Arsenal tab carries the whole model read. */}
           <div className="glass-panel px-4 py-3">
@@ -632,6 +661,10 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               ].filter((g) => typeof g.value === "number" && !isNaN(g.value)).map((g) => (
                 <HeaderStat key={g.key} label={g.label} value={g.fmt(g.value)} title={g.tip} rank={headerRank(g.key, g.value)} />
               ))}
+              {typeof deception?.plus === "number" && (
+                <HeaderStat label="Deception+" value={Math.round(deception.plus).toString()} title={DECEPTION_TIP}
+                  rank={deception.plusPct ?? null} />
+              )}
             </div>
           </div>
           {arsenalCard(false)}
@@ -770,6 +803,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
               statRow("pitcher", "batSpeedAg", "Bat speed", profile.batSpeedAg, (v) => v.toFixed(1), pitcherBp?.batSpeedAg),
               statRow("pitcher", "squaredUpPctAg", "Squared-up%", profile.squaredUpPctAg, pct1, pitcherBp?.squaredUpPctAg),
               statRow("pitcher", "blastPctAg", "Blast%", profile.blastPctAg, pct1, pitcherBp?.blastPctAg),
+              ...deceptionRows(deception),
             ]} />
             <PercentileGroup title="Run value by family" rows={[
               statRow("pitcher", "rvPer100Fb", "Fastballs", profile.rvPer100Fb, signed2, pitcherBp?.rvPer100Fb),

@@ -26,6 +26,14 @@ export interface SlotBoardPitcher {
 export interface SlotBoardFile { season: number; pitchers: Record<string, SlotBoardPitcher> }
 
 /** The arsenal pitch types (one file each under arsenal/). */
+export const AGE_TIP = "Season age, as on the pitchers board";
+export const DECEPTION_COL_TIP =
+  "Deception+: how much slower and later batters swing against him than their own norm, 100 = average. Pitcher-season level (all his pitches), not this pitch. Bat tracking, 2023 on. Descriptive.";
+export const DIVB_SLOT_TIP =
+  "This pitch's IVB minus the pitch-weighted mean of same-season pitchers in his arm-slot band throwing this type (himself excluded, 1,000+ peer pitches), inches. A style, not good or bad.";
+export const DHB_SLOT_TIP =
+  "This pitch's horizontal break minus the same-band peer mean, inches, ARM-SIDE POSITIVE for both hands (+ = more arm-side run, − = more glove-side sweep). Same peers as ΔIVB. A style, not good or bad.";
+
 export const SLOT_PITCH_TYPES = ["FF", "SI", "FC", "SL", "SW", "CU", "KC", "CH", "FS"] as const;
 export const ARM_MIN = -90, ARM_MAX = 101;
 
@@ -33,6 +41,7 @@ export const SLOT_COLS = [
   { key: "name", label: "Name", w: "min-w-[140px]", align: "left" },
   { key: "team", label: "Team", w: "w-[64px]", align: "left" },
   { key: "season", label: "Yr", w: "w-[44px]", align: "right" },
+  { key: "age", label: "Age", w: "w-[40px]", align: "right", tip: AGE_TIP },
   { key: "throws", label: "T", w: "w-[28px]", align: "left", tip: "Throws" },
   { key: "band", label: "Slot", w: "w-[70px]", align: "left", tip: "Arm-angle band of his primary fastball" },
   { key: "arm", label: "Arm°", w: "w-[48px]", align: "right", tip: "Arm angle on his primary fastball: 0 sidearm, 90 over the top" },
@@ -47,6 +56,8 @@ export const SLOT_COLS = [
   { key: "velo", label: "Velo", w: "w-[44px]", align: "right" },
   { key: "ivb", label: "IVB", w: "w-[42px]", align: "right" },
   { key: "hb", label: "HB", w: "w-[42px]", align: "right", tip: "Horizontal break, inches, pitcher's view" },
+  { key: "dIvbSlot", label: "ΔIVB slot", w: "w-[60px]", align: "right", tip: DIVB_SLOT_TIP },
+  { key: "dHbSlot", label: "ΔHB slot", w: "w-[60px]", align: "right", tip: DHB_SLOT_TIP },
   { key: "whiffPct", label: "Whiff%", w: "w-[56px]", align: "right" },
   { key: "whiffVsSlot", label: "Whiff±slot", w: "w-[64px]", align: "right", tip: "This pitch: his Whiff% minus same-band peers' (50+ swings pooled, himself excluded), in points, pulled toward 0 on few swings" },
   { key: "whiffVsSlotAll", label: "Whiff±slot all", w: "w-[66px]", align: "right", tip: "All his pitches: his Whiff% minus same-band peers' overall Whiff%, in points, pulled toward 0 on few swings" },
@@ -55,6 +66,7 @@ export const SLOT_COLS = [
   { key: "stuffPlusSlotPct", label: "Slot pct", w: "w-[52px]", align: "right", model: true, tip: "Whiff+ percentile among MLB pitchers in his slot band throwing this pitch" },
   { key: "pitchingPlus", label: "Pitching+", w: "w-[84px]", align: "right", model: true },
   { key: "pitchingPlusSlotPct", label: "Slot pct", w: "w-[52px]", align: "right", model: true, tip: "Pitching+ percentile among MLB pitchers in his slot band throwing this pitch" },
+  { key: "deceptionPlus", label: "Deception+", w: "w-[80px]", align: "right", tip: DECEPTION_COL_TIP },
 ] as const;
 
 export const SLOT_GRADES = ["stuffPlus", "pitchingPlus"] as const;
@@ -72,7 +84,7 @@ export const SLOT_FILTER_COLUMNS: FilterColumn[] = SLOT_COLS.filter((c) => c.key
 export const SLOT_SORT_KEYS = SLOT_COLS.map((c) => c.key as string);
 export const SLOT_ROW_KEYS = rowKeys("pitcher", SLOT_SORT_KEYS, [
   "band", "nStuffPitches", "fb", "armType", "whiffPct", "nSwings",
-  "whiffVsSlot", "whiffVsSlotAll", "whiffSlotPeer", "whiffAll",
+  "whiffVsSlot", "whiffVsSlotAll", "whiffSlotPeer", "whiffAll", "ivbSlotPeer", "hbSlotPeer", "hbArm",
   ...SLOT_GRADES.flatMap((g) => [`${g}SlotRank`, `${g}SlotN`]),
 ]);
 
@@ -107,7 +119,7 @@ export function joinSlot(arsenal: any[], board: SlotBoardFile | null, pt: string
     const s = P[String(a.id)];
     if (!s || typeof s.arm !== "number") continue;
     rows.push({
-      ...a, throws: s.th, arm: s.arm, armType: s.armType, band: slotBand(s.arm).key,
+      ...a, throws: s.th, arm: s.arm, armType: s.armType, band: a.band ?? slotBand(s.arm).key,
       relH: s.relH, relS: s.relS, ext: a.ext ?? s.ext, fb: s.fb, fbVelo: s.fbVelo, fbIvb: s.fbIvb, fbHb: s.fbHb,
       _ws: (s as any).ws,
     });
@@ -169,6 +181,49 @@ export function joinSlot(arsenal: any[], board: SlotBoardFile | null, pt: string
       r[`${g}SlotRank`] = v.length - below - eq + 1;
       r[`${g}SlotN`] = v.length;
     }
+  }
+  return rows;
+}
+
+/** Peer floor for ΔIVB / ΔHB vs slot: this type's pitches from the rest of his band that season. */
+export const SHAPE_PEER_MIN = 1000;
+
+/**
+ * Pitcher-season context for both arsenal boards (one pitch type per call): season age and Deception+ off the
+ * pitchers board rows, slot band off the slot file, and ΔIVB / ΔHB vs slot — this pitch's IVB and arm-side HB minus
+ * the pitch-weighted mean of same-season, same-band peers throwing this type (himself excluded, SHAPE_PEER_MIN
+ * peer pitches). Arsenal `hb` is Statcast pfx_x (catcher's view: a RHP's arm side is negative), so it is flipped to
+ * arm-side positive first and both hands pool. Same peer recipe as whiffVsSlot in joinSlot.
+ */
+export function enrichArsenal(arsenal: any[], board: SlotBoardFile | null, pitchers: any[]): any[] {
+  const P = board?.pitchers ?? {};
+  const ps = new Map(pitchers.map((p) => [`${p.id}|${p.season}`, p]));
+  const rows = arsenal.map((a) => {
+    const s = P[String(a.id)], p = ps.get(`${a.id}|${a.season}`);
+    const th = s?.th ?? p?.throws ?? null;
+    const arm = typeof s?.arm === "number" ? s.arm : null;
+    return {
+      ...a, age: p?.age ?? null, deceptionPlus: p?.deceptionPlus ?? null,
+      band: arm === null ? null : slotBand(arm).key,
+      _hbArm: typeof a.hb === "number" && th ? (th === "R" ? -a.hb : a.hb) : null,
+    };
+  });
+  const ok = (r: any) => r.band && (r.n_pitches ?? 0) > 0 && typeof r.ivb === "number" && typeof r._hbArm === "number";
+  const pools = new Map<string, { n: number; iv: number; hb: number }>();
+  for (const r of rows) {
+    if (!ok(r)) continue;
+    const k = `${r.season}|${r.band}`, c = pools.get(k) ?? { n: 0, iv: 0, hb: 0 };
+    c.n += r.n_pitches; c.iv += r.ivb * r.n_pitches; c.hb += r._hbArm * r.n_pitches;
+    pools.set(k, c);
+  }
+  const r1 = (x: number) => Math.round(x * 10) / 10;
+  for (const r of rows) {
+    const c = ok(r) ? pools.get(`${r.season}|${r.band}`) : undefined;
+    const n = c ? c.n - r.n_pitches : 0;
+    if (!c || n < SHAPE_PEER_MIN) { r.dIvbSlot = null; r.dHbSlot = null; continue; }
+    const iv = (c.iv - r.ivb * r.n_pitches) / n, hb = (c.hb - r._hbArm * r.n_pitches) / n;
+    r.ivbSlotPeer = r1(iv); r.hbSlotPeer = r1(hb); r.hbArm = r1(r._hbArm);
+    r.dIvbSlot = r1(r.ivb - iv); r.dHbSlot = r1(r._hbArm - hb);
   }
   return rows;
 }

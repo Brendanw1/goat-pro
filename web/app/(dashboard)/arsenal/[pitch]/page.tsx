@@ -1,4 +1,4 @@
-import { getArsenalPitchType, getPercentiles } from "@/lib/data";
+import { getArsenalBoardRows, getPercentiles } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { arsenalProps } from "@/lib/boards/arsenal";
 import { ArsenalExpanded } from "./expanded";
@@ -22,7 +22,7 @@ export default async function ArsenalPitchPage({
 }) {
   const { pitch } = await params;
   const [data, percentiles] = await Promise.all([
-    getArsenalPitchType(pitch),
+    getArsenalBoardRows(pitch),
     getPercentiles(),
   ]);
   const code = pitch.toUpperCase();

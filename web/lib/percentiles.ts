@@ -323,6 +323,12 @@ export function percentileRamp(t: number): string {
  * identically. Callers wanting *no* colour must decide that themselves (see
  * `isNeutralStat`). Input is clamped to 1–99.
  */
+/** 1 -> "1st", 22 -> "22nd", 13 -> "13th"; rounds first. The one ordinal helper for the site. */
+export const ordinal = (p: number): string => {
+  const v = Math.round(p), r10 = v % 10, r100 = v % 100;
+  return `${v}${r10 === 1 && r100 !== 11 ? "st" : r10 === 2 && r100 !== 12 ? "nd" : r10 === 3 && r100 !== 13 ? "rd" : "th"}`;
+};
+
 export function percentileColor(rank: number): string {
   const r = Number.isFinite(rank) ? Math.max(1, Math.min(99, rank)) : 50;
   return percentileRamp((r - 1) / 98);

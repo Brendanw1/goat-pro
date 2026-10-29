@@ -6,7 +6,7 @@ import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { SlotBoard } from "./slot-board";
 import { MixBoard } from "./mix-board";
 import { joinSlot, querySlot, slotMeta, SLOT_DEFAULTS } from "@/lib/boards/slot";
-import { getArsenalPitchType } from "@/lib/data";
+import { getArsenalBoardRows } from "@/lib/data";
 
 export const metadata = { title: "Arsenal" };
 
@@ -70,7 +70,7 @@ async function MixView() {
 
 async function SlotView() {
   const pt = String(SLOT_DEFAULTS.filters.pt);
-  const [arsenal, board] = await Promise.all([getArsenalPitchType(pt), getSlotBoard()]);
+  const [arsenal, board] = await Promise.all([getArsenalBoardRows(pt), getSlotBoard()]);
   if (!board) return <p className="text-xs text-text-dim">The arm-slot board has not been baked yet (pipeline/web_export.py).</p>;
   // Meta and the default first page only; the route pages every other view.
   const joined = joinSlot(arsenal, board as any, pt);

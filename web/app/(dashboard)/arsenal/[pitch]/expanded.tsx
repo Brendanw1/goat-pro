@@ -12,6 +12,7 @@ import {
 } from "@/lib/boards/arsenal";
 import { PITCHING_TIP, STUFF_TIP, gradeColor } from "@/lib/grades";
 import { RV100_TIP } from "@/lib/rv-cells";
+import { SLOT_BANDS } from "@/lib/arm-slot";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { GyroTag } from "@/components/ui/shared-grade-note";
 import { PAGE_SIZE, type BoardPage } from "@/lib/boards/shared";
@@ -24,7 +25,9 @@ function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
   if (key === "spin") return String(Math.round(value));
   if (key === "n_pitches") return String(Math.round(value));
-  if (["stuffPlus", "pitchingPlus"].includes(key)) return Math.round(value).toString();
+  if (key === "age") return String(Math.floor(value)); // season age (June 30), whole years as on the pitchers board
+  if (["stuffPlus", "pitchingPlus", "deceptionPlus"].includes(key)) return Math.round(value).toString();
+  if (key === "dIvbSlot" || key === "dHbSlot") return (value > 0 ? "+" : "") + value.toFixed(1);
   if (key === "season") return String(Math.round(value));
   if (key === "rv100") return (value > 0 ? "+" : "") + value.toFixed(2);
   if (key.endsWith("Pct")) return value.toFixed(1);
@@ -60,6 +63,7 @@ export function ArsenalExpanded({
   const filterDefs = useMemo(() => [
     { key: "team", label: "Team", type: "select" as const, options: teams },
     { key: "season", label: "Season", type: "select" as const, options: meta.seasons.map(String) },
+    { key: "band", label: "Arm slot", type: "select" as const, options: SLOT_BANDS.map((b) => b.label) },
     { key: "minPitches", label: "Min Pitches", type: "range" as const, min: 0, max: 200, step: 10 },
     { key: "minUsage", label: "Min Usage%", type: "range" as const, min: 0, max: 50, step: 5 },
     { key: "minVelo", label: "Min Velo", type: "range" as const, min: 0, max: 100, step: 1 },
@@ -85,7 +89,8 @@ export function ArsenalExpanded({
   }
 
   const tipOf = (key: string): string | undefined =>
-    key === "stuffPlus" ? STUFF_TIP : key === "pitchingPlus" ? PITCHING_TIP : key === "rv100" ? RV100_TIP : undefined;
+    key === "stuffPlus" ? STUFF_TIP : key === "pitchingPlus" ? PITCHING_TIP : key === "rv100" ? RV100_TIP
+      : (COLS.find((c) => c.key === key) as { tip?: string } | undefined)?.tip;
 
   return (
     <div className="space-y-4">
@@ -187,8 +192,13 @@ export function ArsenalExpanded({
                     const value = fmt(raw, col.key);
                     const isName = col.key === "name";
                     const isModel = "model" in col && col.model;
-                    const color = isModel ? gradeColor(raw) : undefined;
-                    const gradeNote = isModel ? tipOf(col.key) : undefined;
+                    // Deception+ is good-high like the grades; ΔIVB / ΔHB vs slot stay uncoloured (a style).
+                    const color = isModel || col.key === "deceptionPlus" ? gradeColor(raw) : undefined;
+                    const gradeNote = (col.key === "dIvbSlot" || col.key === "dHbSlot") && typeof raw === "number"
+                      ? (col.key === "dIvbSlot"
+                        ? `IVB ${row.ivb} vs ${row.ivbSlotPeer} for his band`
+                        : `Arm-side HB ${row.hbArm} vs ${row.hbSlotPeer} for his band`) + ` (${row.band})`
+                      : isModel || col.key === "deceptionPlus" ? tipOf(col.key) : undefined;
                     return (
                       <td
                         key={col.key}

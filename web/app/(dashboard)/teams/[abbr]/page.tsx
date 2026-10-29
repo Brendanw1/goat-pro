@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getPitchers, getHitters, getParks , getRecentGames } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
+import { ordinal } from "@/lib/percentiles";
 
 export const metadata = { title: "Team" };
 
@@ -73,7 +74,6 @@ function teamMeans(rows: any[], aggs: Agg[]): Map<string, Record<string, number>
   return new Map([...by].map(([team, t]) => [team, Object.fromEntries(Object.entries(t).map(([k, [s, n]]) => [k, s / n]))]));
 }
 
-const ordinal = (n: number) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
 
 /** One stat: value, league rank, and a strip with every club as a dot (better = right). */
 function StatStrip({ a, team, means }: { a: Agg; team: string; means: Map<string, Record<string, number>> }) {

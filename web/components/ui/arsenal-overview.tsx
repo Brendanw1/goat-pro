@@ -1,5 +1,6 @@
 "use client";
 
+import { ordinal } from "@/lib/percentiles";
 /**
  * Arsenal overview (PP11): the five mix metrics — how many offerings, how
  * evenly used, how far apart, how repeatable, how wide. A description of the
@@ -15,15 +16,6 @@ interface MixMetric {
   fmt: (v: number) => string;
   unit?: string;
 }
-
-const ordinal = (p: number): string => {
-  const v = Math.round(p);
-  const rem10 = v % 10, rem100 = v % 100;
-  if (rem10 === 1 && rem100 !== 11) return `${v}st`;
-  if (rem10 === 2 && rem100 !== 12) return `${v}nd`;
-  if (rem10 === 3 && rem100 !== 13) return `${v}rd`;
-  return `${v}th`;
-};
 
 const METRICS: MixMetric[] = [
   { key: "nTypes", label: "Pitches", title: "Pitch types he throws at least 3% of the time", fmt: (v) => String(Math.round(v)) },

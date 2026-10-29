@@ -29,15 +29,18 @@ import type { PitchType } from "@/types";
 
 const ONE_DP = new Set(["relH", "relS", "ext", "fbVelo", "usage", "velo", "ivb", "hb", "whiffVsSlot", "whiffVsSlotAll"]);
 const SIGNED = new Set(["whiffVsSlot", "whiffVsSlotAll"]);
+/** Signed but neutral: more or less break than his slot is a style, not good or bad. */
+const SIGNED_NEUTRAL = new Set(["dIvbSlot", "dHbSlot"]);
 
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
   if (key === "name" || key === "team" || key === "throws" || key === "band" || key === "fb") return String(value);
   if (key === "season") return String(Math.round(value));
   if (typeof value !== "number" || isNaN(value)) return "—";
-  if (SIGNED.has(key)) return (value > 0 ? "+" : "") + value.toFixed(1);
+  if (SIGNED.has(key) || SIGNED_NEUTRAL.has(key)) return (value > 0 ? "+" : "") + value.toFixed(1);
   if (key.endsWith("Pct") || key === "usage") return value.toFixed(1);
-  if (["stuffPlus", "pitchingPlus", "arm", "n_pitches"].includes(key)) return Math.round(value).toString();
+  if (key === "age") return String(Math.floor(value)); // season age (June 30), whole years as on the pitchers board
+  if (["stuffPlus", "pitchingPlus", "deceptionPlus", "arm", "n_pitches"].includes(key)) return Math.round(value).toString();
   if (ONE_DP.has(key)) return value.toFixed(1);
   return String(value);
 }
@@ -204,7 +207,7 @@ export function SlotBoard({ meta, initial }: { meta: SlotMeta; initial: SlotPage
                     const value = fmt(raw, col.key);
                     const isName = col.key === "name";
                     const isModel = "model" in col && col.model;
-                    const color = isModel && col.key.endsWith("SlotPct") === false ? gradeColor(raw)
+                    const color = (isModel && col.key.endsWith("SlotPct") === false) || col.key === "deceptionPlus" ? gradeColor(raw)
                       : SIGNED.has(col.key) ? toneColor(raw) : undefined;
                     return (
                       <td key={col.key}
@@ -217,7 +220,11 @@ export function SlotBoard({ meta, initial }: { meta: SlotMeta; initial: SlotPage
                             ? `${row.whiffPct ?? "—"}% whiff on ${row.nSwings ?? 0} swings vs ${row.whiffSlotPeer}% for ${row.band} ${pt}s; sample-adjusted order`
                             : col.key === "whiffVsSlotAll" && typeof row.whiffSlotPeerAll === "number"
                               ? `${row.whiffAll ?? "—"}% whiff overall vs ${row.whiffSlotPeerAll}% for his band; sample-adjusted`
-                              : undefined}>
+                              : col.key === "dIvbSlot" && typeof raw === "number"
+                                ? `IVB ${row.ivb} vs ${row.ivbSlotPeer} for ${row.band} ${pt}s`
+                                : col.key === "dHbSlot" && typeof raw === "number"
+                                  ? `Arm-side HB ${row.hbArm} vs ${row.hbSlotPeer} for ${row.band} ${pt}s`
+                                  : "tip" in col ? (col as any).tip : undefined}>
                         {isName ? (
                           <Link href={`/player/${row.id}?season=${row.season}`} className="hover:underline">
                             <PixelTeamLogo team={row.team} size={16} className="mr-1.5" />

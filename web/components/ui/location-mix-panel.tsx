@@ -1,6 +1,7 @@
 "use client";
 
 import { PITCH_CONFIG } from "@/lib/constants";
+import { ordinal } from "@/lib/percentiles";
 
 /**
  * Location value (PP20), read as runs. Each zone is priced at the league's
@@ -30,10 +31,6 @@ const tone = (v: number) => (v >= 0.05 ? "text-emerald-400" : v <= -0.05 ? "text
 const tint = (r: number) =>
   Math.abs(r) < 0.1 ? "rgba(255,255,255,0.06)"
     : `rgba(${r > 0 ? "52,211,153" : "251,113,133"},${(0.22 + Math.min(Math.abs(r) / 1.5, 1) * 0.6).toFixed(2)})`;
-const ordinal = (p: number): string => {
-  const v = Math.round(p), r10 = v % 10, r100 = v % 100;
-  return `${v}${r10 === 1 && r100 !== 11 ? "st" : r10 === 2 && r100 !== 12 ? "nd" : r10 === 3 && r100 !== 13 ? "rd" : "th"}`;
-};
 
 function Habit({ title, cell }: { title: string; cell: Cell | null }) {
   if (!cell) return null;

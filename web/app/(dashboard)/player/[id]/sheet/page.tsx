@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getHitterScouting } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
-import { getPitcherPercentileRank, getStatPercentileRank } from "@/lib/percentiles";
+import { getPitcherPercentileRank, getStatPercentileRank, ordinal } from "@/lib/percentiles";
 import { GradeScopeToggle } from "@/components/ui/grade-pct";
 import { GradePctProvider } from "@/components/ui/grade-pct";
 import { PrintButton } from "@/components/ui/print-button";
@@ -33,7 +33,6 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 /** .241 style (three decimals, no leading zero), "—" when missing. */
 const rate3 = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(3).replace(/^0(?=\.)/, "") : "—");
 /** 53 -> "53rd", 11 -> "11th". */
-const ordinal = (n: number) => `${n}${[11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 
 export default async function PlayerSheetPage({ params, searchParams }: {
   params: Promise<{ id: string }>;

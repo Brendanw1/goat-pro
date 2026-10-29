@@ -10,6 +10,7 @@
 import { cache } from "react";
 import { fetchFromR2, fetchGzippedJson } from "./r2";
 import { overlayStuffPercentiles, type StuffPercentiles } from "./percentiles";
+import { enrichArsenal } from "./boards/slot";
 
 type PitcherRowAny = Record<string, any>;
 
@@ -53,6 +54,12 @@ export async function getArsenalPitchType(pitchType: string): Promise<any[]> {
   } catch {
     return [];
   }
+}
+
+/** One type's arsenal rows with the board context joined (age, Deception+, slot band, ΔIVB/ΔHB vs slot). */
+export async function getArsenalBoardRows(pitchType: string): Promise<any[]> {
+  const [arsenal, board, pitchers] = await Promise.all([getArsenalPitchType(pitchType), getSlotBoard(), getPitchers()]);
+  return enrichArsenal(arsenal, board as any, pitchers);
 }
 
 /** Top-5-per-type cards under /arsenal (baked by pipeline/web_export.py). */
@@ -251,8 +258,39 @@ export async function getFramingPlus(): Promise<any | null> {
 
 /** Swing-disruption profile per pitcher-season (item 10). */
 export async function getDeception(id: string, season: string | number): Promise<any | null> {
-  return fetchGzippedJson<any>(`deception/${id}-${season}.json.gz`).catch(() => null);
+  const [doc, pct] = await Promise.all([
+    fetchGzippedJson<any>(`deception/${id}-${season}.json.gz`).catch(() => null),
+    deceptionPcts(),
+  ]);
+  return doc ? { ...doc, ...pct.get(`${id}|${season}`) } : null;
 }
+
+/**
+ * Pitcher-good percentiles (1-99, high = more deceptive) per season over the deception index: plusPct (Deception+),
+ * slowPct (bat speed vs norm, negated: slower swings rank high) and timingPct (more contact-point shift ranks high).
+ * The baked batSpeedPct is the raw delta's percentile, where LOW is good for the pitcher; never print it as a rank.
+ */
+const deceptionPcts = cache(async (): Promise<Map<string, Record<string, number | null>>> => {
+  const doc = await fetchFromR2<any>("deception_index.json", { shared: true }).catch(() => null);
+  const out = new Map<string, Record<string, number | null>>();
+  const pctOf = (vals: number[], v: unknown): number | null => {
+    if (typeof v !== "number" || !Number.isFinite(v) || !vals.length) return null;
+    let below = 0, eq = 0;
+    for (const x of vals) { if (x < v) below++; else if (x === v) eq++; }
+    return Math.max(1, Math.min(99, Math.round((100 * (below + eq / 2)) / vals.length)));
+  };
+  for (const [s, rows] of Object.entries<any[]>(doc?.seasons ?? {})) {
+    const col = (get: (r: any) => unknown) =>
+      rows.map(get).filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+    const plus = col((r) => r.plus), slow = col((r) => r.batSpeedVsNorm == null ? null : -r.batSpeedVsNorm), tim = col((r) => r.timingDisruption);
+    for (const r of rows) out.set(`${r.id}|${s}`, {
+      plusPct: pctOf(plus, r.plus),
+      slowPct: pctOf(slow, r.batSpeedVsNorm == null ? null : -r.batSpeedVsNorm),
+      timingPct: pctOf(tim, r.timingDisruption),
+    });
+  }
+  return out;
+});
 
 /** The physics study's published tables (item 9): mechanism/tables.json. */
 export async function getMechanismTables(): Promise<any | null> {
