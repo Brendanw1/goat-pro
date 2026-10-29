@@ -3638,3 +3638,18 @@ Arraez 86, bat speed −20).
 **Reported, no gate:** r + CI per component; the residual's r with Savant OAA (its scale dependence). Descriptive — it decides where D-39's speed-tool profile points and whether the residual is worth showing beside Jump on the site.
 
 **Expected:** routing and burst correlate positively; reaction less; bootup least. Magnitude modest (|r| .2–.4 — the residual's reliability is .40, so ~.40 is its ceiling vs anything). If the residual is uncorrelated with all four, it is either noise or something Jump does not measure — either answer steers the site.
+
+### §98 result (read once, 2026-10-29)
+
+n 661 OF fielder-seasons (262 players, 2020–2026, matched join). **The pre-registered expectation was refuted in direction** — the residual correlates *negatively* with burst and bootup, and ≈0 with routing:
+
+| | burst | reaction | routing | bootup | Savant OAA |
+|---|---|---|---|---|---|
+| residual (ours − theirs) | −.247 [−.333, −.166] | −.133 [−.223, −.031] | +.090 [−.005, +.179] | −.218 [−.310, −.130] | −.353 [−.454, −.257] |
+| our raw OAA (context) | +.516 | +.326 | −.109 | +.527 | — |
+
+**Post-hoc (labeled, after the read): partial correlations of the residual with each component, controlling for Savant OAA** — burst .022, reaction .030, routing .026, bootup .059. All ≈ 0.
+
+**Reading.** The negative burst/bootup tilt is the compression seen through Jump: our OAA does track explosiveness (+.52 with burst, +.53 with bootup — the outcomes Savant's tracking measures), but less strongly than Savant's own number, so the residual inherits a negative tilt on exactly the most explosive fielders. Once that scale effect is removed, **the residual has no relationship with any measured component of range skill** — it is the compression plus noise. There is no public decomposition of what our range model is missing; the missing thing (per-play positioning and routes) is exactly what no leaderboard publishes.
+
+**What this steers.** The site should show Savant's Jump components *beside* our range runs (they validate the shared signal) and never present our residual as a skill measure. D-39's speed-tool profile: Jump burst/bootup columns next to our runs, labelled; the §97-ceiling statement stands, now with evidence instead of only a diagnosis.
