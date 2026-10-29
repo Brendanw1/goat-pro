@@ -2,7 +2,7 @@
 
     nice -n 10 python decision_model.py        # fit, the §69 read once, write results
     python decision_model.py --demo            # self-check of the dRV sign and the roll-up
-    nice -n 10 python decision_model.py --artifacts  # same fit, writes only cache/decision_pitches.parquet (no read)
+    nice -n 10 python decision_model.py --artifacts  # same fit, writes only cache/decision_pitches.parquet (no read; keyed by game_pk/at_bat_number/pitch_number for the pitch files)
 
 dRV per pitch = E[chosen] - E[other], batter-positive, at league-average execution. Per hitter-season:
 dRV/100, IZA (in-zone dRV/100), OZA (out-of-zone dRV/100), Decision+ = 100 + 10 z (MLB, >= 100 PA).
@@ -87,7 +87,8 @@ def main():
     base = d.groupby(["balls", "strikes", "swing"])["rv"].transform("mean")
     d = crossfit(d)
     if "--artifacts" in sys.argv:  # per-pitch dRV by game date for the profile rolling chart
-        d.assign(drv=drv(d), d=d["game_date"].astype(str).str[5:10])[["batter", "season", "d", "drv"]].to_parquet(
+        d.assign(drv=drv(d), d=d["game_date"].astype(str).str[5:10])[
+            ["batter", "season", "d", "drv", "game_pk", "at_bat_number", "pitch_number"]].to_parquet(
             PIPE.parent / "cache" / "decision_pitches.parquet")
         return
     res = {"n_pitches": int(len(d)), "rmse": {

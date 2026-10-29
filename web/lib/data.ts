@@ -195,6 +195,11 @@ export async function getGameWpa(gid: string, level: Level = "mlb"): Promise<any
   return fetchGzippedJson<any>(lv(level, `wpa/${gid}.json.gz`)).catch(() => null);
 }
 
+/** Movement-bucket board for one season + site pitch type (bake family `pitches`). */
+export async function getBucketBoard(season: number | string, type: string, level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, `buckets/${season}-${type}.json`)).catch(() => null);
+}
+
 /** League WPA boards per season + the year's biggest swings. */
 export async function getWpaIndex(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "wpa_index.json"), { shared: true }).catch(() => null);

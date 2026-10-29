@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { PitchType } from "@/types";
+import { PitchSplits, type SplitFile } from "@/components/ui/pitch-splits";
 
 type Num = number | null;
 type File = {
@@ -362,6 +363,7 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
         </svg>
         <p className="text-[10px] text-text-dim">Left = his first game ({file.start}). The table and this chart follow every filter; the table lists each type even when its chip is off.</p>
       </div>
+      <PitchSplits file={file as unknown as SplitFile} level={level} />
     </div>
   );
 }

@@ -659,27 +659,79 @@ def _pitch_outcome(desc: pd.Series, ev: pd.Series) -> np.ndarray:
     return o
 
 
+PITCH_FAMILY = {"FF": "Fastball", "SI": "Fastball", "CT": "Fastball", "SL": "Breaking", "SW": "Breaking",
+                "CB": "Breaking", "CH": "Offspeed", "FS": "Offspeed"}
+BUCKET_AXES = ("v", "iv", "hb")  # velocity mph, induced vertical break in, arm-side horizontal break in
+BUCKET_MIN_TYPE = 2000  # league pitches of a type (pooled seasons) before it gets buckets
+BUCKET_BOARD_MIN = 30   # a player's pitches in one bucket before he is on the bucket board
+
+
+def bucket_edges(con, seasons: list[int], site_case: str) -> dict:
+    """{type: {axis: [4 edges]}}: league quintiles per site type over the baked seasons, rounded to whole
+    mph / inches so the buckets read ("95+ mph", "18+ in"), duplicates dropped. Fixed across seasons."""
+    q = con.sql(f"""
+        SELECT {site_case} AS site, count(*) AS n,
+               quantile_cont(release_speed, [0.2, 0.4, 0.6, 0.8]) AS v,
+               quantile_cont(pfx_z * 12, [0.2, 0.4, 0.6, 0.8]) AS iv,
+               quantile_cont(CASE WHEN p_throws = 'R' THEN -pfx_x ELSE pfx_x END * 12, [0.2, 0.4, 0.6, 0.8]) AS hb
+        FROM pitches_all
+        WHERE game_type = 'R' AND season IN ({",".join(map(str, seasons))}) AND pitch_type IS NOT NULL
+          AND release_speed IS NOT NULL AND pfx_x IS NOT NULL AND pfx_z IS NOT NULL
+        GROUP BY 1""").df()
+    return {r.site: {ax: sorted({int(round(e)) for e in getattr(r, ax)}) for ax in BUCKET_AXES}
+            for r in q.itertuples() if r.n >= BUCKET_MIN_TYPE and r.site in PITCH_FAMILY}
+
+
+def _bucket_stats(g) -> dict:
+    """n, run value per 100 (pitcher side), whiff per swing, xwOBAcon for one group of pitch rows."""
+    sw = g["o"].between(2, 8)
+    return {"n": int(len(g)), "rv100": round(float(100 * g["rv"].mean()), 2),
+            "whiff": round(float(100 * (g["o"] == 2).sum() / sw.sum()), 1) if sw.sum() else None,
+            "xwcon": round(float(g["w"].mean() / 1000), 3) if g["w"].notna().any() else None}
+
+
 def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str = "mlb") -> int:
     """pitches/{P|H}{id}-{season}.json.gz. Columns (same length): t type index into `types`, x/z plate
     location in hundredths of a foot (catcher's view, as Statcast), h opponent hand (0 L, 1 R), c count
     (balls * 3 + strikes), o outcome index into `outcomes`, r run value in thousandths of a run from the
     file owner's side (pitcher: delta_pitcher_run_exp; hitter: its negative), e exit velo x10 and w xwOBA
     x1000 on balls in play (null otherwise), d day of season (0 = his first game), q in the zone
-    (Statcast zone 1-9) or not, ba/sl xBA and xSLG x1000 on balls in play; pitcher files at MLB also carry
-    wp/pp, the pitch's Whiff+ and Pitching+ x10 on their season scales (cache/pitch_models.parquet from
-    pipeline/whiff_game.py), so any slice's grade is their mean."""
+    (Statcast zone 1-9) or not, ba/sl xBA and xSLG x1000 on balls in play; v velo x10, iv IVB and hb
+    arm-side HB in tenths of an inch; pe PA end (0 none, 1 K, 2 BB, 3 other) and wv its wOBA value x100
+    (null when the PA does not count for wOBA); pitcher files at MLB also carry wp/pp, the pitch's Whiff+
+    and Pitching+ x10 on their season scales (cache/pitch_models.parquet from pipeline/whiff_game.py), so
+    any slice's grade is their mean; hitter files at MLB carry dv, the pitch's decision value x1000
+    (cache/decision_pitches.parquet), and `dec` {mu, sd} so a slice's Decision+ = 100 + 10 (100 mean dv
+    / 1000 - mu) / sd. `bins` {type: {axis: edges}} and `lg` {type: {axis: [bucket stats]}} carry the
+    movement buckets and the league's line in each (pitcher side). Also writes buckets/{season}-{type}.json,
+    the bucket board: per player and bucket (30+ pitches) n, share of his pitches of that type, RV/100,
+    whiff, xwOBAcon, both sides."""
     n_files = 0
     pm_fp = ROOT / "cache" / "pitch_models.parquet"
     pm = pd.read_parquet(pm_fp) if level == "mlb" and pm_fp.exists() else None
     if pm is not None:  # a duplicated pitch key would duplicate rows in the merge: drop both copies
         pm = pm.drop_duplicates(["game_pk", "at_bat_number", "pitch_number"], keep=False)
+    KEY = ["game_pk", "at_bat_number", "pitch_number"]
+    dp_fp = ROOT / "cache" / "decision_pitches.parquet"
+    dp = None
+    if level == "mlb" and dp_fp.exists():
+        dp = pd.read_parquet(dp_fp)
+        dp = dp[KEY + ["drv"]].drop_duplicates(KEY, keep=False) if set(KEY) <= set(dp.columns) else None
+    dec_f = ROOT / "pipeline" / "results" / "decisions_hitters.csv"
+    dec = {}
+    if dp is not None and dec_f.exists():
+        dh = pd.read_csv(dec_f)
+        dh = dh[dh["pa"] >= 100]
+        dec = {int(k): {"mu": round(float(g.drv100.mean()), 4), "sd": round(float(g.drv100.std()), 4)} for k, g in dh.groupby("season")}
+    edges = bucket_edges(con, seasons, site_case)
+    (out / "buckets").mkdir(parents=True, exist_ok=True)
     for season in seasons:
         df = con.sql(f"""
             SELECT pitcher, batter, CAST(game_date AS DATE) AS gd, {site_case} AS site, plate_x, plate_z,
                    stand, p_throws, balls, strikes, description, events, delta_pitcher_run_exp AS rv,
                    launch_speed, estimated_woba_using_speedangle AS xw, estimated_ba_using_speedangle AS xba,
                    estimated_slg_using_speedangle AS xslg, bb_type, sz_top, sz_bot,
-                   game_pk, at_bat_number, pitch_number, zone
+                   game_pk, at_bat_number, pitch_number, zone, release_speed, pfx_x, pfx_z, woba_value, woba_denom
             FROM pitches_all
             WHERE game_type = 'R' AND season = {season} AND pitch_type IS NOT NULL
               AND plate_x IS NOT NULL AND plate_z IS NOT NULL AND pitcher IS NOT NULL AND batter IS NOT NULL
@@ -687,9 +739,15 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
         if df.empty:
             continue
         if pm is not None:
-            df = df.merge(pm, on=["game_pk", "at_bat_number", "pitch_number"], how="left")
+            df = df.merge(pm, on=KEY, how="left")
+        if dp is not None:
+            df = df.merge(dp, on=KEY, how="left")
         o = _pitch_outcome(df["description"], df["events"])
         bip = df["bb_type"].notna().to_numpy()
+        ev = df["events"]
+        pe = np.where(ev.isin(["strikeout", "strikeout_double_play"]), 1,
+                      np.where(ev.isin(["walk", "intent_walk"]), 2, np.where(ev.notna(), 3, 0)))
+        hb = np.where(df["p_throws"] == "R", -df["pfx_x"], df["pfx_x"]) * 12
         cols = {"x": np.round(df["plate_x"].to_numpy() * 100).astype(int),
                 "z": np.round(df["plate_z"].to_numpy() * 100).astype(int),
                 "c": (df["balls"].clip(0, 3) * 3 + df["strikes"].clip(0, 2)).to_numpy().astype(int), "o": o,
@@ -698,10 +756,53 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
                 "rv": df["rv"].fillna(0).to_numpy(),
                 "q": df["zone"].between(1, 9).to_numpy().astype(int),
                 "ba": np.where(bip & df["xba"].notna(), np.round(df["xba"].fillna(0) * 1000), np.nan),
-                "sl": np.where(bip & df["xslg"].notna(), np.round(df["xslg"].fillna(0) * 1000), np.nan)}
+                "sl": np.where(bip & df["xslg"].notna(), np.round(df["xslg"].fillna(0) * 1000), np.nan),
+                "v": np.round(df["release_speed"].to_numpy(dtype=float) * 10),
+                "iv": np.round(df["pfx_z"].to_numpy(dtype=float) * 120),
+                "hb": np.round(hb.astype(float) * 10), "pe": pe.astype(int),
+                "wv": np.where((pe > 0) & (df["woba_denom"] == 1).to_numpy(), np.round(df["woba_value"].fillna(0) * 100), np.nan)}
         if pm is not None:
             cols["wp"] = np.round(df["whiff_plus"].to_numpy(dtype=float) * 10)
             cols["pp"] = np.round(df["pitching_plus"].to_numpy(dtype=float) * 10)
+        if dp is not None:
+            cols["dv"] = np.round(df["drv"].to_numpy(dtype=float) * 1000)
+
+        # movement buckets: index of each pitch's bin on each axis (-1 = type has no buckets / no tracking)
+        sites = df["site"].to_numpy()
+        raw = {"v": df["release_speed"].to_numpy(dtype=float), "iv": df["pfx_z"].to_numpy(dtype=float) * 12, "hb": hb.astype(float)}
+        bk = {ax: np.full(len(df), -1, dtype=int) for ax in BUCKET_AXES}
+        for t, e in edges.items():
+            m = sites == t
+            for ax in BUCKET_AXES:
+                ok = m & ~np.isnan(raw[ax])
+                bk[ax][ok] = np.searchsorted(e[ax], raw[ax][ok], side="right")
+        b = pd.DataFrame({"site": sites, "o": o, "rv": cols["rv"], "w": cols["w"],
+                          "pitcher": df["pitcher"].to_numpy(), "batter": df["batter"].to_numpy(), **bk})
+        lg = {t: {ax: [_bucket_stats(g) for _, g in b[(b["site"] == t) & (b[ax] >= 0)].groupby(ax)]
+                  for ax in BUCKET_AXES} for t in edges}
+        b = b.assign(sw=b["o"].between(2, 8), wh=b["o"] == 2, wn=b["w"].notna())
+        for t in edges:
+            bt = b[b["site"] == t]
+            rows = []
+            for side, who, sign in ((0, "pitcher", 1), (1, "batter", -1)):
+                tot = bt.groupby(who).size()
+                for ax_i, ax in enumerate(BUCKET_AXES):
+                    a = (bt[bt[ax] >= 0].groupby([who, ax])
+                         .agg(n=("rv", "size"), rv=("rv", "sum"), sw=("sw", "sum"), wh=("wh", "sum"), ws=("w", "sum"), wn=("wn", "sum"))
+                         .reset_index())
+                    a = a[a["n"] >= BUCKET_BOARD_MIN]
+                    for r in a.itertuples(index=False):
+                        pid, k = getattr(r, who), getattr(r, ax)
+                        rows.append([str(int(pid)), side, ax_i, int(k), int(r.n), round(100 * r.n / int(tot[pid]), 1),
+                                     round(sign * 100 * r.rv / r.n, 2), round(100 * r.wh / r.sw, 1) if r.sw else None,
+                                     round(r.ws / r.wn / 1000, 3) if r.wn else None])
+            jwrite(out / "buckets" / f"{season}-{t}.json",
+                   {"season": season, "type": t, "edges": edges[t], "lg": lg[t],
+                    "cols": ["id", "side", "axis", "bin", "n", "share", "rv100", "whiff", "xwcon"],
+                    "_comment": "side 0 = pitcher (rv100 pitcher-positive), 1 = hitter (rv100 hitter-positive); "
+                                "axis 0 velo, 1 IVB, 2 arm-side HB; bin = index into edges (k = above edges[k-1])",
+                    "rows": rows})
+
         for side, who, opp_hand, sign in (("P", "pitcher", "stand", 1), ("H", "batter", "p_throws", -1)):
             ids = df[who].to_numpy()
             hand = (df[opp_hand] == "R").to_numpy().astype(int)
@@ -709,8 +810,8 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
                 ix = idx.to_numpy()
                 if len(ix) < PITCH_MIN:
                     continue
-                sites = df["site"].to_numpy()[ix]
-                types = sorted(set(sites), key=lambda t: -int((sites == t).sum()))
+                psites = sites[ix]
+                types = sorted(set(psites), key=lambda t: -int((psites == t).sum()))
                 tix = {t: i for i, t in enumerate(types)}
                 gd = df["gd"].to_numpy()[ix]
                 day = ((gd - gd[0]) / np.timedelta64(1, "D")).astype(int)
@@ -719,16 +820,23 @@ def bake_pitches(con, out: Path, seasons: list[int], site_case: str, level: str 
                        "outcomes": list(PITCH_OUTCOMES), "start": str(gd[0])[:10],
                        "zone": [round(float(np.nanmean(df["sz_bot"].to_numpy()[ix])), 2),
                                 round(float(np.nanmean(df["sz_top"].to_numpy()[ix])), 2)],
-                       "t": [tix[t] for t in sites], "x": cols["x"][ix].tolist(), "z": cols["z"][ix].tolist(),
+                       "t": [tix[t] for t in psites], "x": cols["x"][ix].tolist(), "z": cols["z"][ix].tolist(),
                        "h": hand[ix].tolist(), "c": cols["c"][ix].tolist(), "o": cols["o"][ix].tolist(),
                        "r": np.round(sign * cols["rv"][ix] * 1000).astype(int).tolist(), "q": cols["q"][ix].tolist(),
                        "ba": nul(cols["ba"][ix]), "sl": nul(cols["sl"][ix]),
-                       "e": nul(cols["e"][ix]), "w": nul(cols["w"][ix]), "d": day.tolist()}
+                       "e": nul(cols["e"][ix]), "w": nul(cols["w"][ix]), "d": day.tolist(),
+                       "v": nul(cols["v"][ix]), "iv": nul(cols["iv"][ix]), "hb": nul(cols["hb"][ix]),
+                       "pe": cols["pe"][ix].tolist(), "wv": nul(cols["wv"][ix]),
+                       "bins": {t: edges[t] for t in types if t in edges}, "lg": {t: lg[t] for t in types if t in edges}}
                 if side == "P" and "wp" in cols:
                     doc["wp"], doc["pp"] = nul(cols["wp"][ix]), nul(cols["pp"][ix])
+                if side == "H" and "dv" in cols:
+                    doc["dv"] = nul(cols["dv"][ix])
+                    if season in dec:
+                        doc["dec"] = dec[season]
                 jwrite_gz(out / "pitches" / f"{side}{int(pid)}-{season}.json.gz", doc)
                 n_files += 1
-        del df
+        del df, b
         print(f"pitches {season}: {n_files} files so far", flush=True)
     return n_files
 

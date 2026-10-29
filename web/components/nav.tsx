@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/wpa", label: "WPA" },
   { href: "/aging", label: "Aging" },
   { href: "/arsenal", label: "Arsenal" },
+  { href: "/buckets", label: "Buckets" },
   { href: "/scouting/savant", label: "Savant boards" },
   { href: "/glossary", label: "Glossary" },
 ] as const;
