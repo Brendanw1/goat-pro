@@ -16,7 +16,7 @@ shown. The results are published as a website.
 | Section | What it shows |
 |---|---|
 | Pitchers / Hitters | Sortable leaderboards with the site's models beside the measured stats. Every column, and every stat with a profile percentile, can be filtered by range |
-| Player profiles | Percentile panels, arsenal and pitch grades, movement and location visuals, swing (bat tracking), defense field drill with Savant clips, aging track, WAR and WPA lines, game logs, splits, printable sheet |
+| Player profiles | Percentile panels, arsenal and pitch grades, movement and location visuals, swing (bat tracking), defense field drill with Savant clips, aging track, WAR and WPA lines, game logs, splits, printable sheet, and an MLB/AAA level toggle for players with seasons at both |
 | Minors | AAA boards, with the MLB-trained models scored on AAA pitches (display only), and MLB-equivalent lines (MLEs) for AAA and AA |
 | Prospects | MLB Pipeline lists 2011–2026 with debut tags, draft hit rates, and farm-system output by year with risers and fallers |
 | Trades | Every MLB-to-MLB trade 2020–26, grouped into deals, with the run value each club got back |
@@ -67,6 +67,7 @@ labelled **descriptive, not a forecast**, or does not ship.
 | Park factors (2B, 3B, HR, SO by hand) | descriptive | §70, §72 |
 | Hitter Marcel projection | display-only baseline with measured ranges | §67 |
 | Minor-league translations (MLEs, AAA/AA → MLB) | tested for AAA hitter K%, BB%, ISO and AA hitter BB%; provisional for AA hitter K% and AAA pitcher K%; the rest descriptive | §88 |
+| Prospect model (point-in-time snapshots, LightGBM + hierarchical Bayes in NumPyro) | value ranking passed its one holdout (NDCG@100 +.076 [+.027, +.121] vs a draft/rank baseline); debut probability and the sleeper board failed (post-2020 drift; power); not shown; era recalibration pre-registered for the 2024 list after 2027 | §97, §99f, §99g |
 | Our own xwOBA and xRV | not shipped (failed, diagnosed, re-tests failed) | §68, §71, §77, §78 |
 
 `docs/model-inventory.md` has the full list, including what was tried and
