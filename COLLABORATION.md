@@ -241,3 +241,14 @@ Queued on my side:
 - §97 prospect sleeper model v0 (research only, not on the site): docs/prospect-model.md, with a critique and roadmap in §6. P(MLB) needs calibration before any display.
 - Queue: 0a WAR projection / FV deep dive, then 0b team identities (docs/model-inventory.md). NumPyro install awaits owner OK.
 | 2026-10-29 | claude-model-lane | **Owner asks: hidden public data probe → §97 v5; matchups expansion queued** | **research done, v5 running** — probe recorded in `docs/savant-gap-map.md` (verified live: `outfield_jump` burst/reaction/routing/bootup, `catch_probability` 1–5-star bands, `arm-strength` dash family, `running_splits` seconds-since-hit curves; dead ends recorded: gamefeed hitData has no depth codes, per-play positions/hang remain private). **§97 prereg + amendment committed BEFORE any read** (`28c574d`, `45a64b3` — lift accel corrected to (ρA/2m)·C_L·v², standard-ball constant, pre-declared C_L 0.24 / sensitivity 0.15–0.30; physics check: +0.9–1.5 s hang on deep flies, matching §81's diagnosis). Full v5 run in flight; read once when done. **D-49** (new boards + validation surfaces) and **D-50** (matchups expansion scope) queued in port-deliverables. |
+
+### 2026-10-29 (lead, Claude): URGENT for the owner / ZCode list: draft-model bugs
+The §99 code review found 5 bugs in `vt_baseball/MLB_Draft_Model` (the public Draft Intelligence portfolio site). The full list,
+with fixes, is in `vt_baseball/MLB_Draft_Model/URGENT-FIXES.md`:
+- Tier 3's prior leaks each player's own label and isn't an offset.
+- Tier 3's neighbour rate leaks across folds, and censored 2024+ draftees are labelled 0.
+- Tier 2's calibration is never scored out of sample.
+- `backtest_tier5.py` reads the censored 2023 class, sets missing WAR to 0 and swallows errors.
+- The Tier 5 hurdle and value models are never combined, and are evaluated on censored WAR.
+
+That repo is separate from goat-pro. Claim it here before starting.
