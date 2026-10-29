@@ -23,9 +23,9 @@ const CELLS_Y = 10;
 const FRAME_MS = 110;
 const HUE_BASE = 178;
 const HUE_SPAN = 118;
-const SAT: [number, number] = [46, 60];
-const LIG: [number, number] = [38, 56];
-const DEEP_LIG = 28;
+const SAT: [number, number] = [38, 50];
+const LIG: [number, number] = [32, 50];
+const DEEP_LIG = 24;
 const DEEP_EVERY = 13;
 
 export function LavaNav() {
@@ -98,6 +98,6 @@ export function LavaNav() {
 
   return (
     <canvas ref={ref} aria-hidden="true"
-      className="absolute inset-0 w-full h-full [image-rendering:pixelated] opacity-40 select-none" />
+      className="absolute inset-0 w-full h-full [image-rendering:pixelated] opacity-30 select-none" />
   );
 }
