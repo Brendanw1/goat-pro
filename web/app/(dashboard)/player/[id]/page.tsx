@@ -11,7 +11,11 @@ export async function generateMetadata({
 }) {
   const { id } = await params;
   const season = (await searchParams)?.season;
-  const profile = (await getPlayerProfile(id, season)) ?? (await getHitterProfile(id, season));
+  const [file, hitter] = await Promise.all([
+    getPlayerProfile(id, season, "mlb", { noBoardFallback: true }),
+    getHitterProfile(id, season),
+  ]);
+  const profile = file ?? hitter ?? (await getPlayerProfile(id, season));
   const yr = profile?.season ? ` (${profile.season})` : "";
   return { title: profile?.name ? `${profile.name}${yr}` : "Player Not Found" };
 }

@@ -14,95 +14,83 @@ import { WpaAbsStrip } from "@/components/ui/wpa-abs-strip";
 export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   id: string; season?: string; tab?: string; level?: Level; extra?: React.ReactNode;
 }) {
-  let profile = await getPlayerProfile(id, season, level);
-  let hitter: any = null;
-  if (!profile) {
-    hitter = await getHitterProfile(id, season, level);
-  }
-  const [vaaFile, slot, pitchRv, situational] = await Promise.all([
-    getVaaZonePct(level),
-    hitter ? Promise.resolve(null) : getArmSlot(id, profile?.season ?? season, level),
-    hitter ? Promise.resolve(null) : getPitchRv(id, level),
-    hitter ? Promise.resolve(null) : getSituational(id, profile?.season ?? season, level),
+  // Wave 1: the pitcher and hitter docs in parallel (a 404 is cheap; the hitter
+  // doc is used only when there is no pitcher doc, as before).
+  let [profile, hitterDoc] = await Promise.all([
+    getPlayerProfile(id, season, level, { noBoardFallback: true }),
+    getHitterProfile(id, season, level),
   ]);
-  // Percentiles in the profile's OWN season; a season param that mismatches
+  // Neither file: last resort is the leaderboard row (needs pitchers.json).
+  if (!profile && !hitterDoc) profile = await getPlayerProfile(id, season, level);
+  const hitter: any = profile ? null : hitterDoc;
+  // Wave 2: everything else at once. Every input is known after wave 1 (the
+  // profile's own season, role, level); these used to be eight serial R2 hops.
+  // Percentiles are in the profile's OWN season; a season param that mismatches
   // the file falls back to the file's season.
   const detSeason = profile?.season ?? hitter?.season ?? season ?? "";
-  const [gameLog, spray, sprayRefs, scouting, scoutingLeague, visuals, career, splitBench, prospectRank, swing] = await Promise.all([
-    detSeason ? getGameLog(id, detSeason, level) : Promise.resolve(null),
-    hitter && detSeason ? getSpray(id, detSeason, level) : Promise.resolve(null),
-    hitter ? getSprayRefs(level) : Promise.resolve(null),
-    hitter && detSeason ? getHitterScouting(id, detSeason, level) : Promise.resolve(null),
-    hitter ? getScoutingLeague(level) : Promise.resolve(null),
-    detSeason ? getVisuals(id, detSeason, level) : Promise.resolve(null),
-    getCareer(id, level),
-    hitter ? getHitterSplitBenchmarks(level) : Promise.resolve(null),
-    getProspectRank(id),
-    hitter && detSeason ? getSwingProfile(id, detSeason, level) : Promise.resolve(null),
-  ]);
+  const pctSeason = String(profile?.season ?? hitter?.season ?? season ?? "");
+  const pid = profile?.season ?? season;
+  const rs = hitter ? String(hitter.season) : "";
   // Baserunning detail (Savant reference): slice this hitter's rows from the
   // league board files server-side, like zoneMix — the client gets 4 rows.
-  let running: any = null;
-  if (hitter && level === "mlb") {  // Savant boards are MLB; an AAA page must not show his MLB rows
-    const rs = String(hitter.season);
-    const pick = (rows: any[] | undefined) =>
-      (rows ?? []).find((rw: any) => String(rw.id) === String(id) && String(rw.season) === rs) ?? null;
-    const [bsrBoard, stealBoard, xbBoard, sprintBoard] = await Promise.all([
-      getSavantBoard("baserunning_rv").catch(() => null),
-      getSavantBoard("basestealing_rv").catch(() => null),
-      getSavantBoard("xb_taken").catch(() => null),
-      getSavantBoard("sprint_speed").catch(() => null),
-    ]);
-    running = {
-      season: rs,
-      bsr: pick(bsrBoard?.rows), steal: pick(stealBoard?.rows),
-      xb: pick(xbBoard?.rows), sprint: pick(sprintBoard?.rows),
-    };
-  }
-
-  // Fatigue profile (pitchers): the load doc plus that season's league TTO
-  // baselines from the index, merged so the tab renders one object.
-  let load: any = null;
-  let deception: any = null;
-  if (profile) {
-    deception = detSeason ? await getDeception(id, detSeason) : null;
-    const [loadDoc, loadIdx] = await Promise.all([
-      detSeason ? getLoadProfile(id, detSeason, level) : Promise.resolve(null),
-      getLoadIndex(),
-    ]);
-    if (loadDoc) {
-      load = { ...loadDoc, league: loadIdx?.league?.[String(loadDoc.season)] ?? null };
-    }
-  }
-
-  // By-age strip (depth item 7): his track on the league curve, both roles.
-  const [agingTrack, agingCurves] = await Promise.all([
+  // Savant boards are MLB; an AAA page must not show his MLB rows.
+  const board = (f: string) => hitter && level === "mlb" ? getSavantBoard(f).catch(() => null) : Promise.resolve(null);
+  const [
+    vaaFile, slot, pitchRv, situational,
+    gameLog, spray, sprayRefs, scouting, scoutingLeague, visuals, career, splitBench, prospectRank, swing,
+    bsrBoard, stealBoard, xbBoard, sprintBoard,
+    deceptionDoc, loadDoc, loadIdx,
+    agingTrack, agingCurves, percentiles, zm,
+  ] = await Promise.all([
+    getVaaZonePct(level),
+    hitter ? null : getArmSlot(id, pid, level),
+    hitter ? null : getPitchRv(id, level),
+    hitter ? null : getSituational(id, pid, level),
+    detSeason ? getGameLog(id, detSeason, level) : null,
+    hitter && detSeason ? getSpray(id, detSeason, level) : null,
+    hitter ? getSprayRefs(level) : null,
+    hitter && detSeason ? getHitterScouting(id, detSeason, level) : null,
+    hitter ? getScoutingLeague(level) : null,
+    detSeason ? getVisuals(id, detSeason, level) : null,
+    getCareer(id, level),
+    hitter ? getHitterSplitBenchmarks(level) : null,
+    getProspectRank(id),
+    hitter && detSeason ? getSwingProfile(id, detSeason, level) : null,
+    board("baserunning_rv"), board("basestealing_rv"), board("xb_taken"), board("sprint_speed"),
+    profile && detSeason ? getDeception(id, detSeason) : null,
+    profile && detSeason ? getLoadProfile(id, detSeason, level) : null,
+    profile ? getLoadIndex() : null,
+    // By-age strip (depth item 7): his track on the league curve, both roles.
     getAgingTrack(id),
     getAgingCurves(),
+    hitter ? getHitterPercentiles(pctSeason, level) : getPercentiles(pctSeason, level),
+    // Location mix (PP20): one season file, sliced to this pitcher server-side —
+    // the client never downloads the whole league.
+    profile ? getZoneMix(profile.season, level) : null,
   ]);
+  const pick = (rows: any[] | undefined) =>
+    (rows ?? []).find((rw: any) => String(rw.id) === String(id) && String(rw.season) === rs) ?? null;
+  const running: any = hitter && level === "mlb" ? {
+    season: rs,
+    bsr: pick(bsrBoard?.rows), steal: pick(stealBoard?.rows),
+    xb: pick(xbBoard?.rows), sprint: pick(sprintBoard?.rows),
+  } : null;
+  // Fatigue profile (pitchers): the load doc plus that season's league TTO
+  // baselines from the index, merged so the tab renders one object.
+  const deception: any = deceptionDoc;
+  const load: any = loadDoc ? { ...loadDoc, league: loadIdx?.league?.[String(loadDoc.season)] ?? null } : null;
   // rendered once here (server) and placed inside each view's Overview tab
   const agingStrip = (
     <AgingStrip track={agingTrack} curves={agingCurves}
       role={hitter ? "batter" : "pitcher"} season={detSeason} />
   );
-
-  const pctSeason = String(profile?.season ?? hitter?.season ?? season ?? "");
-  const percentiles = hitter
-    ? await getHitterPercentiles(pctSeason, level)
-    : await getPercentiles(pctSeason, level);
-
-  // Location mix (PP20): one season file, sliced to this pitcher server-side —
-  // the client never downloads the whole league.
   let zoneMix: any = null;
-  if (profile) {
-    const zm = await getZoneMix(profile.season, level);
-    if (zm?.meta) {
-      zoneMix = {
-        meta: zm.meta, league: zm.league ?? {}, leagueZone: zm.leagueZone ?? {},
-        cellOrder: zm.cellOrder ?? [], zones: zm.zones ?? [],
-        pitcher: zm.pitchers?.[String(id)] ?? null,
-      };
-    }
+  if (profile && zm?.meta) {
+    zoneMix = {
+      meta: zm.meta, league: zm.league ?? {}, leagueZone: zm.leagueZone ?? {},
+      cellOrder: zm.cellOrder ?? [], zones: zm.zones ?? [],
+      pitcher: zm.pitchers?.[String(id)] ?? null,
+    };
   }
 
   if (!profile && !hitter) {

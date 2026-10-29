@@ -101,6 +101,24 @@ export function PixelTeamLogo({ team, size = 18, className = "" }: { team: strin
     pen += glyph.w + (li < code.length - 1 ? 1 : 0);
   }
 
+  // Opaque pixels collapse to one path per colour (horizontal runs): a page with
+  // 270 badges (/trades) was 2.8 MB of <rect>s, twice over with the RSC payload.
+  // Paint order bg, ink, translucent dither matches the old rect order (the glyph never meets the dither).
+  const runs = (pred: (c: string) => boolean) => {
+    const cells = new Set(rects.filter((r) => pred(r.c)).map((r) => `${r.x},${r.y}`));
+    let d = "";
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (!cells.has(`${x},${y}`) || cells.has(`${x - 1},${y}`)) continue;
+      let n = 1;
+      while (cells.has(`${x + n},${y}`)) n++;
+      d += `M${x} ${y}h${n}v1h-${n}z`;
+    }
+    return d;
+  };
+  const glaze = rects.filter((r) => (r.c === shade || r.c === lite) && r.x >= 0 && r.x < W);
+  const paths: [string, string][] = [[bg, runs((c) => c === bg)]];
+  const inkD = runs((c) => c === ink);
+
   return (
     <svg
       width={(size * W) / H}
@@ -112,9 +130,9 @@ export function PixelTeamLogo({ team, size = 18, className = "" }: { team: strin
       className={className}
       style={{ imageRendering: "pixelated", display: "inline-block", verticalAlign: "middle" }}
     >
-      {rects.map((r, i) => (
-        <rect key={i} x={r.x} y={r.y} width={1} height={1} fill={r.c} />
-      ))}
+      {paths.map(([c, d]) => <path key={c} d={d} fill={c} />)}
+      <path d={inkD} fill={ink} />
+      {glaze.map((r, i) => <rect key={i} x={r.x} y={r.y} width={1} height={1} fill={r.c} />)}
     </svg>
   );
 }

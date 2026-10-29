@@ -83,10 +83,14 @@ export async function getArmSlot(id: string, season?: string | number, level: Le
  * `season` field says which season it holds, and panels label it.
  */
 async function perSeasonFile(dir: string, id: string, season: string | number | undefined, level: Level): Promise<any | null> {
-  const bySeason = season !== undefined && season !== ""
-    ? await fetchFromR2<any>(lv(level, `${dir}/${id}-${season}.json`)).catch(() => null)
-    : null;
-  return bySeason ?? fetchFromR2<any>(lv(level, `${dir}/${id}.json`)).catch(() => null);
+  // Both candidates at once: the fallback costs one cheap 404 hop, not a serial wait.
+  const [bySeason, bare] = await Promise.all([
+    season !== undefined && season !== ""
+      ? fetchFromR2<any>(lv(level, `${dir}/${id}-${season}.json`)).catch(() => null)
+      : null,
+    fetchFromR2<any>(lv(level, `${dir}/${id}.json`)).catch(() => null),
+  ]);
+  return bySeason ?? bare;
 }
 
 /** The slot board file (A3/A4): release + grades per pitcher, joined with arsenal rows at query time. */
@@ -135,11 +139,11 @@ type HitterRowAny = Record<string, any>;
 
 /** Hitter season doc (hitters/{id}.json or hitters/{id}-{season}.json). */
 export async function getHitterProfile(id: string, season?: string, level: Level = "mlb"): Promise<any | null> {
-  if (season) {
-    const s = await fetchFromR2<any>(lv(level, `hitters/${id}-${season}.json`)).catch(() => null);
-    if (s) return s;
-  }
-  return fetchFromR2<any>(lv(level, `hitters/${id}.json`)).catch(() => null);
+  const [s, bare] = await Promise.all([
+    season ? fetchFromR2<any>(lv(level, `hitters/${id}-${season}.json`)).catch(() => null) : null,
+    fetchFromR2<any>(lv(level, `hitters/${id}.json`)).catch(() => null),
+  ]);
+  return s ?? bare;
 }
 
 /** Per-player game log (wave 2c, gzipped): per-game lines for either side. */
@@ -402,14 +406,15 @@ export const getPlayerIndex = cache(async (): Promise<Record<string, PlayerIndex
  * rates — the boards only read columns the producer emits, so a missing field
  * never renders as a stub.
  */
-export async function getPlayerProfile(id: string, season?: string | number, level: Level = "mlb"): Promise<any | null> {
+export async function getPlayerProfile(id: string, season?: string | number, level: Level = "mlb", opts: { noBoardFallback?: boolean } = {}): Promise<any | null> {
   // A leaderboard row links with its season: players/{id}-{season}.json holds
   // that season's numbers. The bare {id}.json is the latest graded season, and
   // the fallback when a season file is missing (older bakes, bad param).
-  const profile = season !== undefined
-    ? (await fetchFromR2<any>(lv(level, `players/${id}-${season}.json`)).catch(() => null))
-      ?? (await fetchFromR2<any>(lv(level, `players/${id}.json`)).catch(() => null))
-    : await fetchFromR2<any>(lv(level, `players/${id}.json`)).catch(() => null);
+  const [bySeason, bare] = await Promise.all([
+    season !== undefined ? fetchFromR2<any>(lv(level, `players/${id}-${season}.json`)).catch(() => null) : null,
+    fetchFromR2<any>(lv(level, `players/${id}.json`)).catch(() => null),
+  ]);
+  const profile = bySeason ?? bare;
   if (profile) {
     try {
       const pitchers = await getPitchers(level);
@@ -425,6 +430,9 @@ export async function getPlayerProfile(id: string, season?: string | number, lev
     return profile;
   }
   // Compose a minimal profile from the leaderboard row (no invented fields).
+  // noBoardFallback: the caller has a hitter doc to try first and skips the
+  // 10 MB pitchers.json download a hitter id would otherwise trigger for nothing.
+  if (opts.noBoardFallback) return null;
   try {
     const pitchers = await getPitchers(level);
     const match = pitchers.find((p) => String(p.id) === String(id));
