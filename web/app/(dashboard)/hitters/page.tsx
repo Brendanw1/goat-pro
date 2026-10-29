@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { sortComparator } from "@/lib/table-sort";
-import { getHitters, getHitterPercentiles, getHitterSkillIndex, getSwingIndex } from "@/lib/data";
+import { getHitters, getHitterPercentiles, getHitterSkillIndex, getSwingIndex, getSwingQAll } from "@/lib/data";
 import { hittersProps } from "@/lib/boards/hitters";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { GradePctProvider } from "@/components/ui/grade-pct";
@@ -38,6 +38,7 @@ const TYPE_SHORT: Record<string, string> = {
 };
 
 const SWING_COLS: Col[] = [
+  { key: "sq", label: "SQ" },
   { key: "avgBatSpeed", label: "Bat mph" },
   { key: "batSpeedP90", label: "Peak 90th" },
   { key: "swingLength", label: "Length ft" },
@@ -157,13 +158,14 @@ export default async function HittersPage({ searchParams }: {
   }
 
   if (view === "swing") {
-    const index = await getSwingIndex();
+    const [index, swingq] = await Promise.all([getSwingIndex(), getSwingQAll()]);
     const seasons: number[] = Object.keys(index?.seasons ?? {}).map(Number).sort((a, b) => b - a);
     const season = seasons.includes(Number(q.season)) ? Number(q.season) : seasons[0];
     const byId = new Map((data ?? []).map((r0: any) => [String(r0.id), r0]));
     let rows: any[] = (index?.seasons?.[String(season)] ?? []).map((r0: any) => {
       const b = byId.get(String(r0.id));
-      return { ...r0, name: b?.name ?? r0.id, team: b?.team ?? null, bats: b?.bats ?? null };
+      const sq = swingq?.rows?.[`${r0.id}-${season}`]?.g ?? null;
+      return { ...r0, sq, name: b?.name ?? r0.id, team: b?.team ?? null, bats: b?.bats ?? null };
     });
     if (q.team) rows = rows.filter((r0) => r0.team === q.team);
     const teams = [...new Set(rows.map((r0) => r0.team).filter(Boolean))].sort() as string[];
@@ -185,12 +187,11 @@ export default async function HittersPage({ searchParams }: {
           Statcast bat tracking, {season}: every hitter with 100+ tracked swings. Bat speed is our average over all
           tracked swings (Savant&apos;s leaderboard averages competitive swings only, so theirs reads about a point
           higher); swords, squared-up, blast and hard-swing rates are Savant&apos;s own. Swing length and attack angle
-          are style — sortable, never coloured.
+          are style — sortable, never coloured. SQ is the Swing Quality grade (100 = league, descriptive, §98; 25+ BIP).
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/hitters" className={chip(false)}>Rate board</Link>
           <Link href={link({ view: "skill" })} className={chip(false)}>Skill board</Link>
-        <Link href={link({ view: "swing" })} className={chip(false)}>Swing board</Link>
           <Link href={link({ view: "swing" })} className={chip(true)}>Swing board</Link>
           <span className="w-px h-4 bg-border-subtle mx-1" />
           {seasons.map((s) => <Link key={s} href={link({ season: String(s) })} className={chip(s === season)}>{s}</Link>)}

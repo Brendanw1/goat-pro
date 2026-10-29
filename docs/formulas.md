@@ -158,6 +158,16 @@ When a formula changes, update this table and the glossary in the same commit.
 - Map = first two principal components of z (x shown flipped: right = longer, faster, pull). Comps = 5 nearest hitter-seasons by
   Euclidean distance in z, other hitters only. Aging = same hitter's S → S+1 change in bat speed and length by type × age band (age_bat).
 
+## Swing Quality (pipeline/swing_quality.py → swingq/swingq.json; RESULTS-MLB §98)
+
+- Per tracked ball in play: ŷ = Ridge(α 1) on SplineTransformer(6 knots, degree 3) of §91's features (bat speed, swing length, attack angle,
+  attack direction as pull, path tilt; plate speed, horizontal break and plate_x signed away, pfx_z, VAA, plate_z, same hand, balls,
+  strikes; contact depth and lateral centred leave-one-out on his other contacts that season and side), target Savant xwOBA. 5 hitter folds
+  (crc32), each hitter scored by the fold that never saw him.
+- SQcon = mean ŷ over his tracked BIP. Grade = 100 + 10·(SQcon − league mean ŷ) / SD(SQcon over hitters with 100+ BIP), per season.
+- Parts: feature j's spline terms × ridge weights, centred on the training fold's mean, summed into groups and scaled ×10/SD. Sum = grade − 100.
+- Gap = 1000·(his mean xwOBA on tracked BIP − SQcon). Floor 25 tracked BIP; reliability fair < 50, good < 100, high ≥ 100.
+
 ## Bat speed drift (pipeline/bat_speed_drift.py; RESULTS-MLB §95; research only, failed, not shipped)
 
 - Game mean of competitive bat speed (4+ swings); baseline = mean and SD of his previous ≤ 30 games that season (10+); z = (x − b)/SD.

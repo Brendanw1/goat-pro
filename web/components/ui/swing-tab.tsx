@@ -19,6 +19,7 @@ import { PlanePanel } from "@/components/ui/plane-panel";
 import { TimingPanel } from "@/components/ui/timing-panel";
 import { TwoStrikePanel } from "@/components/ui/two-strike-panel";
 import { ArchetypeChip } from "@/components/ui/archetype-chip";
+import { SwingQPanel } from "@/components/ui/swingq-panel";
 
 const REGION_LABEL: Record<string, string> = {
   heart: "Heart of the zone",
@@ -160,6 +161,8 @@ export function SwingTab({ swing, name }: { swing: any | null; name?: string }) 
           {nQual ? ` · percentiles vs ${nQual} hitters with 100+ tracked swings` : ""}
         </span>
       </div>
+
+      <SwingQPanel id={swing.id} season={swing.season} />
 
       <div className="glass-panel grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 -mb-px">
         <StatCell label="Bat speed" value={`${s.avgBatSpeed ?? "—"}`} sub="mph, all tracked swings (Savant competitive avg below)" pct={p.avgBatSpeed} />

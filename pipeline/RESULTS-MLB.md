@@ -3557,3 +3557,74 @@ Phase 1 builds data and design only; no model is scored and no outcome is read b
 lines), which distorted the AAA level × season means. §97's numbers stand as run. The phase-2 v0 baseline uses the corrected lines.
 
 **Sensitivity rows (read 2026-10-29, after the primary verdict, reported only):** C_L 0.15 — IF .582 [.527, .634], OF .717 [.673, .754]; C_L 0.30 — IF .578 [.523, .628], OF .721 [.679, .757]. The model is flat in C_L across the whole pre-declared range (every |Δr| vs the primary ≤ .004): the rank-preserving-proxy conclusion is not sensitive to the lift magnitude chosen.
+
+### §98 dev results (2024 + 2025 in-season windows, free reads; `results/swingq_98_dev.json`, `swingq_98_dev_xgb.json`)
+
+Window = first N tracked BIP; target = rest-of-season xwOBAcon (≥ 50 BIP); n = 856 hitter-seasons (522 hitters) at N = 25, 772 at N = 50.
+Base = in-season Marcel (wR² .534 at N = 25, .566 at N = 50). ΔwR² out of fold, hitter-clustered 95% CI.
+
+| added to Marcel | N = 25 | N = 50 |
+|---|---|---|
+| SQcon, LightGBM (§91 head) | +.042 [+.021, +.064] | +.028 [+.011, +.049] |
+| SQcon, XGBoost (separate process: libomp clash) | +.047 [+.026, +.071] | +.033 [+.013, +.055] |
+| SQcon, LightGBM monotone in bat speed | +.054 [+.029, +.080] | +.036 [+.016, +.061] |
+| **SQcon, natural-spline ridge (additive)** | **+.066 [+.040, +.094]** | **+.047 [+.023, +.074]** |
+| SQcon, LightGBM wide (all nine families) | +.044 [+.023, +.066] | +.028 [+.011, +.047] |
+| six swing-trait means (OLS) | +.092 [+.052, +.137] | +.070 [+.038, +.108] |
+| blast | +.010 [+.000, +.020] | +.007 [−.002, +.018] |
+| nested lasso, every family | +.096 [+.059, +.138] | +.073 [+.041, +.111] |
+| SQcon (LightGBM) beyond Marcel + bat speed | +.013 [+.002, +.024] | +.006 [−.003, +.016] |
+
+- **The fast-stabilisation claim holds on dev.** At small N, SQcon adds 3–7 points of wR² to Marcel, in both seasons separately
+  (wide head: 2024 +.044, 2025 +.042 at N = 25). The edge shrinks as N grows, as the reliability argument predicts (§91 at ≥ 75 BIP: +.019).
+- **Model class:** per-BIP r ranks the other way (LightGBM .290–.298, XGBoost .296–.302, spline .244), yet the smooth additive spline head is
+  best at the hitter level. The trees fit per-ball noise the hitter mean does not need; the smooth head keeps the capacity signal. Chosen: spline.
+- **Wide per-swing features add nothing.** Wide minus each family (per-BIP r / hitter ΔwR² at N = 25): dropping swing traits kills it
+  (r .22, ΔwR² −.002); dropping pitch costs per-BIP r (.27) but not the hitter read; pitch quality (Whiff+/Pitching+), game state, platoon,
+  age, park and plane are each within ±.003. Dropping the centred contact point *raises* the hitter read (+.057): it is per-swing noise.
+- **Hitter-level families (Marcel + family alone, N = 25):** traits +.092; blast +.010; variability +.009; archetype +.006; count +.005;
+  timing, two-strike, plane, contact point, diet, park, age, platoon all within ±.003 and CIs on 0. Nested lasso minus a family: only traits
+  (+.045) and variability (+.014, mainly SD of bat speed and length) carry unique signal. Stability (keep share ≥ .7 at both N): Marcel,
+  bat speed, attack angle, attack direction, path tilt, contact rate, SD of bat speed. SQcon itself is kept .82 at N = 25, .35 at N = 50:
+  the six raw traits in a linear model hold almost all of what the per-swing model knows.
+- **Diagnosis of the gap to the trait model:** handling, not information. The per-swing heads average E[xwOBA | swing] over his balls,
+  which re-weights his traits by his own contact mix; the hitter-level linear fit uses the traits directly plus contact rate (whiff skill).
+
+## §98a The frozen claim, pre-registered 2026-10-29 after dev and before the holdout read
+
+**One claim.** For hitter-seasons below §91's floors (25 ≤ tracked BIP < 75, or < 200 tracked swings, in S) with ≥ 30 BIP in S+1,
+adding SQcon to Marcel xwOBAcon improves the forecast of S+1 xwOBAcon.
+- **Frozen spec:** SQcon = mean over his tracked S balls in play of the natural-spline ridge head (§91 features, SplineTransformer 6 knots
+  degree 3, Ridge α 1, median imputation), hitter-grouped 5-fold cross-fit on all S swings, contact point centred leave-one-out on the
+  full S season (§91). Marcel = §91 Marcel on tracked BIP (S weight 5, S−1 4, S−2 3, k = 100). Out-of-fold weighted OLS
+  S+1 xwOBAcon (all BIP) ~ Marcel + season dummy (+ SQcon), weights S+1 BIP, hitter folds by crc32.
+- **Population:** S = 2024 and 2025, pooled; n as counted (≈ 112; the exact n is stated with the result).
+- **Pass:** ΔwR² > 0 with the hitter-clustered bootstrap 95% CI (2,000 draws, seed 13) lower bound > 0. One read; no re-read on any spec.
+- **Reported, not judged:** SQcon beyond Marcel + bat speed; Marcel + the six trait means; r of each predictor; per-season split.
+- **Power, stated up front:** dev effect at N = 25 is +.066 with a CI half-width ≈ .027 on n = 856; on n ≈ 112 the half-width should be
+  ≈ .075, so a true effect of the dev size passes only about half the time. A fail with a positive point estimate reads as "underpowered",
+  not "no effect"; it changes nothing on the site (SQ ships descriptive either way, and only a pass changes the label).
+- **If it passes:** the grade's label becomes "tested: for part-time and call-up samples, pulling Marcel toward SQ forecasts next-season
+  xwOBAcon better". It is still not a standalone forecast, and never for full-time hitters (§91, §91b).
+
+### §98a result (read once, 2026-10-29; `pipeline/results/swingq_98a_final.json`)
+
+- n = 114 below-floor hitter-seasons (100 hitters; 53 from 2024 → 25, 61 from 2025 → 26).
+- **ΔwR² (Marcel + SQcon − Marcel): +.091 [−.048, +.214]. FAIL** (CI includes 0). Base wR² .311 → .402.
+- Reported: SQcon beyond Marcel + bat speed +.010 [−.055, +.057]; bat speed alone on Marcel +.097 [−.026, +.212]; the six trait means
+  +.062 [−.091, +.195]. By season: 2024 −.073 [−.280, +.061], 2025 +.155 [−.109, +.350]. r with S+1 xwOBAcon: Marcel .46, raw S
+  xwOBAcon .36, bat speed .53, SQcon .51.
+- **Diagnosis: data (sample size), not handling or modeling.** The point estimate is larger than dev's (+.091 vs +.066 at N = 25), as
+  pre-stated the test had about even odds at this n, and the season halves disagree in sign with CIs ±.2. Inside this population SQcon is
+  bat speed by another name (+.010 beyond it), so even a pass would mostly have credited bat speed. No re-read; the next clean test is
+  2026 → 2027 part-timers (or any 2027 in-season window).
+- **Status:** the Swing Quality grade ships **descriptive, not a forecast** (Part 3). The dev result is reported on the panel as what it
+  is: an in-sample-season pattern, not a confirmed forecast.
+
+**Shipped (Part 3).** `swing_quality.py` (no flag) bakes `swingq/swingq.json`: per hitter-season (2024–26, ≥ 25 tracked BIP) the
+spline-head SQcon on a 100 scale (league BIP mean = 100, 10 = SD across hitters with ≥ 100 BIP; a "+" scale like the rest of the site,
+since a 20–80 grade would imply a scouting projection), percentile among ≥ 100-BIP hitters, the exact additive split (bat speed / swing
+plane incl. length, attack angle, direction, tilt / contact point / pitch diet / count and hand; the spline head is additive, so parts sum
+to the grade − 100 up to rounding), results − swing gap in xwOBAcon points, n BIP, reliability fair (25–49 BIP, SB ≈ .75) / good (50–99,
+≈ .86) / high (100+, ≈ .92), and a one-line story. Cross-fit by hitter only. 1,645 rows (2025: Judge 123 with results +140 ahead;
+Arraez 86, bat speed −20).

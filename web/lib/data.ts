@@ -595,6 +595,9 @@ export const getTimingAll = cache(async (): Promise<any | null> =>
 /** Swing archetypes (pipeline/swing_archetypes.py, RESULTS-MLB §94): {meta, archetypes, points, rows: {"id-season": {a, z, comps}}}. */
 export const getArchetypesAll = cache(async (): Promise<any | null> =>
   fetchFromR2<any>("archetypes/archetypes.json", { shared: true }).catch(() => null));
+/** Swing Quality grade (pipeline/swing_quality.py, RESULTS-MLB §98): {meta, rows: {"id-season": {g, pct, sq, gap, parts, story...}}}. */
+export const getSwingQAll = cache(async (): Promise<any | null> =>
+  fetchFromR2<any>("swingq/swingq.json", { shared: true }).catch(() => null));
 /** Two-strike adaptation (pipeline/two_strike.py, RESULTS-MLB §93): {meta, rows: {"id-season": {...}}}. */
 export const getTwoStrikeAll = cache(async (): Promise<any | null> =>
   fetchFromR2<any>("twostrike/twostrike.json", { shared: true }).catch(() => null));

@@ -59,8 +59,8 @@ def loo_centre(y: pd.Series, keys: list) -> pd.Series:
     return (y - (s - y) / (n - 1)).where(n > 1)
 
 
-def load_swings(c, seasons) -> pd.DataFrame:
-    cols = ("p_throws", "home_team", "swing_length", "attack_angle", "attack_direction", "swing_path_tilt", YCOL, XCOL,
+def load_swings(c, seasons, extra=()) -> pd.DataFrame:
+    cols = tuple(extra) + ("p_throws", "home_team", "swing_length", "attack_angle", "attack_direction", "swing_path_tilt", YCOL, XCOL,
             "estimated_woba_using_speedangle", "woba_denom", "pfx_x", "pfx_z", "plate_x", "plate_z", "balls", "strikes",
             "vx0", "vy0", "vz0", "ax", "ay", "az")
     d = c.sql(swing_sql(seasons, cols)).df()
