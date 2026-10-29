@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "@/components/search";
-import { LavaPill } from "@/components/ui/lava-bar";
+import { LavaNav } from "@/components/ui/lava-bar";
 
 const NAV_ITEMS = [
   { href: "/pitchers", label: "Pitchers" },
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/wpa", label: "WPA" },
   { href: "/aging", label: "Aging" },
   { href: "/framing", label: "Framing" },
+  { href: "/defense", label: "Defense" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/buckets", label: "Buckets" },
   { href: "/scouting/savant", label: "Savant boards" },
@@ -33,13 +34,19 @@ export function Nav() {
   const target = pending && pending.from === pathname ? pending.href : null;
 
   return (
-    <nav className="glass-nav sticky top-0 z-50 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:gap-x-4">
-      {/* Logo / Brand */}
+    <nav className="glass-nav sticky top-0 z-50 relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:gap-x-4 overflow-hidden">
+      {/* The lava field the header lives on */}
+      <LavaNav />
+
+      {/* Logo / Brand — a white shader circle sitting on top of the field */}
       <Link
         href="/"
-        className="shrink-0 text-lg font-bold tracking-wide text-text-primary"
+        aria-label="GOAT-Pro home"
+        className="relative z-10 shrink-0 grid place-items-center w-11 h-11 rounded-full font-bold tracking-wide text-[13px] text-[#1c2431]
+          bg-white shadow-[0_2px_10px_rgba(0,0,0,0.45),inset_0_-3px_6px_rgba(120,130,145,0.35),inset_0_2px_3px_rgba(255,255,255,0.9)]
+          transition-transform hover:scale-105"
       >
-        GOAT-Pro
+        <span className="drop-shadow-[0_1px_0_rgba(255,255,255,0.8)]">GOAT<br />-Pro</span>
       </Link>
 
       {/* Nav Pills: one row. Spacing tightens with the window; whatever still
@@ -58,16 +65,16 @@ export function Nav() {
               aria-current={isActive ? "page" : undefined}
               onClick={() => setPending({ href: item.href, from: pathname })}
               className={`
-                shrink-0 whitespace-nowrap px-2 py-1.5 rounded-full text-[13px] font-medium press-scale nav-glow lg:px-2.5 xl:px-3 xl:text-sm 2xl:px-4
+                relative z-10 shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-full text-[13px] font-semibold press-scale nav-glow lg:px-3 xl:text-sm 2xl:px-4
+                [text-shadow:0_1px_2px_rgba(10,14,20,0.85)]
                 ${
                   isActive
-                    ? "relative text-white overflow-hidden"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03]"
+                    ? "bg-black/45 border border-white/25 text-white"
+                    : "text-text-primary/85 hover:text-white hover:bg-black/25"
                 }
               `}
             >
-              {isActive && <LavaPill />}
-              <span className="relative">{item.label}</span>
+              {item.label}
             </Link>
           );
         })}

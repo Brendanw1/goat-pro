@@ -111,7 +111,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging", "mechanism", "deception")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging", "mechanism", "deception", "framing", "defense_board")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -134,6 +134,7 @@ FAM_NEEDS = {
     "mechanism": set(),    # the physics study's published tables (MECHANISM-MLB.md) as site content
     "deception": set(),   # swing disruption vs each batter's own norm (bat tracking; probe item 4)
     "framing": set(),     # Framing+ board from results/framing_plus.csv (pre-registered, gated vs Savant)
+    "defense_board": set(),  # league range board from defense_fielders_v3.csv (§81) + Savant OAA/FRV beside
 }
 
 
@@ -4750,6 +4751,83 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             }, sort_keys=True)
             counts["framing_rows"] = sum(len(v) for v in rows_out.values())
             print(f"framing rows: {counts['framing_rows']}")
+
+    # ------------------------------------------------------------ defense_board
+    # D-14, the league surface of the §81 range model: per fielder-position-
+    # season runs (defense_fielders_v3.csv — chance model with Savant start
+    # positions + hang time, game-grouped folds, AUC ~.95) beside Savant's own
+    # OAA and fielding run value as reference columns. Ours labelled, theirs
+    # labelled; the profile Defense tab carries the same numbers per card.
+    print(f"[{time.time() - t0:.0f}s] defense_board", flush=True)
+    if "defense_board" not in fams:
+        pass
+    elif level == "aaa":
+        print("defense_board: MLB-only — skipped at AAA")
+    else:
+        v3_fp = ROOT / "pipeline" / "results" / "defense_fielders_v3.csv"
+        if not v3_fp.exists():
+            print("defense_board: defense_fielders_v3.csv missing — run pipeline/defense_mlb.py --v3 first")
+        else:
+            dv = pd.read_csv(v3_fp)
+            dv = dv[dv["pos"].isin([3, 4, 5, 6, 7, 8, 9])]
+            names = dict(con.sql(
+                "SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register "
+                "WHERE TRY_CAST(key_mlbam AS BIGINT) IS NOT NULL").fetchall())
+            sav_oaa, sav_frv = {}, {}
+            for s in sorted(dv["season"].unique()):
+                try:
+                    tb = con.sql(f"SELECT * FROM lb_outs_above_average_{int(s)}").df()
+                except Exception:  # noqa: BLE001
+                    tb = pd.DataFrame()
+                cols = {c.lower(): c for c in tb.columns}
+                idc = cols.get("player_id") or cols.get("id")
+                posc = cols.get("pos") or cols.get("position") or cols.get("primary_pos_formatted")
+                if idc and posc and cols.get("outs_above_average"):
+                    tbr = tb[[idc, posc, cols["outs_above_average"]]].copy()
+                    tbr.columns = ["id", "pos", "oaa"]
+                    for r_ in tbr.itertuples():
+                        sav_oaa[(int(r_.id), str(r_.pos).upper(), int(s))] = round(float(r_.oaa), 1)
+                try:
+                    fr = con.sql(f"SELECT * FROM lb_fielding_run_value_{int(s)}").df()
+                except Exception:  # noqa: BLE001
+                    fr = pd.DataFrame()
+                fcols = {c.lower(): c for c in fr.columns}
+                fid = fcols.get("player_id") or fcols.get("id")
+                if fid and (fcols.get("fielding_run_value") or fcols.get("total_runs")):
+                    frv_col = fcols.get("fielding_run_value") or fcols["total_runs"]
+                    frr = fr[[fid, frv_col]].copy()
+                    frr.columns = ["id", "frv"]
+                    for r_ in frr.itertuples():
+                        sav_frv[(int(r_.id), int(s))] = round(float(r_.frv), 1)
+            POS_LABEL = {3: "1B", 4: "2B", 5: "3B", 6: "SS", 7: "LF", 8: "CF", 9: "RF"}
+            SAV_OF = {"LF", "CF", "RF", "OF"}
+            rows_out2: dict = {}
+            for r_ in dv.itertuples():
+                if r_.chances < 30:
+                    continue
+                grp = "OF" if r_.pos >= 7 else "IF"
+                pl = POS_LABEL[int(r_.pos)]
+                soaa = None
+                for sp in ([pl] + (["OF"] if grp == "OF" else [])):
+                    v0 = sav_oaa.get((int(r_.mlbam), sp, int(r_.season)))
+                    if v0 is not None:
+                        soaa = v0
+                        break
+                rows_out2.setdefault(str(int(r_.season)), []).append({
+                    "id": str(int(r_.mlbam)), "name": names.get(int(r_.mlbam)),
+                    "pos": pl, "group": grp, "chances": round(float(r_.chances), 0),
+                    "runs": round(float(r_.runs), 1), "oaaOurs": round(float(r_.oaa), 1),
+                    "savOaa": soaa, "savFrv": sav_frv.get((int(r_.mlbam), int(r_.season)))})
+            jwrite(out / "defense_index.json", {
+                "_comment": ("league range board: §81's chance model (Savant start positions + hang time, "
+                             "game-grouped folds, AUC .94-.95 per season) — runs vs an average fielder at the "
+                             "position and our chance-weighted OAA-equivalent; Savant's OAA and fielding run "
+                             "value sit beside as reference columns. 30+ chances; profile Defense tab carries "
+                             "the per-card version"),
+                "seasons": {k: sorted(v, key=lambda e: -e["runs"]) for k, v in sorted(rows_out2.items())},
+            }, sort_keys=True)
+            counts["defense_board_rows"] = sum(len(v) for v in rows_out2.values())
+            print(f"defense board rows: {counts['defense_board_rows']}")
 
     # ------------------------------------------------------------------ swing
     # Hitter swing profiles from bat tracking (depth list item 1). MLB-only:

@@ -200,6 +200,11 @@ export async function getBucketBoard(season: number | string, type: string, leve
   return fetchFromR2<any>(lv(level, `buckets/${season}-${type}.json`)).catch(() => null);
 }
 
+/** League range board: §81 runs + Savant OAA/FRV beside (D-14). */
+export async function getDefenseIndex(): Promise<any | null> {
+  return fetchFromR2<any>("defense_index.json", { shared: true }).catch(() => null);
+}
+
 /** Framing+ board per season with zone grids (gated vs Savant; PREREG). */
 export async function getFramingPlus(): Promise<any | null> {
   return fetchFromR2<any>("framing_plus.json", { shared: true }).catch(() => null);
