@@ -42,6 +42,7 @@ import { TrendPanel } from "@/components/ui/trend-panel";
 import { RollingPanel } from "@/components/ui/rolling-panel";
 import { ProjectionBand, LeagueScatter } from "@/components/ui/league-views";
 import { fmtIp } from "@/lib/ip";
+import { Headshot } from "@/lib/headshot";
 
 const int0 = (v: number) => Math.round(v).toString();
 const pct1 = (v: number) => v.toFixed(1) + "%";
@@ -572,6 +573,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           >
             ← Back
           </Link>
+          <Headshot id={playerId} alt={profile.name} size={52} />
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 text-lg font-bold text-text-primary">
               {!logoUrl(profile.team) && <PixelTeamLogo team={profile.team} size={26} />}

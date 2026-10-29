@@ -14,6 +14,7 @@ import { statRow, PercentileGroup, PercentilePanel, ThinSampleBanner } from "@/c
 import { DefensePanel } from "@/components/ui/defense-panel";
 import { AboutThis } from "@/components/ui/discipline-block";
 import { ProfileTabs, ProfileTabPanel, TABS_FOR } from "@/components/ui/profile-tabs";
+import { Headshot } from "@/lib/headshot";
 import { logoUrl, teamPixels } from "@/lib/team-pixel";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
@@ -198,6 +199,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
             ) : (
               <PixelTeamLogo team={profile.team} size={30} />
             )}
+            <Headshot id={playerId} alt={profile.name} size={52} />
             <h2 className="text-xl font-bold text-text-primary">{profile.name}</h2>
           </div>
           <p className="mt-1 text-xs text-text-dim">
