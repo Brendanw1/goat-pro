@@ -2338,3 +2338,20 @@ The 2023–25-only re-runs agree: not confirmed for T1 and T2, FF and SI. Soft-a
 **Pitching+ lean, not a finding.** The pitcher-favourable corner residual (+0.29 runs/100, CI touching 0) and the coarse grid's positive top-velocity row (+0.13 to +0.22) hint that hard four-seamers carry a little value Pitching+ misses at every steepness, a velocity effect rather than a steepness one. It is below the registered threshold. A test of it would need its own pre-registration.
 
 **Ships:** nothing. The model is unchanged. The owner's display question (a velocity × approach-angle bar on the Whiff+ card) stays open: the data says the penalty is real, so such a bar would only show a small shared effect.
+
+## §84 Does Pitching+ under-credit hard four-seamers? Pre-registered 2026-10-28 before any read
+
+**Owner question.** §83's Pitching+ lean: in the dev pitchers' data, four-seamers at the top of the velocity range carried a little pitcher-favourable value that Pitching+ did not credit (+0.13 to +0.22 runs/100 in the coarse grid's top-velocity row, at every steepness). Owner said test it. Nothing changes on the site until this is read.
+
+**Data: sealed pitchers only** (`location_plus.sealed`), whose four-seamers no Pitching+ fit or §83 read has touched. FF pitches, MLB regular season 2021–25 (same window as §83; 2020 and partial 2026 stay out). SI is run the same way and reported, not judged. The dev pitchers' numbers are re-printed beside the sealed ones for reference only: the lean was found there, so they can't carry the claim.
+
+**Residual.** As in §83 T2: r = −((y − v) minus its count mean), the count mean taken over all pitch types of the sealed pitchers' rows; y = `location_plus.target` (batter-positive), v = the cross-fit P_raw value (`cache/pitchval_raw.parquet`). Positive r = more pitcher value than Pitching+ credits. Velocity = the model's `velo`, z-scored within season among FF.
+
+- **C1 (claim):** OLS slope of r on velo_z is > 0, with the 95% CI (1,000-rep pitcher-cluster bootstrap, seed 84) excluding 0.
+- **C2 (materiality, same bar as §83):** mean r on FF ≥ 97 mph is ≥ +0.5 runs/100 pitches, CI excluding 0.
+- **CONFIRMED only if C1 and C2 both hold.** C1 alone: real but immaterial. Neither: not confirmed.
+- **Reported, not judged:** the slope with steep_z as a control (velocity, not steepness, should carry it), the 1-mph velocity bins (≤ 91 … ≥ 100; cells under 1,000 pitches greyed), the slope's minimum detectable effect at 80% power, and the ≥ 97 residual per season.
+
+**Expected.** The dev lean (about +0.2 runs/100 at the top) sits below the C2 bar, so CONFIRMED is unlikely; the live question is whether C1 holds (real but immaterial) or the lean was noise. Sealed is about a fifth of the pitchers, so the top-velocity cell's CI will be roughly ±0.4 runs/100.
+
+**Read once** (`pipeline/fb_velo_residual.py`, code written and demo-checked before the read). **If CONFIRMED:** a separate pre-registration for the fix (a velocity feature check in Pitching+'s FF model, re-gated on the §47 judge), never a hand adjustment. **If not:** a data vs handling vs modeling diagnosis; Pitching+ stays as is.
