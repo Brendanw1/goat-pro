@@ -2428,3 +2428,208 @@ Reported, not judged:
 - Pitchers are FIP-based, so balls in play and sequencing are not theirs; the gap to RA9-based bWAR is the reason G3 is lower than G2.
 
 **Ships:** `war` on both boards, and a profile WAR line with the components (`war_index.json`).
+
+## §87 Role conversion: which relievers could start, which starters play up in relief, pre-registered 2026-10-29 before any read
+Owner queue item. Code: `pipeline/role_conversion.py`; output `data/export/web/roles/`; page `/roles`.
+
+**Data.** MLB regular season 2020–26 (`pitches_all`, game_type 'R'). Season role is the site's `role_of(G, GS)` from the
+Stats API lines (SP when GS ≥ G/2). A start is a game where the pitcher threw his team's first pitch.
+Outcome metric everywhere: xwOBA allowed per PA (estimated wOBA on contact, wOBA value otherwise; woba_denom = 1).
+
+**Natural experiment.** Role changes between adjacent seasons S → S+1, S = 2020–25.
+- (A) RP in S and SP in S+1, ≥ 100 relief BF in S and ≥ 100 BF in starts in S+1. Outcome: his xwOBA in starts in S+1.
+- (B) SP in S and RP in S+1, ≥ 200 BF in starts in S and ≥ 60 relief BF in S+1. Outcome: his relief xwOBA in S+1.
+
+**(A) Naive baseline A0.** Relief xwOBA in S shrunk to the league RP mean with k = 300 BF, plus the league-average SP
+penalty (BF-weighted mean of outcome − shrunk relief line among training-fold converters).
+**Model A1.** A0 plus a ridge (RidgeCV, alphas 0.1–1000, inner GCV; standardized; BF-weighted) on the residual, traits
+measured in S only:
+1. depth: pitch types with ≥ 10% usage; graded depth: of those, types whose whiff per swing is at or above the league
+   median for that pitch type and season; effective types exp(entropy of usage);
+2. platoon gap: shrunk xwOBA vs opposite-hand minus same-hand batters (k = 150 per side);
+3. velo decay: fastball (FF/SI) velo slope per 10 pitches within outings of ≥ 15 pitches (outing-demeaned), and
+   fastball velo on 0–1 days rest minus ≥ 2 days rest;
+4. first-TTO quality: a reliever's line is almost all first-TTO, so it is the baseline itself; the quality traits are
+   the site grades Pitching+, K+, Control+ (pitchers.json, season S);
+5. command: Control+ (above);
+6. pitch-count history: max pitches in one outing in S, mean pitches per outing, and pro starts (MLB + MiLB GS) through S.
+
+**(B) Naive baseline B0.** Full-season starter xwOBA in S shrunk to the league SP mean (k = 300), plus the mean
+converter change (training folds). **Model B1.** First-TTO xwOBA in S (shrunk to the league first-TTO mean, k = 300) plus
+the mean converter change from that line (training folds). **B2.** B1 plus a ridge term on the starter's per-inning
+fastball fade (inning-1 velo minus innings 5+ velo) and TTO penalty (TTO3+ minus TTO1 xwOBA, shrunk).
+**Velo bump.** Converter mean fastball velo in relief S+1 minus in starts S, pitcher-clustered CI (literature +1 to 1.5 mph;
+the aging year subtracts, so it is a floor). Descriptive.
+
+**Folds and CIs.** 5 GroupKFold folds by pitcher (a pitcher who converts twice sits in one fold). Out-of-fold squared
+errors, BF-weighted. 95% CI from a 2,000-draw bootstrap resampling pitchers.
+
+**Gates.**
+- GA: A1 beats A0: BF-weighted MSE(A0) − MSE(A1) > 0 with the 95% CI above 0.
+- GB1: B1 beats B0 the same way. GB2: B2 beats B1 the same way.
+- Sensitivity (reported, not a gate): drop pairs straddling 2022→2023 (5-cam to 12-cam Hawk-Eye).
+
+**Kill criteria and what ships.** Each board ships the passing model's projection; a failed gate ships the naive line
+and the trait columns labelled "descriptive, not a forecast", with a data vs handling vs modeling diagnosis below.
+Board A: 2026 relievers (≥ 100 BF). Board B: 2026 starters (≥ 300 BF in starts) ranked by short-burst gain =
+full-outing xwOBA − expected relief xwOBA (positive = better per batter in relief).
+
+## §88 Minor-league translations (MLEs): AAA → MLB and AA → MLB, pre-registered 2026-10-29 before any read
+
+`pipeline/milb_translation.py` → `data/export/web/translation/`, `results/milb_translation.json`. Inputs: MLB Stats API
+season lines (`data/milb/*.parquet`, `milb_lines.py`), teams at one level combined; AAA park factors from the mart's
+`pitches_aaa` (2023–25 only). No AAA 2026 outcome is read: AAA 2026 lines are scored for display only, and no factor
+is fitted on an AAA/AA 2026 line.
+
+**Method (fixed before any read).**
+1. **Park (AAA only).** Home/road log ratio per AAA home team for 1B, 2B, 3B, HR, BB, SO over 2023–25, EB-shrunk with the
+   §70 `shrink` (no hand split). Player factor = (1 + e^eb)/2, PA-weighted across his AAA teams. Each component count is
+   divided by its factor before rates are formed. AA has no tracking, so no park step (stated ceiling).
+2. **League environment.** Each stat as a ratio to its league × season mean (PA/BF-weighted, park-adjusted counts):
+   AAA East/West and the AA leagues separately; MLB per season.
+3. **Factor (delta method).** Pairs = level line in S with MLB line in S (same season) or S+1, level seasons 2021–25,
+   ≥ 30 PA/BF each side. f = Σ h·rel_MLB / Σ h·rel_level, h = harmonic mean of the two PA (BF) counts.
+   AA: direct AA→MLB pairs if ≥ 100 pairs, else the chain AA→AAA × AAA→MLB.
+4. **Regression.** rel shrunk toward 1 (the level average) with weight n/(n + k); k per stat picked from the grid
+   {0, 50, 100, 200, 400, 800, 1600, 3200} by BF/PA-weighted MSE on the training fold's own S → S+1 pairs.
+5. **MLE** = f · rel_reg · MLB mean of the stat in season S. Pitcher FIP-ish = (13·HR + 3·(BB+HBP) − 2·K) per BF from the
+   MLEs × MLB BF/IP in S + the MLB FIP constant in S.
+- **Hitter stats:** K%, BB% (per PA), ISO (per AB), BABIP, wOBA (fixed weights uBB .69, HBP .72, 1B .89, 2B 1.27, 3B 1.62,
+  HR 2.10). **Pitcher stats:** K%, BB%, HBP% (per BF), HR% (shown as HR/9), FIP-ish. Stuff-based grades (Whiff+, K+,
+  Prevention+) are already MLB-scale frozen models on AAA pitches (§66): shown beside the MLEs, not re-translated.
+
+**Gate (per stat, per level).** Test rows: level line in S ∈ {2023, 2024, 2025} and MLB line in S+1. Floors: hitters
+≥ 200 PA in S and ≥ 100 MLB PA in S+1; pitchers ≥ 150 BF and ≥ 100 BF. 5 GroupKFold folds by player: the factor and k
+come from training-fold players only; out-of-fold MLEs. Loss = MLB S+1 PA/BF-weighted squared error. Baselines:
+(a) the raw level stat in S (unadjusted); (b) the MLB league mean of the stat in S. 95% CI from a 2,000-draw bootstrap
+resampling players (seed 13).
+- **PASS** for a stat: ΔMSE (baseline − MLE) > 0 with the CI above 0 against **both** baselines, and the MLE beats both in
+  ≥ 2 of the 3 season pairs.
+- AA is read only if n ≥ 60 test rows for that side; otherwise AA MLEs ship descriptive with no read.
+- Reported, not judged: r, mean bias (MLE − MLB), the factors and k.
+
+**Kill criteria / what ships.** Passing stats carry "translation, tested"; failing stats ship labelled "descriptive, not a
+forecast" with a data vs handling vs modeling diagnosis; if every stat fails on both levels, the MLE columns do not ship.
+
+### §87 results (2026-10-29, read once; `pipeline/results/roles_87.json`)
+- **GA fails.** n = 58 converters (58 pitchers). Weighted MSE A0 0.00096, A1 0.00115: the traits make it worse,
+  diff −0.00020 (95% CI −0.00050 to +0.00008). Without the 2022→23 pairs: −0.00027 (−0.00060 to +0.00004).
+  League SP penalty for a converted reliever: +.010 xwOBA over his shrunk relief line.
+  Exploratory trait reads on the A0 residual (r, n = 58, CI about ±.25): K+ −.35 (more K+, better than projected),
+  Control+ +.33, graded depth −.15; depth, platoon gap, velo fade, rest velo, pitch counts, pro GS all |r| < .11.
+- **GB1 fails.** n = 86 (83 pitchers). MSE B0 0.00122, B1 0.00119, diff +0.00003 (−0.00008 to +0.00015): the first-TTO
+  line is no worse than the full line, not confirmed better. **GB2 fails** (−0.00001, −0.00009 to +0.00007).
+  Converter change: relief xwOBA −.019 vs the full starter line, −.005 vs his first-TTO line.
+- **Velo bump** (SP in S → RP in S+1, fastball): +0.9 mph (95% CI +0.65 to +1.14, n = 85), under the literature's
+  1–1.5 mph; the aging year between seasons pulls it down, so read it as a floor.
+- **Deviation (logged before the board was read):** under B0 every starter gets the same gain (−.019 constant), so
+  board B ranks on the first-TTO line (B1), labelled descriptive; B1 matched B0 out of fold.
+
+**Diagnosis.** Data first: the samples are small (58 and 86) and the outcome is noisy. Pure PA sampling noise is
+0.00029 (A) and 0.00072 (B) of the MSE, so B is mostly noise and A leaves ~0.0007 of real change, but n = 58 cannot
+resolve a dozen traits. Handling: openers count as starts and the role split is season-level, which blurs both
+groups; the 2022→23 camera change does not move the result. Modeling: an unpenalized-enough ridge on 12 traits for
+58 rows overfits (A1 worse than A0), so a one- or two-trait model (K+, Control+) is the re-test to pre-register
+once 2027 adds converters. It is not a bug of ours that we can find; the gate fails on power.
+
+**Ships:** `/roles`, both boards labelled "descriptive, not a forecast": board A shows the naive SP line (relief
+line shrunk + .010) with the trait columns; board B ranks 2026 starters by first-TTO short-burst gain with TTO
+penalty, per-inning fade and the +0.9 mph bump.
+
+## §86 Would it dong: in how many of the 30 parks is each batted ball a home run? Pre-registered 2026-10-29 before any read
+
+**Owner ask.** For every MLB batted ball 2020–26 (regular season + postseason), the number of the 30 current (2026) parks it clears. Per player: HRs split into no-doubters (30/30), mostly gone (8–29) and doubters (≤7, Savant's cuts), xHR (Σ parks/30), would-be HRs elsewhere (non-HRs that clear ≥1 park), the park that helps and hurts him most, and a per-ball list. `pipeline/dong.py`.
+
+**Already public?** Yes, in part. Savant's Home Run Tracker CSV (`/leaderboard/home-runs?...&csv=true`, `cat=xhr` and `adj_xhr`) is fetchable per batter-season 2020–26 with doubters / mostly gone / no-doubters / xHR, but only for batters with ≥1 HR and with no per-ball or per-park rows. It is the outside reference here (gate b), cited, never shown as our number.
+
+**Geometry.** `pipeline/data/park_dims.csv`: per park, fence distance and wall height at 5–9 spray-angle knots (LF line −45° to RF line +45°), from published dimensions (Wikipedia infoboxes / club pages, 2026 configurations) with heights from published wall heights; linear interpolation in angle between knots. Elevation per park. Source note in the file header.
+
+**Trajectory.** Per ball: launch speed, launch angle, spray = atan2(hc_x − 125.42, 198.27 − hc_y). 2-D flight in the ball's vertical plane with gravity, quadratic drag and a fixed backspin lift (C_L 0.15). Contact at 3 ft. The drag coefficient C_D is solved per ball (bisection) so the ball lands at `hit_distance_sc` in its own park's air. In another park, C_D and C_L scale by that park's air density relative to the own park (ρ ∝ exp(−elev/27,000 ft); temperature, wind, roof ignored: a documented ponytail). Ball clears park p at spray φ when its height at the fence distance R_p(φ) exceeds H_p(φ). Balls under 250 ft or launch angle under 10° count as 0 parks without integrating.
+
+**Tuning vs gate split (fixed now).** Any correction to a park's knots (a published number that disagrees with its own outcomes) is fit on even seasons (2020/22/24/26) only. Gates are read on odd seasons (2021/23/25). Own-park comparison uses only games in the park's current configuration: Camden 2025+, Comerica 2023+, Rogers Centre 2023+, Kauffman 2026, Sutter Health 2025+, all other current venues every season. Inside-the-park HRs (`des` mentions inside-the-park) are dropped from the gates.
+
+**Gates.**
+- **(a) own park:** on odd-season balls with `hit_distance_sc` ≥ 300 in a current-config park, predicted "clears its own park" vs `events == 'home_run'`: accuracy ≥ 95%, HR recall ≥ 90%, HR precision ≥ 90%, and accuracy ≥ the naive baseline (HR iff distance ≥ R_own(φ), heights ignored), printed beside.
+- **(b) Savant:** per batter-season (rows in Savant's `xhr` CSV, 2021/23/25), Pearson r of our xHR with Savant's xHR ≥ .95, and of our no-doubter count with theirs ≥ .90. Doubters r, mostly-gone r and mean bias reported, not judged.
+
+**Kill / ship.** (a) and (b) pass → ships as the dong family. (a) fails → data vs handling vs modeling diagnosis; ships only labelled "approximate geometry" if accuracy ≥ 90%, else not at all. (b) fails with (a) passing → ships, with the gap to Savant printed on the page. This is descriptive (what the ball did), not a forecast.
+
+**Result v1 (read once, 2026-10-29).** Test rows: hitters AAA n = 254, AA n = 111; pitchers AAA n = 321, AA n = 107.
+AA used direct AA→MLB pairs (536 hitters, 736 pitchers ≥ 100). ΔMSE > 0 means the MLE beats that baseline.
+
+| level, stat | RMSE MLE / raw / lg | Δ vs raw [95% CI] | Δ vs lg [95% CI] | pairs won | r MLE / raw | bias | verdict |
+|---|---|---|---|---|---|---|---|
+| AAA H K% | .049 / .058 / .064 | +.00095 [+.00032, +.00160] | +.00167 [+.00089, +.00247] | 3 | .675 / .670 | +.016 | **PASS** |
+| AAA H BB% | .023 / .050 / .027 | +.00201 [+.00161, +.00244] | +.00019 [+.00008, +.00031] | 3 | .510 / .521 | −.003 | **PASS** |
+| AAA H ISO | .047 / .073 / .054 | +.00306 [+.00208, +.00411] | +.00071 [+.00017, +.00126] | 3 | .510 / .513 | −.013 | **PASS** |
+| AAA H BABIP | .040 / .060 / .040 | +.00203 [+.00152, +.00261] | −.00003 [−.00025, +.00019] | 2 | .269 / .282 | −.010 | FAIL |
+| AAA H wOBA | .042 / .081 / .038 | +.00472 [+.00380, +.00566] | −.00033 [−.00066, +.00000] | 0 | .192 / .176 | −.017 | FAIL |
+| AA H K% | .050 / .058 / .060 | +.00084 [−.00004, +.00184] | +.00111 [+.00010, +.00226] | 3 | .625 / .618 | +.017 | FAIL |
+| AA H BB% | .025 / .039 / .029 | +.00093 [+.00056, +.00131] | +.00024 [+.00007, +.00042] | 3 | .421 / .429 | −.004 | **PASS** |
+| AA H ISO / BABIP / wOBA | — | all > 0 | all CIs span or below 0 | 2 / 0 / 0 | | | FAIL |
+| AAA P K% | .0467 / .0598 / .0466 | +.00139 [+.00066, +.00214] | −.00002 [−.00037, +.00033] | 2 | .375 / .398 | −.020 | FAIL |
+| AAA P BB% | .0255 / .0332 / .0247 | +.00045 [+.00033, +.00059] | −.00004 [−.00014, +.00006] | 2 | .422 / .410 | +.011 | FAIL |
+| AAA P HR% / HBP% | | | below or spanning 0 | 0 / 1 | .095 / .192 (HR) | +.007 (HR) | FAIL |
+| AAA P FIP | 1.18 / 1.15 / 0.87 | −.060 [−.235, +.118] | −.626 [−.806, −.449] | 0 | .104 / .166 | **+0.77** | FAIL |
+| AA P (all five) | | K% and HBP/HR beat raw; none beats lg | | | | FIP +0.70 | FAIL |
+
+**Diagnosis (handling, our error).** The MLEs beat the raw line almost everywhere; what fails against the league mean is a
+level offset, not ranking: pitcher MLEs are too harsh in every component (K% −2.0 pts, BB% +1.1, HR% +0.7, so FIP +0.77)
+and hitter MLEs too harsh (K% +1.6, wOBA −.017). The factor population is not the forecast population. Factor pairs are
+mostly same-season call-ups (promoted on a hot AAA line, which then regresses) and any MLB stint ≥ 30 PA/BF, while the
+gate's rows are players who earned ≥ 100 PA/BF the next season (playing time follows performance). Both pull the factor
+harsher than the population the forecast is read on. Data: none; modeling: the delta form itself is fine (it ranks as
+well as the raw line, and shrinkage helps hitters).
+
+### §88 v2 (re-test, pre-registered 2026-10-29 after reading v1; the same test rows, so a pass is weaker evidence)
+One change: the factor and k are fitted on the **forecast population** only — training-fold players' level line in S
+(S ∈ 2021–25) with an MLB line in S+1, at the gate floors (≥ 200 PA / 150 BF in S, ≥ 100 next season). The forecast is
+then "if he gets MLB playing time next season", the site's "if he holds a role" convention. Everything else, gates and
+kill criteria as v1. **Ships:** for each stat, the version that passed (v2 if both); a stat that passes neither ships the
+v2 number labelled "descriptive, not a forecast".
+
+**Result v2 (read once, 2026-10-29).** Fit pairs: hitters AAA→MLB 415, AA→MLB 191 (direct); pitchers 487 / 197.
+AAA factors (hitters): K% ×1.196, BB% ×0.892, ISO ×0.781, BABIP ×0.958, wOBA ×0.882; (pitchers) K% ×0.872, BB% ×1.159,
+HR% ×1.109. The level offset shrinks (pitcher FIP bias +0.77 → +0.43, hitter wOBA −.017 → −.012) but does not vanish.
+
+| level, side | PASS (Δ vs raw and vs lg both CI > 0, ≥ 2/3 pairs) | FAIL |
+|---|---|---|
+| AAA hitters | **K%** (Δlg +.00195 [+.00125, +.00268]), **BB%** (+.00019 [+.00008, +.00031]), **ISO** (+.00086 [+.00039, +.00136]) | BABIP (Δlg +.00006 [−.00011, +.00024]), wOBA (−.00004 [−.00030, +.00023]) |
+| AA hitters | **K%** (+.00128 [+.00034, +.00233]), **BB%** (+.00025 [+.00009, +.00043]) | ISO, BABIP, wOBA |
+| AAA pitchers | **K%** (+.00028 [+.00001, +.00055], 3/3) | BB% (+.00005 [−.00003, +.00013]), HBP%, HR% (−.00001, CI below 0), FIP (−.20 [−.31, −.09]) |
+| AA pitchers | — | all (K% Δlg +.00047 [−.00020, +.00124]) |
+
+Every MLE beats the raw minor-league line on every stat except AA pitcher BB% (CI spans 0).
+
+**Read.** Translation works where the skill is stable and level-portable: strikeouts and walks for hitters, power at AAA,
+strikeouts for AAA pitchers. It does not beat the MLB league mean where the minor-league signal is mostly noise at these
+samples (BABIP, and so wOBA; r .19 for AAA wOBA) or where the pitcher's run-prevention line carries a level offset we have
+not removed (FIP +0.43). Pitcher HR%: the park/league step loses rank (r .19 raw → .10 MLE): a modeling question for a
+follow-up (per-park HR by handedness, or no league step for HR). wOBA/BABIP: data, not handling: one minor-league season
+of balls in play is too noisy to beat the mean even when translated correctly.
+
+**Ships:** `data/export/web/translation/{hitters,pitchers}-{season}.json` (every AAA/AA player-season 2021–26, v2 numbers;
+AAA/AA 2026 scored for display only) and `factors.json` (factor, k, verdict per level × stat, AAA park table).
+Shipped numbers use the **v2 factors** for every stat. Verdict labels (lead's honesty fix, 2026-10-29):
+- **tested** (verdict from v1, the pre-registered read; v2 also passes): AAA hitter K%, BB%, ISO; AA hitter BB%.
+- **provisional** (verdict from v2 only, a post-hoc re-test on rows already read): AA hitter K%, AAA pitcher K%.
+  Label: "provisional (passed a re-test on already-read rows; confirm on 2026 → 2027)". Confirm on AAA/AA 2026 → MLB 2027.
+- **descriptive, not a forecast:** everything else (failed both).
+`factors.json` carries `verdict` and `verdict_from` per stat, and `shipped_factor: "v2"`.
+
+**Amendment before the gate read (2026-10-29, even seasons only).** A first full run had a bug: other-park drag was scaled by ρ_p/ρ_own on top of a coefficient that was already sea-level, so own-park flights carried 1/ρ_own too much drag (Coors recall .50 on even seasons). Fixed. Tuning on even seasons, as registered: the fixed lift went 0.15 → 0.25 (a 20k-ball even-season grid preferred more lift at every fence shift; 0.25 is inside Nathan's range for HR backspin), and one fence shift per park was chosen from −20…+10 ft in 2.5-ft steps by own-park agreement (`pipeline/data/park_offsets.csv`). Most shifts are 0 to ±5 ft; the large ones are Fenway −10, Tropicana +10, Busch +7.5, Wrigley −7.5. Even-season own-park agreement after tuning .966. Gates and bars unchanged; odd seasons still unread.
+
+### §86 result (read once, 2026-10-29)
+
+`dong.py --gate` (`results/dong_86.json`). **Both gates PASS. Ships as the dong family (/dong, the hitter-profile panel).**
+
+| gate | result | bar |
+|---|---|---|
+| (a) own park, odd seasons, ≥ 300 ft (n 74,819, 15,805 HR) | accuracy **.965**, recall **.912**, precision **.921**; naive distance-only .930 (recall .977, precision .759) | ≥ .95 / .90 / .90, ≥ naive |
+| (b) Savant xHR per batter-season (n 1,754) | r **.990**, our mean −0.24 HR | ≥ .95 |
+| (b) no-doubters | r **.960** | ≥ .90 |
+
+Reported, not judged:
+- **Definition gap found at the read.** Savant's doubters / mostly gone / no-doubters count *all* batted balls by parks cleared, not only HRs (their three counts sum to 29,395 over these rows against 17,462 actual HRs). Our product splits HRs, per the owner's ask. On Savant's definition: no-doubters r .959 (ours 9,301 vs 7,594), mostly gone r .956 (10,194 vs 13,590), doubters r .859 (7,089 vs 8,211). On the HR-only split, doubters r .54: the gate was registered on no-doubters, so this is reported only. So we put about 22% more balls at 30/30 than Savant does. That fits interpolated straight walls, which miss the deep corners and odd wall shapes that keep a ball in at one or two parks. It is a modeling limit, not a data error.
+- **Weakest parks (odd seasons):** Fenway .920 (precision .75: the Monster's corners and the triangle), Yankee .933 and Citizens Bank .934 (recall .81 / .78: the short corners curve, and the knots don't capture it), Oracle .951 (recall .78). Irregular walls give the biggest errors, as expected.
+- HR counts agree with Savant's on 92% of batter-seasons. The rest is postseason or untracked HRs.

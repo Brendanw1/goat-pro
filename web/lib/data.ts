@@ -188,7 +188,10 @@ export async function getRecentGames(): Promise<any | null> {
 
 /** One game's box score + PA table (wave 10). */
 export async function getGameReport(gid: string, level: Level = "mlb"): Promise<any | null> {
-  return fetchGzippedJson<any>(lv(level, `games/${gid}.json.gz`)).catch(() => null);
+  const g = await fetchGzippedJson<any>(lv(level, `games/${gid}.json.gz`)).catch(() => null);
+  if (g || level !== "mlb") return g;
+  // postseason games (pipeline/postseason.py): the same schema + lineups, series and wpa
+  return fetchGzippedJson<any>(`postseason/games/${gid}.json.gz`).catch(() => null);
 }
 
 /** Per-player career file: this level's seasons (headline + pitcher mix per season). */
@@ -269,6 +272,26 @@ export async function getWarIndex(): Promise<any | null> {
 /** Trade tracker season (pipeline/trades.py): deals, what each club got back, team net run value. */
 export async function getTrades(season: number | string): Promise<any | null> {
   return fetchFromR2<any>(`trades/${season}.json`, { shared: true }).catch(() => null);
+}
+
+/** Postseason brackets, leaders and each club's latest postseason lineup (pipeline/postseason.py). */
+export async function getPostseason(): Promise<any | null> {
+  return fetchFromR2<any>("postseason/index.json", { shared: true }).catch(() => null);
+}
+
+/** Would-it-dong board (pipeline/dong.py, RESULTS-MLB §86): per season + career rows, league per-park counts. */
+export async function getDongBoard(): Promise<any | null> {
+  return fetchFromR2<any>("dong/board.json", { shared: true }).catch(() => null);
+}
+
+/** One batter's would-it-dong file: season summaries + every ball that clears at least one park. */
+export async function getDong(id: string): Promise<any | null> {
+  return fetchGzippedJson<any>(`dong/players/${id}.json.gz`).catch(() => null);
+}
+
+/** Role conversion boards (pipeline/role_conversion.py, RESULTS-MLB §87): RP->SP and SP->RP candidates. */
+export async function getRoles(): Promise<any | null> {
+  return fetchFromR2<any>("roles/roles.json", { shared: true }).catch(() => null);
 }
 
 /** League WPA boards per season + the year's biggest swings. */
@@ -489,4 +512,13 @@ export async function getMinorsLines(kind: "pitchers" | "hitters", season: numbe
 }
 export async function getMinorsIndex(): Promise<{ levels: string[]; pitchers: number[]; hitters: number[] } | null> {
   return fetchFromR2<any>("minors/index.json", { shared: true }).catch(() => null);
+}
+
+/** /minors MLEs (milb_translation.py, RESULTS-MLB §88): AAA/AA MLB-equivalent lines for one season. */
+export async function getTranslation(kind: "pitchers" | "hitters", season: number | string): Promise<any | null> {
+  return fetchFromR2<any>(`translation/${kind}-${season}.json`, { shared: true }).catch(() => null);
+}
+/** translation/factors.json: factor, k and verdict ("tested" | "descriptive") per level x kind x stat. */
+export async function getTranslationFactors(): Promise<any | null> {
+  return fetchFromR2<any>("translation/factors.json", { shared: true }).catch(() => null);
 }

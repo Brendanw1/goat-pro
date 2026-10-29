@@ -111,7 +111,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging", "mechanism", "deception", "framing", "defense_board")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging", "mechanism", "deception", "framing", "defense_board", "postseason")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -135,6 +135,7 @@ FAM_NEEDS = {
     "deception": set(),   # swing disruption vs each batter's own norm (bat tracking; probe item 4)
     "framing": set(),     # Framing+ board from results/framing_plus.csv (pre-registered, gated vs Savant)
     "defense_board": set(),  # league range board from defense_fielders_v3.csv (§81) + Savant OAA/FRV beside
+    "postseason": set(),  # brackets, game reports + lineups, leaders (pipeline/postseason.py; Stats API + F/D/L/W pitches)
 }
 
 
@@ -5572,6 +5573,11 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         }, sort_keys=True)
         counts["wpa_files"] = n_wpa
         print(f"wpa game files: {n_wpa}")
+
+    # ------------------------------------------------------------------ postseason
+    if "postseason" in fams and level == "mlb":
+        import postseason
+        counts["postseason_game_files"] = postseason.bake(con, out / "postseason")
 
     # ------------------------------------------------------------------ aging
     # Aging curves and the decline read (depth list item 7, with the owner's

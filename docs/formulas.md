@@ -41,6 +41,29 @@ When a formula changes, update this table and the glossary in the same commit.
 - Club: In = Σ value of players received; Out = Σ value of players sent (with their new club); Net = In − Out.
 - Deadline = modal July–August trade date. Prospect rank = Pipeline top 100, else org list, in the trade year.
 
+## Postseason (pipeline/postseason.py → postseason/index.json, postseason/games/{gid}.json.gz)
+
+- Bracket and scores: Stats API `schedule/postseason/series`; series wins = Final games won; winner = first to ⌊best-of/2⌋ + 1.
+- Lineups and box lines: Stats API `game/{pk}/boxscore` (starters = battingOrder ending 00; subs listed under their slot); SP = first pitcher listed.
+- PA table, win probability: Statcast `game_type` F/D/L/W, the same PA encoding and WPA telescoping as `games/` and `wpa/` (swing = Σ delta_home_win_exp, sign flipped for the top half).
+- Leaders: WPA = Σ swing per PA (pitchers −Σ); RV = Σ delta_run_exp (pitchers −Σ); wOBA = Σ woba_value / Σ woba_denom. Board = top 25 by WPA ∪ top 25 by RV.
+
+## Matchup view (/matchup; no new bake, reads players/, hitters/, buckets/)
+
+- Pitch bin per axis = count of the type's bucket edges ≤ the pitch's mean (velo mph, IVB in, arm-side HB in = −hb for RHP).
+- Cell edge per axis = hitter RV/100 in that bin − league hitter-side RV/100 in that bin (league `lg.rv100` negated); bins need 30+ pitches (the buckets file floor).
+- Pitch read = n-weighted mean edge over the axes; "handles it" ≥ +1.0, "struggles" ≤ −1.0, else near league; under 150 pitches (mean over axes) it "leans". Arsenal = usage-weighted mean of the pitch reads, usage vs the hitter's side (switch hitters bat opposite the pitcher).
+
+## Role conversion (pipeline/role_conversion.py → roles/roles.json, RESULTS-MLB §87)
+
+- xwOBA per PA = estimated wOBA on contact, else wOBA value (woba_denom = 1). Start = threw his team's first pitch. Season role = `role_of(G, GS)`.
+- Shrink: s(x, n) = (n·x + 300·lg) / (n + 300), lg = league mean for that split and season.
+- RP→SP projection (A0) = s(relief xwOBA) + P, P = BF-weighted mean of (starter xwOBA in S+1 − s(relief xwOBA in S)) over 2020–25 RP→SP converters (+.010).
+- SP→RP short-burst estimate (B1) = s(first-TTO xwOBA in starts) + O, O = converters' mean (relief xwOBA in S+1 − s(first-TTO in S)) (−.005). Gain = s(full starter xwOBA) − B1.
+- TTO pen = s(TTO3+) − s(TTO1). Fade = fastball mph inning 1 − innings 5+. Fade/10 = 10 × slope of outing-demeaned FB mph on pitch sequence (outings 15+ pitches). Rest = FB mph on 0–1 days rest − 2+. Platoon = s₁₅₀(vs opposite) − s₁₅₀(vs same).
+- Depth = types with ≥ 10% usage; graded = those with whiff/swing ≥ league median for the type and season. Eff = exp(−Σ u ln u). Velo bump = converters' mean FB mph in relief S+1 − in starts S (+0.9).
+- Gates: 5 GroupKFold folds by pitcher, BF-weighted out-of-fold MSE, 2,000-draw pitcher bootstrap; all three failed, so both boards are descriptive.
+
 ## WAR (pipeline/war.py → war_index.json, RESULTS-MLB §85)
 
 - Position: WAR = (Bat + BsR + Fld + Pos + Lg + Rep) / RPW. Bat = Σ(lw_event − lg mean lw) − (PF_venue − 1)·lgR/PA per PA; lw_event = season mean `delta_run_exp` on PA-ending pitches of that event. PF_venue = 1 + ½(home R/G ÷ road R/G − 1), seasons S−2..S.
@@ -48,3 +71,20 @@ When a formula changes, update this table and the glossary in the same commit.
 - Lg = −Σ(Bat+BsR+Fld+Pos)/ΣPA per PA; Rep = 0.57 · 1000 · G/2430 · RPW / ΣPA per PA; RPW = 9·(R/IP)·1.5 + 3.
 - Pitchers: FIPR9 = (FIP_raw + lgRA9 − lgFIP_raw) / PF; dRPW = (((18 − IP/G)·lgRA9 + (IP/G)·FIPR9)/18 + 2)·1.5; WAR = [(lgRA9 − FIPR9)/dRPW + 0.03(1 − GS/G) + 0.12·GS/G]·IP/9·lev, lev = 1 + (1 − GS/G)((1 + gmLI)/2 − 1); + season constant per IP to 43% of 1000·G/2430.
 - gmLI: LI of his first PA in each relief appearance; LI = mean |ΣΔWE| per PA in its (inning ≤ 9, half, outs, bases, diff ±4) state ÷ overall mean.
+
+## Minor-league translations (pipeline/milb_translation.py → translation/, RESULTS-MLB §88)
+
+- Lines: MLB Stats API season lines, teams at one level summed. Hitters: K% = SO/PA, BB% = BB/PA, ISO = (2B + 2·3B + 3·HR)/AB, BABIP = (H − HR)/(AB − SO − HR + SF), wOBA = (.69·uBB + .72·HBP + .89·1B + 1.27·2B + 1.62·3B + 2.10·HR)/(AB + uBB + SF + HBP). Pitchers: K%, BB%, HBP%, HR% per BF.
+- AAA park: per home team, EB-shrunk home/road log ratio (§70 `shrink`, no hand split) for 1B, 2B, 3B, HR, BB, SO over 2023–25 Statcast; player factor = (1 + e^eb)/2, each count divided by it. AA: none.
+- Environment: rel = stat (park-adjusted) / league × season mean (PA/BF-weighted over his teams); MLB: season mean.
+- Factor: f = Σ h·rel_MLB / Σ h·rel_level, h = 2/(1/n_level + 1/n_MLB), pairs = level line in S (2021–25, ≥ 200 PA / 150 BF) with MLB in S+1 (≥ 100). AA uses direct AA → MLB pairs.
+- MLE = f · (1 + (rel − 1)·n/(n + k)) · MLB mean in S; k from {0, 50, …, 3200} by weighted MSE on the fit pairs. HR/9 = 9·HR%·(BF/IP)_MLB; FIP = (BF/IP)_MLB·(13·HR% + 3·(BB% + HBP%) − 2·K%) + MLB FIP constant (season S).
+- Gate: 5 player-grouped folds, S ∈ 2023–25 → MLB S+1, MLB-PA/BF-weighted MSE vs the raw line and vs the MLB mean, 2,000-draw player bootstrap. Tested (v1, pre-registered): AAA hitter K%, BB%, ISO; AA hitter BB%. Provisional (v2 re-test on already-read rows; confirm on 2026 → 2027): AA hitter K%, AAA pitcher K%. The rest descriptive. Shipped numbers use the v2 factors throughout.
+
+## Would it dong (pipeline/dong.py → dong/board.json, dong/players/{id}.json.gz, RESULTS-MLB §86)
+
+- Spray φ = atan2(hc_x − 125.42, 198.27 − hc_y) (deg, − = LF). v = launch_speed · 1.4667 ft/s, θ = launch_angle, contact at 3 ft.
+- Flight (2-D, RK2, dt 0.02 s): a = −g ẑ − K·ρ_r·|v|·(C_D v − C_L v⊥), v⊥ = (−v_z, v_x), K = 0.005307 /ft, C_L = 0.25, ρ_r = exp(−elev/27,500 ft).
+- C_D per ball by bisection so the own-park flight (ρ_r of the venue) lands at hit_distance_sc. Balls < 250 ft or θ < 10° = 0 parks.
+- Park p: R_p(φ), H_p(φ) linear between the knots in `pipeline/data/park_dims.csv`, R shifted by `park_offsets.csv`. Clears p ⇔ height at x = R_p(φ) under ρ_r(p) > H_p(φ).
+- X/30 = parks cleared; xHR = Σ X/30; no-doubter X = 30, mostly gone 8–29, doubter ≤ 7 (HRs only); elsewhere = non-HR with X ≥ 1; best/worst park = argmax/argmin over p of Σ balls clearing p.

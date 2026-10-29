@@ -17,9 +17,12 @@ shown. The results are published as a website.
 |---|---|
 | Pitchers / Hitters | Sortable leaderboards with the site's models beside the measured stats. Every column, and every stat with a profile percentile, can be filtered by range |
 | Player profiles | Percentile panels, arsenal and pitch grades, movement and location visuals, swing (bat tracking), defense field drill with Savant clips, aging track, WAR and WPA lines, game logs, splits, printable sheet |
-| Minors | AAA boards, with the MLB-trained models scored on AAA pitches (display only) |
+| Minors | AAA boards, with the MLB-trained models scored on AAA pitches (display only), and MLB-equivalent lines (MLEs) for AAA and AA |
 | Prospects | MLB Pipeline lists 2011–2026 with debut tags, draft hit rates, and farm-system output by year with risers and fallers |
 | Trades | Every MLB-to-MLB trade 2020–26, grouped into deals, with the run value each club got back |
+| Postseason / Matchup | Each October 2020–26 as a bracket with series results, game reports with starting lineups, and postseason WPA and run-value leaders (`postseason.py`, bake family `postseason`); a descriptive pitcher-vs-lineup scouting view from the arsenal, hand/family splits and movement buckets |
+| Would it dong | Every MLB batted ball 2020–26 flown through the 30 current parks: X/30, xHR, no-doubters / doubters, would-be HRs elsewhere, best and worst park per hitter (RESULTS-MLB §86) |
+| Roles | Role conversion (RESULTS-MLB §87): 2026 relievers who could start and starters who play up in a short burst, from real MLB role changes; descriptive (both gates failed) |
 | Teams | Club pages: both sides' boards cut to one team, and team aggregates ranked against the league, with park factors |
 | Defense / Framing | Our range runs and Framing+ beside Savant's OAA and framing runs |
 | WPA, Aging, Fatigue, ABS, Tunneling, Arsenal, Buckets, Mechanism | Win probability, age curves, times-through-order and rest, 2026 ABS challenges, pitch tunnels, league arsenal cards, movement buckets, and the physics study behind Whiff+ |
@@ -46,10 +49,12 @@ labelled **descriptive, not a forecast**, or does not ship.
 | Framing+ | confirmed against Savant (r .89–.97) | §76, `pipeline/PREREG-framing-plus.md` |
 | Range runs (infield and outfield) | shipped on v3 after two failed attempts | §75, §80, §81 |
 | WAR (position players and pitchers) | r .92 / .81 with Baseball-Reference WAR; team totals track wins at r .91 | §85 |
+| Would it dong (X/30 parks) | own-park HR call 96.5% on held-out seasons; xHR r .99 with Savant's Home Run Tracker | §86 |
 | Decision+ | descriptive: stable, but does not beat chase rate as a forecast | §69 |
 | Tunnel+, platoon Whiff+ | descriptive | §73, §74 |
 | Park factors (2B, 3B, HR, SO by hand) | descriptive | §70, §72 |
 | Hitter Marcel projection | display-only baseline with measured ranges | §67 |
+| Minor-league translations (MLEs, AAA/AA → MLB) | tested for AAA hitter K%, BB%, ISO and AA hitter BB%; provisional for AA hitter K% and AAA pitcher K%; the rest descriptive | §88 |
 | Our own xwOBA and xRV | not shipped (failed, diagnosed, re-tests failed) | §68, §71, §77, §78 |
 
 `docs/model-inventory.md` has the full list, including what was tried and
