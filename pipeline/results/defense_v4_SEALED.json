@@ -1,0 +1,171 @@
+{
+ "meta": {
+  "2020": {
+   "range": {
+    "auc": 0.9424,
+    "decile_gap": 0.0054,
+    "n": 40590,
+    "out_rate": 0.6899,
+    "rv_diff": {
+     "0": 0.7654,
+     "1": 0.832
+    }
+   },
+   "framing": {}
+  },
+  "2021": {
+   "range": {
+    "auc": 0.9513,
+    "decile_gap": 0.0015,
+    "n": 112732,
+    "out_rate": 0.6919,
+    "rv_diff": {
+     "0": 0.7436,
+     "1": 0.8148
+    }
+   },
+   "framing": {}
+  },
+  "2022": {
+   "range": {
+    "auc": 0.9503,
+    "decile_gap": 0.0012,
+    "n": 116344,
+    "out_rate": 0.6956,
+    "rv_diff": {
+     "0": 0.725,
+     "1": 0.7941
+    }
+   },
+   "framing": {}
+  },
+  "2023": {
+   "range": {
+    "auc": 0.9555,
+    "decile_gap": 0.0015,
+    "n": 115918,
+    "out_rate": 0.6899,
+    "rv_diff": {
+     "0": 0.7534,
+     "1": 0.8187
+    }
+   },
+   "framing": {}
+  },
+  "2024": {
+   "range": {
+    "auc": 0.9562,
+    "decile_gap": 0.0021,
+    "n": 116110,
+    "out_rate": 0.6956,
+    "rv_diff": {
+     "0": 0.7403,
+     "1": 0.8075
+    }
+   },
+   "framing": {}
+  },
+  "2025": {
+   "range": {
+    "auc": 0.9564,
+    "decile_gap": 0.001,
+    "n": 116394,
+    "out_rate": 0.6958,
+    "rv_diff": {
+     "0": 0.7377,
+     "1": 0.8037
+    }
+   },
+   "framing": {}
+  },
+  "2026": {
+   "range": {
+    "auc": 0.9573,
+    "decile_gap": 0.0024,
+    "n": 115830,
+    "out_rate": 0.6971,
+    "rv_diff": {
+     "0": 0.7424,
+     "1": 0.8076
+    }
+   },
+   "framing": {}
+  }
+ },
+ "range": {
+  "IF": {
+   "external_oaa": {
+    "r": 0.5724,
+    "ci": [
+     0.5177,
+     0.6226
+    ],
+    "n": 1138,
+    "verdict_ext": "PASS"
+   },
+   "calibration_pass": true,
+   "verdict": "CONFIRMED",
+   "reliability": {
+    "split_half_r": 0.1059,
+    "rel": 0.1915,
+    "k": 1294.2,
+    "n_players": 1170
+   },
+   "r_frp": 0.5718,
+   "yoy": {
+    "oaa": 0.2734,
+    "outs_above_average": 0.4427,
+    "n": 704
+   }
+  },
+  "OF": {
+   "external_oaa": {
+    "r": 0.6504,
+    "ci": [
+     0.5984,
+     0.6947
+    ],
+    "n": 665,
+    "verdict_ext": "PASS"
+   },
+   "calibration_pass": true,
+   "verdict": "CONFIRMED",
+   "reliability": {
+    "split_half_r": 0.1814,
+    "rel": 0.3071,
+    "k": 622.0,
+    "n_players": 912
+   },
+   "r_frp": 0.6503,
+   "yoy": {
+    "oaa": 0.3632,
+    "outs_above_average": 0.6413,
+    "n": 358
+   },
+   "reach": {
+    "n_chances": 1181778,
+    "within": {
+     "share": 0.6705,
+     "made_rate": 0.2424,
+     "mean_p": 0.7764,
+     "reliability": {
+      "split_half_r": 0.1893,
+      "rel": 0.3183,
+      "k": 527.0,
+      "n_players": 790
+     },
+     "yoy_oaa": 0.2075,
+     "r_oaa": 0.5692
+    },
+    "beyond": {
+     "share": 0.3295,
+     "made_rate": 0.0107,
+     "mean_p": 0.4806,
+     "reliability": null,
+     "yoy_oaa": 0.1539,
+     "r_oaa": 0.3364
+    }
+   }
+  }
+ }
+}
