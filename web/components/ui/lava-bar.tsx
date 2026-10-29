@@ -27,6 +27,7 @@ const CELLS_X = 192;
 const CELLS_Y = 13;
 const FRAME_MS = 33; // ~30 fps cap — slow drift, liquid motion
 const HUE_BASE = 170;
+const HUE_DRIFT = 0.9; // deg/s — the base hue rolls through the full wheel every ~7 minutes
 const HUE_SPAN = 165; // regional hue field — neighbouring areas differ
 const SAT: [number, number] = [42, 58];
 const LIG: [number, number] = [30, 48];
@@ -108,7 +109,7 @@ export function LavaNav() {
           const j = hash(x, y, jit) - 0.5;
           let lig = (LIG[0] + (LIG[1] - LIG[0]) * (h * h * (3 - 2 * h)) + j * 3) / 100;
           if (deep < 0.17) lig = (DEEP_LIG + j * 2) / 100;
-          const hue = HUE_BASE + (hueN - 0.5) * HUE_SPAN + (h - 0.5) * 26 + j * 9;
+          const hue = HUE_BASE + time * HUE_DRIFT + (hueN - 0.5) * HUE_SPAN + (h - 0.5) * 26 + j * 9;
           const sat = (SAT[0] + (SAT[1] - SAT[0]) * h + j * 8) / 100;
           buf[i] = packHsl(hue, sat, lig);
         }
