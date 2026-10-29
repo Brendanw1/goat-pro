@@ -9,3 +9,4 @@ data/export/web/
 data/milb/
 cache/
 *.tsbuildinfo
+.vercel

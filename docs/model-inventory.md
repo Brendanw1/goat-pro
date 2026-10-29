@@ -10,6 +10,39 @@ data), **recalibrate** (weights/lookup only), **recompute** (derived from an
 upstream model), **build** (new), **ingest-validate** (public reference data,
 not rebuilt).
 
+## Status, 2026-10-29
+
+Where each model stands today (sections are `pipeline/RESULTS-MLB.md`). The
+tables below are the original plan and are kept as written.
+
+| Model | Outcome | Where |
+|---|---|---|
+| Stuff+ → **Whiff+** (whiff per swing, double ML, cross-fit) | shipped, forecast gate passed; hand-matched grading fix | §34, §82 |
+| **K+**, **Prevention+** | shipped, confirmed | §50, §52 |
+| Stuff+ (RV shape grade) | failed, not shipped | §51 |
+| Location+ / **Control+** | Location+ not confirmed; shipped as Control+ (BB projection not confirmed) | §53, §55 |
+| **Pitching+** | shipped; ties SIERA, not confirmed | §56 |
+| Sequencing | sticky, not forecast-useful; not shipped | §57 |
+| P7 family on AAA | confirmed, on /minors | §66 |
+| Hitter Marcel projection | display-only baseline | §67 |
+| xwOBA (ours) | failed twice (ground-ball spray leak, then v2); Savant's xwOBA is shown | §68, §77 |
+| **Decision+** / IZA / OZA | shipped descriptive (stable, loses to chase rate as a forecast) | §69 |
+| Park factors | 2B/3B/HR/SO by hand shipped descriptive; park-adjusted wOBA/FIP not shipped | §70, §72 |
+| xRV / xRV+ | failed twice, not shipped | §71, §78 |
+| Platoon Whiff+ | shipped descriptive; location-aware gap failed | §73, §79 |
+| **Tunnel+** | shipped descriptive | §74 |
+| **Range** (IF/OF) | v1 and v2 failed; v3 (Savant start positions + hang time) shipped | §75, §80, §81 |
+| **Framing+** | confirmed against Savant, shipped | §76, `PREREG-framing-plus.md` |
+| **Deception+** | passed its gates, shipped | `PREREG-deception-plus.md` |
+| Topo Level-1 class as the grading key | failed on K% and RV (wins on CSW% and stability); not adopted | §40 |
+| Velocity/steepness under-credit checks | not confirmed; models unchanged | §83, §84 |
+| **WAR** | shipped (r .92 / .81 vs bWAR, team wins r .91) | §85 |
+| Pitch decay / buyback, usage optimizer, count policy, predictability | research only: decay confirmed, the rest no edge | §59–§63 |
+
+Not built yet: state-space projections, MiLB translation matrices, surplus
+value, injury risk, market models, pre-2020 MLB (planned with the TrackMan-era
+methods).
+
 ## A. The college lineage
 
 | Model | Disposition | Data | Notes |
@@ -70,7 +103,7 @@ each anchored to retrievable docs:
 These are candidates, not commitments: each enters the phasing table only when
 its data dependency exists and a gate can be defined for it.
 
-## Phasing
+## Phasing (original plan, 2026-10-24)
 
 | Phase | Models |
 |---|---|
