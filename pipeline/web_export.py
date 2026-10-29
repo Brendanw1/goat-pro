@@ -2278,6 +2278,18 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                          "r_secondary_lead": "secondary_lead_runs",
                          "net_act_plus": "net_act_plus", "net_act_minus": "net_act_minus"},
             },
+            "abs_challenges": {
+                "title": "ABS challenges", "csv": "abs-challenges",
+                "source": "Baseball Savant — ABS challenges (2026 challenge era)",
+                "sort": "runs_above_average",
+                "cols": {"entity_name": "player", "team_abbr": "team", "level": "level",
+                         "n_challenges": "challenges", "n_overturns": "overturns",
+                         "n_confirms": "confirms", "rate_overturns": "win_rate",
+                         "runs_gained": "runs_gained", "runs_cost": "runs_cost",
+                         "runs_above_average": "runs", "runs_gained_vs_exp": "gained_vs_exp",
+                         "runs_cost_vs_exp": "cost_vs_exp", "runs_taken_percent": "runs_taken_pct",
+                         "poss_runs": "possible_runs"},
+            },
             "xb_taken": {
                 "title": "Extra bases taken", "csv": "baserunning",
                 "source": "Baseball Savant — extra bases taken (runner view)",

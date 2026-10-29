@@ -17,6 +17,7 @@ const BOARDS = [
   { key: "baserunning_rv", label: "Baserunning runs" },
   { key: "basestealing_rv", label: "Basestealing runs" },
   { key: "xb_taken", label: "Extra bases taken" },
+  { key: "abs_challenges", label: "ABS challenges" },
   { key: "catcher_framing", label: "Catcher framing" },
   { key: "catcher_blocking", label: "Catcher blocking" },
   { key: "catcher_throwing", label: "Catcher throwing" },

@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/teams", label: "Teams" },
   { href: "/tunneling", label: "Tunneling" },
   { href: "/fatigue", label: "Fatigue" },
+  { href: "/abs", label: "ABS" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/scouting/savant", label: "Savant boards" },
   { href: "/glossary", label: "Glossary" },
