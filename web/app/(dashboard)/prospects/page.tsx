@@ -3,6 +3,7 @@ import { getProspectsSeason, getDraftHitRates, getFarmOutput } from "@/lib/data"
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { logoUrl } from "@/lib/team-pixel";
+import { sortComparator } from "@/lib/table-sort";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export const metadata = { title: "Prospects" };
  * the same rows; until then the list carries no grade of ours.
  */
 
-type Q = { year?: string; view?: string; team?: string; pos?: string; riser?: string };
+type Q = { year?: string; view?: string; team?: string; pos?: string; riser?: string; fy?: string; fsort?: string; forder?: string };
 
 const TEAM_SLUGS = ["angels", "astros", "athletics", "bluejays", "braves", "brewers", "cardinals",
   "cubs", "dbacks", "dodgers", "giants", "guardians", "mariners", "marlins", "mets", "nationals",
@@ -185,49 +186,80 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
   if (view === "farm") {
     const farm = await getFarmOutput();
     const years = Object.keys(farm?.risers ?? {}).map(Number).sort((a, b) => b - a);
-    const riseYear = years.includes(Number(q.riser)) ? Number(q.riser) : years[0];
-    const orgRows = farm?.orgs ?? [];
+    // fy: "" = the pooled matured 2011-19 table, else one list year (its own league line)
+    const farmYears = Object.keys(farm?.byYear ?? {}).map(Number).sort((a, b) => b - a);
+    const fy = farmYears.includes(Number(q.fy)) ? Number(q.fy) : null;
+    const yearDoc = fy ? farm?.byYear?.[String(fy)] : null;
+    const riseYear = fy && years.includes(fy) ? fy : years.includes(Number(q.riser)) ? Number(q.riser) : years[0];
+    const fsort = ["slots", "top100", "reached", "reachedPct", "vsLeague", "outputIndex", "mlb"].includes(q.fsort ?? "") ? q.fsort! : "outputIndex";
+    const forder = q.forder === "asc" ? "asc" : "desc";
+    const orgRows = [...((yearDoc ? yearDoc.orgs : farm?.orgs) ?? [])]
+      .map((o: any) => ({ ...o, mlb: (o.mlbPa ?? 0) + (o.mlbBf ?? 0) }))
+      .sort(sortComparator(fsort, forder));
+    const lgPct = yearDoc ? yearDoc.leagueReachedPct : farm?.leagueReachedPct;
+    const fcols: [string, string][] = [["slots", "List slots"], ["top100", "Top-100 entries"], ["reached", "Reached MLB"],
+      ["reachedPct", "Reach%"], ["vsLeague", "vs league"], ["outputIndex", "Output index"], ["mlb", "MLB PA+BF"]];
     const crest = (tm: string | null) => logoUrl(tm);
+    const moveRow = (r: any, i: number, up: boolean) => (
+      <div key={i} className="flex items-baseline gap-2 text-[11px] border-b border-white/[0.03] py-1">
+        <span className="font-data shrink-0 w-[92px]" style={{ color: up ? "#5ba88f" : "#e0654f" }}>#{r.from} → #{r.to}</span>
+        <Link href={`/player/${r.id}`} className="font-sans text-text-primary hover:underline flex-1 truncate">{r.name ?? r.id}</Link>
+        {r.debut ? <span className="text-[10px] text-text-dim shrink-0">MLB {r.debut}</span> : null}
+      </div>
+    );
     return (
       <div className="space-y-4">
         <h1 className="sr-only">Prospects — farm output</h1>
         <p className="text-xs text-text-dim max-w-[85ch]">
-          What each organization&apos;s farm produced, on the matured 2011-2019 lists (the debut window has closed).
-          Reach% is the org&apos;s own slots that reached the majors; vs-league reads it against the league&apos;s
-          {" "}{farm?.leagueReachedPct ?? "—"}% on the same window. The output index weights each graduate by the tier
-          he was ranked in (top 10 = 4, 11-25 = 3, 26-50 = 2, 51-100 = 1, unranked = 0.5); MLB PA+BF is the playing
-          time the farm&apos;s alumni actually produced. Descriptive joins of public sources.
+          What each organization&apos;s farm produced. The default table pools the matured 2011-2019 lists (the debut
+          window has closed); pick a year for that year&apos;s team lists alone. Reach% is the org&apos;s own slots that
+          reached the majors; vs-league reads it against the league&apos;s {lgPct ?? "—"}% on the same list
+          {fy ? " year" : "s"}. The output index weights each graduate by the tier he was ranked in (top 10 = 4, 11-25 = 3,
+          26-50 = 2, 51-100 = 1, unranked = 0.5); MLB PA+BF is the playing time the farm&apos;s alumni actually produced
+          (2020-26 Statcast). Descriptive joins of public sources.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={link({ view: "top100" })} className={chip(false)}>Top 100</Link>
           <Link href={link({ view: "team" })} className={chip(false)}>By team</Link>
           <Link href={link({ view: "pos" })} className={chip(false)}>By position</Link>
           <Link href={link({ view: "hitrate" })} className={chip(false)}>Hit rates</Link>
-          <Link href={link({ view: "farm" })} className={chip(false)}>Farm output</Link>
           <Link href={link({ view: "farm" })} className={chip(true)}>Farm output</Link>
         </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Link href={link({ fy: undefined })} className={chip(fy === null)}>2011–19 pooled</Link>
+          <span className="w-px h-4 bg-border-subtle mx-1" />
+          {farmYears.map((y) => <Link key={y} href={link({ fy: String(y) })} className={chip(y === fy)}>{y}</Link>)}
+        </div>
         <div className="glass-panel overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border-subtle">
-            <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Farm-system output — 2011-2019 lists</h2>
+          <div className="px-4 py-2.5 border-b border-border-subtle flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">
+              Farm-system output — {fy ? `${fy} team lists` : "2011-2019 lists"}
+            </h2>
+            {yearDoc && !yearDoc.matured && (
+              <span className="text-[10px] text-text-dim">Still maturing: reach reads low for every org alike, so compare orgs with vs league.</span>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-max text-xs font-data">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider text-text-dim">
-                  <th className="px-4 py-2 text-left font-semibold">Org</th>
-                  <th className="px-2 py-2 text-right font-semibold">List slots</th>
-                  <th className="px-2 py-2 text-right font-semibold">Top-100 entries</th>
-                  <th className="px-2 py-2 text-right font-semibold">Reached MLB</th>
-                  <th className="px-2 py-2 text-right font-semibold">Reach%</th>
-                  <th className="px-2 py-2 text-right font-semibold">vs league</th>
-                  <th className="px-2 py-2 text-right font-semibold">Output index</th>
-                  <th className="px-2 py-2 text-right font-semibold">MLB PA+BF</th>
+                  <th className="pl-4 pr-1 py-2 text-right font-semibold">#</th>
+                  <th className="px-2 py-2 text-left font-semibold">Org</th>
+                  {fcols.map(([k, l]) => (
+                    <th key={k} className="px-2 py-2 text-right font-semibold" aria-sort={k === fsort ? (forder === "desc" ? "descending" : "ascending") : undefined}>
+                      <Link href={link({ fsort: k, forder: k === fsort && forder === "desc" ? "asc" : "desc" })}
+                        className={k === fsort ? "text-text-primary" : "hover:text-text-secondary"}>
+                        {l}{k === fsort ? (forder === "desc" ? " ▼" : " ▲") : ""}
+                      </Link>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {orgRows.map((o: any) => (
+                {orgRows.map((o: any, i: number) => (
                   <tr key={o.org} className="border-t border-white/[0.04]">
-                    <td className="px-4 py-1.5">
+                    <td className="pl-4 pr-1 py-1.5 text-right text-text-dim">{i + 1}</td>
+                    <td className="px-2 py-1.5">
                       <span className="inline-flex items-center gap-1.5 font-sans text-text-secondary">
                         {crest(o.org) ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -244,7 +276,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
                       {Number(o.vsLeague) > 0 ? "+" : ""}{o.vsLeague}
                     </td>
                     <td className="px-2 py-1.5 text-right text-text-primary">{o.outputIndex}</td>
-                    <td className="px-2 py-1.5 text-right text-text-dim">{(o.mlbPa + o.mlbBf).toLocaleString()}</td>
+                    <td className="px-2 py-1.5 text-right text-text-dim">{o.mlb.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -258,8 +290,8 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
               <thead>
                 <tr className="text-[9px] uppercase tracking-wider text-text-dim">
                   <th className="py-1 text-left font-semibold">Tier</th>
-                  {[0, 1, 2, 3, 4, "5+"].map((k) => (
-                    <th key={String(k)} className="py-1 text-right font-semibold">{k === "5+" ? "5+" : `+${k}`} yr</th>
+                  {[0, 1, 2, 3, 4, 5, "6+"].map((k) => (
+                    <th key={String(k)} className="py-1 text-right font-semibold">{k === "6+" ? "6+" : `+${k}`} yr</th>
                   ))}
                 </tr>
               </thead>
@@ -278,21 +310,24 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
           </div>
           <div className="glass-panel p-4">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Biggest risers — consecutive top-100s</h2>
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Risers and fallers — {riseYear} vs {riseYear - 1} top 100</h2>
             </div>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {years.slice(0, 8).map((y: number) => (
-                <Link key={y} href={link({ riser: String(y) })} className={chip(y === riseYear)}>{y}</Link>
-              ))}
-            </div>
-            <div className="grid gap-0.5">
-              {((farm?.risers ?? {})[String(riseYear)]?.up ?? []).map((r: any, i: number) => (
-                <div key={i} className="flex items-baseline gap-2 text-[11px] border-b border-white/[0.03] py-1">
-                  <span className="font-data text-text-dim shrink-0">#{r.from} → #{r.to}</span>
-                  <Link href={`/player/${r.id}`} className="font-sans text-text-primary hover:underline flex-1 truncate">{r.name ?? r.id}</Link>
-                  {r.debut ? <span className="text-[10px] text-text-dim shrink-0">MLB {r.debut}</span> : null}
-                </div>
-              ))}
+            {!fy && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {years.map((y: number) => (
+                  <Link key={y} href={link({ riser: String(y) })} className={chip(y === riseYear)}>{y}</Link>
+                ))}
+              </div>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-text-dim mb-1">Risers</div>
+                {((farm?.risers ?? {})[String(riseYear)]?.up ?? []).map((r: any, i: number) => moveRow(r, i, true))}
+              </div>
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-text-dim mb-1">Fallers (stayed on the list)</div>
+                {((farm?.risers ?? {})[String(riseYear)]?.down ?? []).map((r: any, i: number) => moveRow(r, i, false))}
+              </div>
             </div>
           </div>
         </div>

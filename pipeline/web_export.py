@@ -4467,46 +4467,63 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             except Exception:  # noqa: BLE001
                 pass
 
-            orgs = {}
-            league_slots = {"n": 0, "reached": 0}
-            for y0, lists in raw.items():
-                if int(y0) not in MATURED:
-                    continue
-                for key, rows0 in lists.items():
-                    if not key.startswith("team:"):
+            for y0, lists in raw.items():  # top-100 ranks for every list year (the by-year tables use them all)
+                for r0 in lists.get("top100", []) or []:
+                    t100.setdefault((int(y0), int(r0["id"])), int(r0["rank"]))
+
+            def farm_table(years) -> tuple[list, float]:
+                """Org rows over the list years in `years`; reach is read against the league on the same years."""
+                orgs = {}
+                league_slots = {"n": 0, "reached": 0}
+                for y0, lists in raw.items():
+                    if int(y0) not in years:
                         continue
-                    abbr = SLUG_ABBR.get(key.partition(":")[2])
-                    if not abbr:
-                        continue
-                    o = orgs.setdefault(abbr, {"slots": 0, "reached": 0, "t100": 0, "index": 0.0,
-                                               "pa": 0, "bf": 0, "names": []})
-                    for r0 in rows0:
-                        pid = int(r0["id"])
-                        rank = t100.get((int(y0), pid))
-                        reached = pid in debut_year
-                        o["slots"] += 1
-                        o["t100"] += 1 if rank else 0
-                        o["reached"] += 1 if reached else 0
-                        o["index"] += tier_w(rank) if reached else 0.0
-                        o["pa"] += pa_made.get(pid, 0)
-                        o["bf"] += bf_made.get(pid, 0)
-                        league_slots["n"] += 1
-                        league_slots["reached"] += 1 if reached else 0
-            lg_rate = league_slots["reached"] / max(1, league_slots["n"])
-            farm_rows = []
-            for abbr, o in orgs.items():
-                rate = o["reached"] / max(1, o["slots"])
-                farm_rows.append({"org": abbr, "slots": o["slots"], "top100": o["t100"],
-                                  "reached": o["reached"], "reachedPct": f(100 * rate, 1),
-                                  "vsLeague": f(100 * (rate - lg_rate), 1),
-                                  "outputIndex": f(o["index"], 0),
-                                  "mlbPa": o["pa"], "mlbBf": o["bf"]})
-            farm_rows.sort(key=lambda e: -float(e["outputIndex"] or 0))
+                    for key, rows0 in lists.items():
+                        if not key.startswith("team:"):
+                            continue
+                        abbr = SLUG_ABBR.get(key.partition(":")[2])
+                        if not abbr:
+                            continue
+                        o = orgs.setdefault(abbr, {"slots": 0, "reached": 0, "t100": 0, "index": 0.0,
+                                                   "pa": 0, "bf": 0, "names": []})
+                        for r0 in rows0:
+                            pid = int(r0["id"])
+                            rank = t100.get((int(y0), pid))
+                            reached = pid in debut_year
+                            o["slots"] += 1
+                            o["t100"] += 1 if rank else 0
+                            o["reached"] += 1 if reached else 0
+                            o["index"] += tier_w(rank) if reached else 0.0
+                            o["pa"] += pa_made.get(pid, 0)
+                            o["bf"] += bf_made.get(pid, 0)
+                            league_slots["n"] += 1
+                            league_slots["reached"] += 1 if reached else 0
+                lg_rate = league_slots["reached"] / max(1, league_slots["n"])
+                farm_rows = []
+                for abbr, o in orgs.items():
+                    rate = o["reached"] / max(1, o["slots"])
+                    farm_rows.append({"org": abbr, "slots": o["slots"], "top100": o["t100"],
+                                      "reached": o["reached"], "reachedPct": f(100 * rate, 1),
+                                      "vsLeague": f(100 * (rate - lg_rate), 1),
+                                      "outputIndex": f(o["index"], 0),
+                                      "mlbPa": o["pa"], "mlbBf": o["bf"]})
+                farm_rows.sort(key=lambda e: -float(e["outputIndex"] or 0))
+                return farm_rows, lg_rate
+
+            farm_rows, lg_rate = farm_table(MATURED)
+            # one table per list year; years after 2019 are still maturing, so reach reads low for every org alike
+            farm_by_year = {}
+            for y0 in sorted({int(y) for y in raw}):
+                rows_y, rate_y = farm_table({y0})
+                if rows_y:
+                    farm_by_year[str(y0)] = {"leagueReachedPct": f(100 * rate_y, 1), "matured": y0 in MATURED, "orgs": rows_y}
 
             # tier time-to-MLB curves: cumulative % debuted by years since the
             # FIRST top-100 appearance (matured classes only)
             first_seen: dict = {}
             for (y0, pid), rank in t100.items():
+                if y0 not in MATURED:
+                    continue
                 if pid not in first_seen or y0 < first_seen[pid][0]:
                     first_seen[pid] = (y0, rank)
             tier_of_rank = lambda rk: "top 10" if rk <= 10 else "11-25" if rk <= 25 else "26-50" if rk <= 50 else "51-100"
@@ -4537,7 +4554,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 cur = t100_by_year[y0]
                 moves = [(prev[pid] - rk, pid, prev[pid], rk) for pid, rk in cur.items() if pid in prev]
                 up = sorted(moves, reverse=True)[:8]
-                down = sorted(moves)[:5]
+                down = sorted(moves)[:8]
                 def row_of(mv):
                     _, pid, p0, c0 = mv
                     return {"id": str(pid), "name": draft_by_id.get(pid, {}).get("name") or per_player.get(str(pid), {}).get("n"),
@@ -4549,7 +4566,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                              "reached MLB); vs-league is the org's reach rate on its own slots minus the "
                              "league's on the same window; risers are consecutive top-100 rank deltas"),
                 "leagueReachedPct": f(100 * lg_rate, 1),
-                "orgs": farm_rows, "tierCurves": tier_curves, "risers": risers,
+                "orgs": farm_rows, "byYear": farm_by_year, "tierCurves": tier_curves, "risers": risers,
             }, sort_keys=True)
             print(f"prospect season files: {n_season_files}; rank files: {n_rank_files}; farm: {len(farm_rows)} orgs")
         else:
