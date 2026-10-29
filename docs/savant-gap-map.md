@@ -76,3 +76,25 @@ Endpoint: `statcast-search-minors/csv?all=true&type=details&player_type=pitcher&
 84 of 129 AAA pitchers on 2025-05-06 also pitched in MLB in 2025, which makes AAA
 the follow-up population for MLB demotions (small-sample survivorship, RESULTS-MLB §9, §15).
 In the mart since 2026-10-25 (view `pitches_aaa`, 2023–26). Comparability audit: RESULTS-MLB §14.
+
+## Hidden public data, probed 2026-10-29 (v5 research)
+
+For the range model's data limits (per-play fielder positions, measured hang time). Live-verified, keyless,
+`csv=true`, same etiquette.
+
+**New ingestibles (all verified live):**
+
+| Family | Recipe | What it carries | For |
+|---|---|---|---|
+| Outfielder Jump | `/leaderboard/outfield_jump?year=Y&csv=true` | per fielder-season: OAA, outs_per_play, **rel_league burst / reaction / routing / bootup distances**, f_bootup_distance, n, n_outs | the route/first-step decomposition the range model cannot see; validate our residual against it (NOT a feature — §96's double-count rule) |
+| Catch probability | `/leaderboard/catch_probability?year=Y&csv=true&type=OF` (+IF) | per player: `n_fieldout_Nstars` / `n_opp_Nstars` / `n_Nstar_percent` for 1–5 stars | star-band calibration transfer: align our p deciles to Savant's bands, compare conversion band by band |
+| Arm strength | `/leaderboard/arm-strength?year=Y&csv=true` (dash family) | per fielder: throws by target base + arm strength | OF arm sub-metric (D-16's unfetched half) |
+| Running splits | `/leaderboard/running_splits?year=Y&csv=true` | `seconds_since_hit_000 / 005 / 010 …` — measured runner acceleration curves | true runner motion (the audit's "no proxy" list shrinks) |
+
+**Dead ends (checked so nobody re-probes):**
+- The gamefeed (`api/v1.1/game/{gamePk}/feed/live`) `hitData` has location as a plain position digit ("7"),
+  no depth suffixes (old Gameday "6S"-style codes are gone), plus trajectory/hardness words derivable from
+  EV/LA anyway. No fielder positions anywhere in the feed. The per-play depth proxy is still `des` text.
+- `running_splits_90_ft` and `arm_strength` (underscore) are 404 — the live names are the two above.
+- Per-play fielder start positions and measured BIP hang time remain private; that data-limit conclusion
+  stands, and §97's lift fix attacks the one handling error left inside our control.
