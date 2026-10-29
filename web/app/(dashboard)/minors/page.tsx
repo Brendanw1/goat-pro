@@ -21,7 +21,8 @@ const LEVELS = ["All", "AAA", "AA", "A+", "A", "ROK"];
 const LEVEL_LABEL: Record<string, string> = { ROK: "Rookie" };
 const PAGE = 100;
 
-type Col = { key: string; label: string; nd?: number; lead?: boolean; asc?: boolean };
+type Col = { key: string; label: string; nd?: number; lead?: boolean; asc?: boolean; model?: boolean; tip?: string };
+const MODEL_TIP = "MLB-trained model scored on AAA pitches (display only); AAA 2023+ rows";
 const COLS: Record<"pitchers" | "hitters", Col[]> = {
   pitchers: [
     { key: "age", label: "Age", nd: 1, asc: true }, { key: "g", label: "G" }, { key: "gs", label: "GS" },
@@ -46,7 +47,9 @@ const SC_COLS: Record<"pitchers" | "hitters", Col[]> = {
     { key: "cswPct", label: "CSW%", nd: 1 }, { key: "whiffPct", label: "Whiff%", nd: 1 },
     { key: "zonePct", label: "Zone%", nd: 1 }, { key: "chasePct", label: "Chase%", nd: 1 },
     { key: "oContactPct", label: "O-Con%", nd: 1, asc: true }, { key: "rvPer100", label: "RV/100", nd: 2, asc: true },
-    { key: "stuffPlus", label: "Whiff+", nd: 1 },
+    { key: "stuffPlus", label: "Whiff+", nd: 1, model: true, tip: MODEL_TIP }, { key: "kPlus", label: "K+", nd: 1, model: true, tip: MODEL_TIP },
+    { key: "preventionPlus", label: "Prev+", nd: 1, model: true, tip: MODEL_TIP },
+    { key: "xwobaAg", label: "xwOBA", nd: 3, lead: false, asc: true, model: true, tip: "expected wOBA allowed from contact quality (AAA Statcast)" },
   ],
   hitters: [
     { key: "age", label: "Age", nd: 1, asc: true }, { key: "pa", label: "PA" }, { key: "woba", label: "wOBA", nd: 3, lead: false },
@@ -55,14 +58,23 @@ const SC_COLS: Record<"pitchers" | "hitters", Col[]> = {
     { key: "ev90", label: "EV90", nd: 1 }, { key: "maxEv", label: "MaxEV", nd: 1 },
     { key: "hardHitPct", label: "HH%", nd: 1 }, { key: "barrelPct", label: "Brl%", nd: 1 },
     { key: "whiffPct", label: "Whiff%", nd: 1, asc: true }, { key: "oSwingPct", label: "O-Swg%", nd: 1, asc: true },
+    { key: "xwoba", label: "xwOBA", nd: 3, lead: false, model: true, tip: "expected wOBA from contact quality, K and BB (AAA Statcast)" },
+    { key: "xwobacon", label: "xwOBAcon", nd: 3, lead: false, model: true, tip: "expected wOBA on contact (AAA Statcast)" },
+    { key: "wobaMinusXwoba", label: "wOBA−xwOBA", nd: 3, lead: false, model: true, tip: "above zero: outperformed his contact quality" },
   ],
+};
+
+/** Lines view: the AAA board's model columns joined onto AAA rows (2023+); other levels have no tracked pitches. */
+const LINE_MODEL: Record<"pitchers" | "hitters", Col[]> = {
+  pitchers: SC_COLS.pitchers.filter((c) => c.model),
+  hitters: SC_COLS.hitters.filter((c) => c.model && c.key !== "wobaMinusXwoba"),
 };
 
 const fmt = (v: unknown, c: Col): string => {
   if (typeof v === "string") return v;
   if (typeof v !== "number" || !Number.isFinite(v)) return "—";
   const s = c.nd != null ? v.toFixed(c.nd) : String(v);
-  return c.lead === false ? s.replace(/^0\./, ".") : s;
+  return c.lead === false ? s.replace(/^(-?)0\./, "$1.") : s;
 };
 
 type Q = { kind?: string; season?: string; level?: string; min?: string; sort?: string; dir?: string; page?: string; src?: string; team?: string; age?: string };
@@ -85,7 +97,7 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
   const floorKey = kind === "pitchers" ? "ip" : "pa";
   const defMin = kind === "pitchers" ? 20 : 100;
   let min = Number.isFinite(Number(q.min)) && q.min !== undefined ? Number(q.min) : defMin;
-  let teams: string[] = [];
+  let teams: [string, string][] = []; // [level, team]
   let sortDefault = kind === "pitchers" ? "kBbPct" : "ops";
   // Age cap: season age (June 30) in whole years, so "≤ 22" keeps a 22.9-year-old.
   const maxAge = AGE_CAPS.includes(Number(q.age)) ? Number(q.age) : null;
@@ -100,7 +112,8 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
     sortDefault = kind === "pitchers" ? "kBbPct" : "woba";
     min = Number.isFinite(Number(q.min)) && q.min !== undefined ? Number(q.min) : defMin;
     const team = q.team ?? "";
-    teams = [...new Set((board ?? []).map((r: any) => r.team).filter(Boolean))].sort();
+    teams = ([...new Set((board ?? []).filter((r: any) => r.season === seasonSel).map((r: any) => r.team).filter(Boolean))] as string[])
+      .sort().map((t) => ["AAA", t]);
     rows = (board ?? [])
       .filter((r: any) => r.season === seasonSel && (!team || r.team === team) && (r[floorKey] ?? 0) >= min && ageOk(r))
       .map((r: any) => ({ ...r, level: "AAA" }));
@@ -109,9 +122,20 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
     const seasonSel = season != null && lineSeasons.includes(season) ? season : lineSeasons[lineSeasons.length - 1];
     const file = seasonSel ? await getMinorsLines(kind, seasonSel) : null;
     const team = q.team ?? "";
-    teams = [...new Set((file?.rows ?? []).map((r: any) => r.team).filter(Boolean))] as string[];
+    const seen = new Map<string, string>();
+    for (const r of file?.rows ?? []) if (r.team && (level === "All" || r.level === level)) seen.set(r.team, r.level);
+    teams = [...seen].map(([t, l]) => [l, t] as [string, string])
+      .sort((a, b) => LEVELS.indexOf(a[0]) - LEVELS.indexOf(b[0]) || a[1].localeCompare(b[1]));
+    // AAA rows pick up the AAA Statcast board's model numbers (same id + season)
+    const aaa = seasonSel && seasonSel >= 2023 ? (kind === "pitchers" ? await getPitchers("aaa") : await getHitters("aaa")) : null;
+    const byId = new Map((aaa ?? []).filter((r: any) => r.season === seasonSel).map((r: any) => [String(r.id), r]));
+    cols = [...COLS[kind], ...LINE_MODEL[kind]];
     rows = (file?.rows ?? [])
-      .filter((r: any) => (level === "All" || r.level === level) && (!team || r.team === team) && (r[floorKey] ?? 0) >= min && ageOk(r));
+      .filter((r: any) => (level === "All" || r.level === level) && (!team || r.team === team) && (r[floorKey] ?? 0) >= min && ageOk(r))
+      .map((r: any) => {
+        const m: any = r.level === "AAA" ? byId.get(String(r.id)) : null;
+        return m ? { ...r, ...Object.fromEntries(LINE_MODEL[kind].map((c) => [c.key, m[c.key]])) } : r;
+      });
     var seasonShown = seasonSel;
   }
   const sortCol = cols.find((c) => c.key === q.sort) ?? cols.find((c) => c.key === sortDefault)!;
@@ -133,8 +157,8 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
       <h1 className="text-lg font-semibold text-text-primary">Minor leagues</h1>
       <p className="text-xs text-text-dim max-w-[70ch]">
         {src === "sc"
-          ? "The AAA Statcast board: the same advanced read the MLB side carries — CSW%, whiff, chase, run value, exit-velocity quality — over tracked AAA pitches from 2023. Whiff+ is the MLB-trained model scored on AAA pitches, labelled MLB model on AAA data (display only); the rest of the model family is not validated below MLB."
-          : `Season lines for every level from the MLB Stats API, ${lineSeasons[0]}–${lineSeasons[lineSeasons.length - 1]}. AAA players also have full Statcast profiles from 2023 — switch to the Statcast board for the advanced read.`}
+          ? "The AAA Statcast board: the same advanced read the MLB side carries — CSW%, whiff, chase, run value, exit-velocity quality — over tracked AAA pitches from 2023. The shaded columns are models: Whiff+, K+ and Prevention+ are the MLB-trained models scored on AAA pitches (MLB model on AAA data, display only; of the three only the K gain was confirmed at AAA), and xwOBA reads contact quality."
+          : `Season lines for every level from the MLB Stats API, ${lineSeasons[0]}–${lineSeasons[lineSeasons.length - 1]}. The shaded model columns fill only for AAA rows from 2023 (the only level with tracked pitches); switch to the Statcast board for the full advanced read.`}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         {(["pitchers", "hitters"] as const).map((k) => (
@@ -157,11 +181,24 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
         {AGE_CAPS.map((a) => <Link key={a} href={link({ age: String(a) })} className={chip(a === maxAge)}>≤ {a}</Link>)}
       </div>
       {teams.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mr-1">Team</span>
-          <Link href={link({ team: undefined })} className={chip(!q.team)}>All</Link>
-          {teams.map((t) => <Link key={t} href={link({ team: t })} className={chip(q.team === t)}>{t}</Link>)}
-        </div>
+        <form method="get" action="/minors" className="flex flex-wrap items-center gap-2 text-[11px] text-text-dim">
+          {Object.entries({ kind, src, season: String(seasonShown ?? ""), level, min: String(min), sort: q.sort ?? "", dir: q.dir ?? "", age: maxAge ? String(maxAge) : "" })
+            .filter(([, v]) => v).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+          <label className="flex items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider">Team</span>
+            <select name="team" defaultValue={q.team ?? ""}
+              className="max-w-[240px] rounded-md border border-border-subtle bg-bg-primary px-1.5 py-0.5 text-[11px] text-text-primary">
+              <option value="">All teams ({teams.length})</option>
+              {LEVELS.filter((l) => teams.some(([tl]) => tl === l)).map((l) => (
+                <optgroup key={l} label={LEVEL_LABEL[l] ?? l}>
+                  {teams.filter(([tl]) => tl === l).map(([, t]) => <option key={t} value={t}>{t}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className={chip(false)}>Apply</button>
+          {q.team && <Link href={link({ team: undefined })} className="hover:text-text-secondary underline">clear</Link>}
+        </form>
       )}
       <div className="glass-panel overflow-hidden">
         <div className="overflow-x-auto">
@@ -172,7 +209,7 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
                 <th className="px-2 py-2 text-left font-semibold">Level</th>
                 <th className="px-2 py-2 text-left font-semibold">Team</th>
                 {cols.map((c) => (
-                  <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortCol.key ? (dir === "desc" ? "descending" : "ascending") : undefined}>
+                  <th key={c.key} title={c.tip} className={`px-2 py-2 text-right font-semibold ${c.model ? "bg-white/[0.03]" : ""}`} aria-sort={c.key === sortCol.key ? (dir === "desc" ? "descending" : "ascending") : undefined}>
                     <Link href={link({ sort: c.key, dir: c.key === sortCol.key ? (dir === "desc" ? "asc" : "desc") : undefined })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}{c.key === sortCol.key ? (dir === "desc" ? " ▼" : " ▲") : ""}</Link>
                   </th>
                 ))}
@@ -187,7 +224,7 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
                   <td className="px-2 py-1.5 font-sans text-text-secondary">{LEVEL_LABEL[r.level] ?? r.level}</td>
                   <td className="px-2 py-1.5 font-sans text-text-secondary">{r.team ?? "—"}</td>
                   {cols.map((c) => (
-                    <td key={c.key} className={`px-2 py-1.5 text-right ${c.key === sortCol.key ? "text-text-primary" : "text-text-secondary"}`}>{fmt(r[c.key], c)}</td>
+                    <td key={c.key} className={`px-2 py-1.5 text-right ${c.model ? "bg-white/[0.03]" : ""} ${c.key === sortCol.key ? "text-text-primary" : "text-text-secondary"}`}>{fmt(r[c.key], c)}</td>
                   ))}
                 </tr>
               ))}
