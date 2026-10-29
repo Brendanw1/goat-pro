@@ -282,10 +282,17 @@ def reach_split(ofc, sv):
         fp = cc.groupby(["mlbam", "season"])[["chances", "oaa", "runs"]].sum().reset_index()
         pg = cc.groupby(["mlbam", "season", "game_pk"])[["chances", "oaa"]].sum().reset_index()
         j = fp.merge(sv, on=["mlbam", "season"])
+        rel = None
+        try:  # the beyond class qualifies few players; a 2-point split-half can be exactly -1 -> skip, not crash
+            rel = split_half_k(pg, "chances", "oaa", 100)
+        except ZeroDivisionError:
+            pass
+        yy = yoy(fp, "mlbam", ["oaa"])["oaa"]
+        rb = boot_r(j["oaa"], j["outs_above_average"], j["mlbam"])["r"]
         out[name] = {"share": round(float(len(cc)) / len(ofc), 4), "made_rate": round(float(cc["made"].mean()), 4),
-                     "mean_p": round(float(cc["p"].mean()), 4), "reliability": split_half_k(pg, "chances", "oaa", 100),
-                     "yoy_oaa": yoy(fp, "mlbam", ["oaa"])["oaa"],
-                     "r_oaa": boot_r(j["oaa"], j["outs_above_average"], j["mlbam"])["r"]}
+                     "mean_p": round(float(cc["p"].mean()), 4), "reliability": rel,
+                     "yoy_oaa": yy if np.isfinite(yy) else None,
+                     "r_oaa": rb if np.isfinite(rb) else None}
     return out
 
 
