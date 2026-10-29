@@ -3464,3 +3464,94 @@ Calibration passes every season (decile gaps .0015–.0027). Both groups CONFIRM
 **Sensitivity (pre-declared, reported only):** C_L 0.15 and 0.30 runs recorded in `defense_v5_cl{0.15,0.30}_SEALED.json` — r only, read after the primary verdict, never selected after the fact.
 
 **Shipped: nothing changes.** §81 v3 remains the site's range model. Artifacts: `defense_v5_SEALED.json`, `defense_chances_v5.parquet`, `defense_fielders_v5.csv`, `defense_players_v5.csv`, logs `cache/defense_v5*.log`.
+
+## §99 Prospect model full build, phase 1: wide universe, point-in-time snapshots, pre-registered backtest. Written 2026-10-29 before any outcome read
+
+Phase 1 builds data and design only; no model is scored and no outcome is read beyond row counts. Code:
+`pipeline/prospect_snapshots.py` (feature store), `pipeline/test_prospect_snapshots.py` (leakage test),
+`pipeline/prospect_bayes.py` (NumPyro spec + smoke). Write-up: `docs/prospect-model.md` §1 and §7. Public data only.
+
+### §99a Universe and snapshots
+- **Universe.** Every affiliated MiLB player-season, Rookie (incl. DSL/VSL/complex) to AAA, 2010–19 and 2021–26 (MLB Stats API
+  lines). Mexican League rows (filed under sportId 11 to 2019) are dropped. Listed or not; list state (Top 100 / org list /
+  unlisted) is a feature.
+- **As-of dates.** One `list` snapshot per Pipeline list year: Feb 15 for 2011–25 (the archived lists carry ~no same-year
+  draftees, so they are preseason versions; the date is approximate), Oct 1 for 2026 (the archive holds 130 2026 draftees, so it
+  is post-draft). Plus one `eos` snapshot (Oct 1) per MiLB season for players with a line that season who are not on that year's
+  list. Universe at a date: a line in the last two played seasons and no MLB game yet, or listed.
+- **Size.** 238,718 rows, 36,975 players (142,143 list rows; 96,575 eos rows). List rows: 1,548 Top 100, 11,331 org, 218,061 unlisted
+  across both snapshot types.
+- **Point in time.** Every table has an availability date: season lines and fielding Oct 1 of the season, team→org Mar 1,
+  lists their publication date, draft Jul 20, transactions their date, baked AAA Statcast season files Oct 1. `features_asof`
+  truncates every table to avail ≤ as-of before computing.
+- **Leakage test PASS.** At 2013-02-15, 2019-10-01, 2022-02-15 and 2024-02-15, features from the full store equal features from
+  the store with every later row dropped, and equal features with every later row's numbers scrambled (8,814–9,744 rows each).
+  No target column is in the feature frame.
+
+### §99b Feature catalog (97 columns in 10 families) and availability
+| family | columns | available |
+|---|---|---|
+| level / age / environment | level, age at as-of, age − level-season mean age, league, league R/BF, venue id, PA/BF last season, levels last season, years since last line, career PA/BF, prior MLB PA/BF | all dates; park factors not built (need home/road splits) |
+| rate stats | v0 shrunk level × season z, last season and 2-season blend: hitters K, BB, ISO, BABIP, SB; pitchers K, BB, HR, GB, K−BB; GS share, career IP | all dates |
+| AAA Statcast | hitters EV90, max EV, LA SD, chase, contact, whiff, xwOBAcon, barrel; pitchers Stuff+, K+, Prevention+, whiff, chase, velo, zone contact | seasons 2023+ only, AAA only |
+| promotion speed | level gained last season, levels per pro year, years pro, first season | all dates (season grain; days per level needs 2019+ transactions) |
+| draft | drafted, pick, round, bonus, log pick, years since draft, draft age | picks 2011+ only, bonus 2017+ |
+| Pipeline | list state, Top 100 rank, org rank, org rank / length, position rank, ETA − year, grades | grades: ≤ 43% of org rows 2015–21, ~0 elsewhere, missing not at random and possibly current rather than archival. **Excluded from the frozen spec unless a point-in-time audit passes** |
+| position / defense | main non-pitcher position by games, range factor per 9, error rate, C/SS/CF share | all dates (Stats API fielding, fetched) |
+| health | IL placements last 365 days, career, 60-day placements | transactions start 2019-04; `health_avail` flag. Only 1–5% of rows have any IL row, so coverage looks partial (phase-2 audit) |
+| org | parent org id at the last line | all dates |
+| §88 MLE | AAA/AA hitter K%, BB%, ISO | line seasons 2021+. The factors were fitted on 2021–25 outcomes, so in a backtest they must be refit per fold |
+
+### §99c Targets (built on the snapshot, never features)
+- **Arrival.** `debut_k{1..6}`: first MLB season within k seasons of the first season after the as-of date. Competing risk:
+  `exit`, meaning no line at any level in the two seasons after his last one (both observed). NaN is censored. Snapshots for
+  players who already debuted are excluded from arrival.
+- **Value.** MLB PA (hitters) or BF (pitchers) and Σ §85 WAR over the first 6 control seasons (debut .. debut+5).
+  `ctrl_seasons_obs` and `ctrl_war_seasons_obs` count the observed seasons (§85 covers 2020–26 only). `value_censored` is set
+  when fewer than 6 seasons are observed. B-Ref WAR is never a target.
+
+### §99d Pre-registered backtest (fixed now; read in phase 2)
+- **Scored rows.** `list` snapshots only. `eos` rows are training-only, so no player is scored twice in a year.
+- **Arrival, forward chaining.** Test year Y uses training lists ≤ Y − 4, so every training label (debut_k4) is closed by the
+  test as-of date. Dev test years 2015–2021. **Frozen holdout: lists 2022–2023**, the most recent with k4 observed.
+- **Value, matured cohorts only.** Lists ≤ 2017 (debut within 4 seasons, then 6 control seasons, all by 2026).
+  - No cohort matures inside a strict time-forward window, so training uses lists < Y with every row of a test-year player
+    removed. Labels come from data through 2026. This is a stated deviation from strict time-honesty.
+  - A strict variant is reported beside it, using a surrogate: PA/BF in the first 2 control seasons.
+  - Dev test years 2013–2015. **Frozen holdout: lists 2016–2017.**
+- **Nested CV.** Every choice (feature-family inclusion, shrinkage, LightGBM depth/leaves/rounds, NumPyro priors) is tuned inside
+  the training years only. Inner split: the last two training years as validation, with player-grouped removal.
+- **Feature-family ablation.** Drop one family at a time on the dev folds and report ΔBrier and ΔNDCG. Not a gate. The chosen
+  families are frozen before the holdout.
+- **Metrics.**
+  - Arrival: Brier and log loss (primary), reliability as a 10-bin ECE plus calibration slope and intercept, AUC (reported).
+  - Value: NDCG@100 per list year with gain = control-years full-season equivalents (PA/600, BF/700), and Spearman.
+  - Sleepers: precision@k (k = 25/50/100 per year) among unlisted and org-rank 21–30 rows. Success = ≥ 1.0 FSE in control years.
+- **Baselines.** v0 (§97 M, with unlisted rows given the "unlisted" prior state); B1 (Pipeline + draft + age, logistic); a
+  LightGBM hurdle on every feature (monotone in rank and level).
+- **Holdout gates** (the selected model M vs B1, player-clustered bootstrap with 2,000 draws):
+  - (a) arrival: ΔBrier < 0 with the CI excluding 0, and ECE ≤ 0.02 after out-of-fold Platt/isotonic.
+  - (b) value: ΔNDCG@100 > 0 with the CI excluding 0.
+  - (c) sleepers: precision@50 ≥ B1's on the same pool + 5 pp, with the CI excluding 0.
+  - M must also not lose to the LightGBM hurdle on (a) or (b). If it does, the simpler winner is the model.
+- **Kill.** (b) fails: no value ranking ships, and P(MLB) ships only as ETA, labelled "descriptive, not a forecast".
+  (c) fails: no sleeper board. The holdout is read once. Every spec tried in dev is logged.
+
+### §99e NumPyro latent-skill model: spec and smoke test (no gate read)
+- **Spec** (`prospect_bayes.py`, hitters; pitchers mirror it with K, BB, HR, GB):
+  - Latent skill θ[i,t,s] for K, BB+HBP and HR per PA. A random walk over the player's seasons with an age drift, org development
+    slopes, and a draft/age prior on θ₀.
+  - Each MiLB line is binomial on θ + level × season + league effects.
+  - List state is an ordered logit on θ_last, with noise by level.
+  - Outcome hurdle: debut_k4 Bernoulli. Then log1p control-years PA Normal, with right-censored rows entering as log P(Y > y).
+- **Smoke run.** 1,361 hitters (2014–16 lists, half listed), 3,503 lines, AutoNormal SVI for 2,000 steps in 25 s, 2 threads.
+  - Loss 1.83M → 37.8k, finite. Signs are sane: rank weight on K −0.57, BB +0.87, HR +0.78; debut weight on K −1.29, BB +0.76,
+    HR +0.63. corr(θ₀_K, raw K%) = 0.87.
+- **Seen in the smoke (fix in phase 2).**
+  - mu, drift and the level × season effects are only weakly identified: BB/HR mu drift far from their priors. Fix: a
+    sum-to-zero or AAA anchor on λ.
+  - sd_org for K (≈1.0) is implausibly large. Fix: org slopes on the drift only, with a tighter prior.
+  - NUTS is needed to check the SVI posteriors.
+
+**Handling flag on §97 (found here).** v0's `eb_features` used the 2010–19 AAA lines with the Mexican League included (about 6,100
+lines), which distorted the AAA level × season means. §97's numbers stand as run. The phase-2 v0 baseline uses the corrected lines.

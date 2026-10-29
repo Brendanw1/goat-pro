@@ -39,6 +39,23 @@ weights are fit to MLB arrival. Its inputs are college TrackMan, so none of its 
 - **Comps (Tier 4, 10-dim nearest neighbour).** Deferred to the full build: comps need the same EB features.
 - **Platt calibration.** Report calibration for P(MLB) before showing any probability.
 
+### MLB_Draft_Model code review (§99, 2026-10-29; methods only, its NCAA data is not used)
+I read the training scripts in `vt_baseball/MLB_Draft_Model/scripts` and ran none of them.
+
+| tier | code | what it does | what we reuse |
+|---|---|---|---|
+| 2 Platt | `train_tier2_full.py` | `CalibratedClassifierCV(XGB, sigmoid, cv=5)` fit on all rows. The internal CV is stratified, not grouped by player. Calibrated output is never scored on held-out data, and the year-out check is a stub. | The GBM plus sigmoid recipe, with Platt fit on out-of-fold predictions from time-ordered, player-grouped folds, and Brier plus reliability reported. |
+| 3 prior offset | `train_tier3_mlb_arrival.py` | Elastic-net logistic. The round prior is an ordinary feature, not an offset. It is computed on all rows, so it includes each player's own label. The neighbour rate leaks across folds. Inputs are unscaled. 2024+ draftees are labelled 0 although they are censored. | The idea: model the deviation from a strong prior. We pass the prior as a true offset (or recompute it per fold), scale inputs, and use censoring-aware labels. |
+| 4 comps | `export_frontend_data.py` (comp section) | Equal-weight Euclidean distance on z-scores. Correlated rate stats are counted several times, volume stats are included, missing values are set to 0, and there is no context adjustment. | A display layer only: level- and age-adjusted skill z, no volume dimensions, Mahalanobis or PCA distance. |
+| 5 hurdle + value | `train_tier5_hurdle.py`, `train_tier5_value.py` | Hurdle on WAR > 2 (33 positives); value is a random forest on signed log WAR. The two are never combined, and the held-out 2022–23 WAR is censored. | The hurdle shape P(reach) × E[value \| reach], and the "beat the median baseline" kill gate. |
+| backtest | `backtest_tier5.py` | Claims a 2015–20 cohort but reads the censored 2023 class. Missing WAR is turned into 0. The hurdle is thresholded at a different label than it was trained on, and errors are swallowed. | Nothing as code. |
+
+**Lessons carried into §99:**
+- Priors and neighbour features are rebuilt inside each fold.
+- Labels carry censoring flags.
+- Calibration is judged out of fold on a future cohort.
+- Volume never enters a similarity metric.
+
 ## 2. Data audit (goat-pro public data)
 | input | coverage | notes |
 |---|---|---|
@@ -270,3 +287,38 @@ bottleneck is **outcome lag**: true value takes 3–6 years to mature.
 - v0 drew on the draft model's README only. The full build reviews `vt_baseball/MLB_Draft_Model` code itself (the five-tier
   Draft Intelligence project, not the older Streamlit dashboard in `mlb-draft-model-main/`): Tier 2 Platt calibration, the
   Tier 3 prior-offset Elastic Net, the Tier 4 comps, and the Tier 5 hurdle and its backtest.
+
+## 7. Full build, phase 1 (§99, 2026-10-29): data and design, no model scored
+
+Pre-registration, catalog and smoke test: `pipeline/RESULTS-MLB.md` §99.
+- **Feature store.** `pipeline/prospect_snapshots.py` writes `data/milb/prospect_snapshots.parquet`: 238,718 player × as-of rows,
+  36,975 players, 97 feature columns plus targets. Rebuild time is about 1.5 min.
+  - It covers every affiliated MiLB player 2010–26, listed or not.
+  - `--fetch` adds Stats API team→org/league/venue (`team_orgs.parquet`) and MiLB fielding (`fielding.parquet`).
+- **Leakage test.** `pipeline/test_prospect_snapshots.py` drops, then scrambles, every row after the as-of date. The features
+  must not change. It passes on four dates.
+- **NumPyro.** `pipeline/prospect_bayes.py --smoke` (run with `~/.venvs/goat-bayes/bin/python`) is the latent-skill
+  state-space model, smoke-tested with SVI.
+- **Known gaps.**
+  - No MiLB season in 2020.
+  - Short-season A ends in 2019.
+  - The Mexican League is dropped.
+  - No park factors (they need home/road splits).
+  - Bonus starts in 2017, picks in 2011.
+  - Transactions (health) start in 2019 and look partial.
+  - Pipeline grades are sparse and maybe not archival.
+  - AAA Statcast covers 2023+ only.
+  - The §88 factors must be refit per fold.
+
+### Phase 2 (needs the compute lock released)
+1. Fix the identification issues the smoke test found (anchor λ, org slopes on drift only). Add the pitcher block.
+2. Fit the baselines on the §99d folds: v0 on the corrected lines, B1, and the LightGBM hurdle.
+3. Run the feature-family ablation.
+4. Fit NumPyro on the dev folds and freeze the spec.
+5. Read the holdout once.
+
+**Compute estimate.**
+- LightGBM hurdle: nested folds × 7 dev years at about 140k rows, roughly 10–20 min at 2 threads.
+- NumPyro SVI: about 15k hitters plus 15k pitchers per fold, roughly 5–10 min per fold, so 1–2 h for the dev folds.
+- NUTS on the frozen spec: one fit, several hours at nice +10. A subsample check runs first.
+- Memory stays under 4 GB if lines are padded per fold.
