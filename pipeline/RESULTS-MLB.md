@@ -2355,3 +2355,24 @@ The 2023–25-only re-runs agree: not confirmed for T1 and T2, FF and SI. Soft-a
 **Expected.** The dev lean (about +0.2 runs/100 at the top) sits below the C2 bar, so CONFIRMED is unlikely; the live question is whether C1 holds (real but immaterial) or the lean was noise. Sealed is about a fifth of the pitchers, so the top-velocity cell's CI will be roughly ±0.4 runs/100.
 
 **Read once** (`pipeline/fb_velo_residual.py`, code written and demo-checked before the read). **If CONFIRMED:** a separate pre-registration for the fix (a velocity feature check in Pitching+'s FF model, re-gated on the §47 judge), never a hand adjustment. **If not:** a data vs handling vs modeling diagnosis; Pitching+ stays as is.
+
+### §84 result (read once, 2026-10-28)
+
+`fb_velo_residual.py` on sealed pitchers' 2021–25 pitches (`results/fb_velo_residual_84.json`). Verdict rule as registered. Residual in runs per 100 pitches, pitcher-favourable positive.
+
+| | C1: slope on velo_z, per SD [95% pitcher-cluster CI] | C2: mean residual, FF ≥ 97 mph | verdict |
+|---|---|---|---|
+| **Sealed FF** (219,397 pitches; 294 pitchers) | +0.031 [−0.052, +0.111] (MDE 0.117) | +0.35 [+0.14, +0.53], n 28,830 | **NOT CONFIRMED** |
+| Sealed SI (reported) | +0.047 [−0.118, +0.169] | +0.05 [−0.33, +0.43] | not confirmed |
+| Dev FF (reference, not judged) | +0.065 [+0.015, +0.112] | +0.20 [+0.07, +0.32] | (would read "real but immaterial") |
+
+Steepness-controlled slope on sealed FF: +0.016 [−0.075, +0.103]. ≥ 97 by season, sealed FF: +0.06, +0.43, +0.31, +0.34, +0.49.
+
+**Read.** Pitching+ does not under-credit velocity on the held-out pitchers. The ≥ 97 residual is positive and its CI clears 0, but it is below the 0.5 bar, and the 1-mph bins show why: every velocity bin of sealed four-seamers sits about +0.1 to +0.5 runs/100 (≤ 91: +0.16; 95: +0.35; 97: +0.52; 98: −0.03; ≥ 100: +0.36), with no rise from slow to hard. That is a level offset on these pitchers' four-seamers as a whole, not a velocity effect. The dev slope (+0.065 per SD, CI above 0) did not replicate.
+
+**Diagnosis (gate-failure rule).**
+- Data: sealed is a fifth of the pitchers. The slope's MDE (0.117 per SD) is about twice the dev estimate, so a true effect of the dev size could not have been confirmed here. A null on C1 is "not detectable", not "no effect"; even if real, the dev size is ~0.07 runs/100 per SD of velocity, about 1 run a season for a hard thrower.
+- Handling: same residual code as §83 T2; the synthetic demo recovers a planted slope and rejects a null.
+- Modeling: the FF-wide offset (four-seamers slightly better than Pitching+ says, at every velocity) is the only thing worth a look. It moves FF against other pitch types, not hard against soft FF. Not acted on here; noted for the next Pitching+ calibration check.
+
+**Ships:** nothing. Pitching+ is unchanged.

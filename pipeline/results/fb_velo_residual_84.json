@@ -1,0 +1,486 @@
+{
+ "seasons": [
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ],
+ "sealed": {
+  "FF": {
+   "n_pitches": 219397,
+   "n_pitchers": 294,
+   "C1_slope_per100_per_sd": 0.031,
+   "C1_ci": [
+    -0.052,
+    0.111
+   ],
+   "C1": false,
+   "slope_mde_80pct_per100": 0.117,
+   "slope_steep_controlled_per100": 0.016,
+   "slope_steep_controlled_ci": [
+    -0.075,
+    0.103
+   ],
+   "C2_ge97_per100": 0.347,
+   "C2_ci": [
+    0.142,
+    0.531
+   ],
+   "C2_n": 28830,
+   "C2": false,
+   "ge97_by_season": {
+    "2021": {
+     "n": 4962,
+     "r_per100": 0.063
+    },
+    "2022": {
+     "n": 5248,
+     "r_per100": 0.426
+    },
+    "2023": {
+     "n": 4856,
+     "r_per100": 0.306
+    },
+    "2024": {
+     "n": 5296,
+     "r_per100": 0.338
+    },
+    "2025": {
+     "n": 8468,
+     "r_per100": 0.493
+    }
+   },
+   "grid_velo": [
+    {
+     "vb": 0,
+     "one": 0,
+     "n": 46495,
+     "obs": 0.0016,
+     "thin": false
+    },
+    {
+     "vb": 1,
+     "one": 0,
+     "n": 23501,
+     "obs": 0.0032,
+     "thin": false
+    },
+    {
+     "vb": 2,
+     "one": 0,
+     "n": 29499,
+     "obs": 0.0023,
+     "thin": false
+    },
+    {
+     "vb": 3,
+     "one": 0,
+     "n": 33224,
+     "obs": 0.0001,
+     "thin": false
+    },
+    {
+     "vb": 4,
+     "one": 0,
+     "n": 32442,
+     "obs": 0.0035,
+     "thin": false
+    },
+    {
+     "vb": 5,
+     "one": 0,
+     "n": 25406,
+     "obs": 0.0025,
+     "thin": false
+    },
+    {
+     "vb": 6,
+     "one": 0,
+     "n": 15182,
+     "obs": 0.0052,
+     "thin": false
+    },
+    {
+     "vb": 7,
+     "one": 0,
+     "n": 7771,
+     "obs": -0.0003,
+     "thin": false
+    },
+    {
+     "vb": 8,
+     "one": 0,
+     "n": 3090,
+     "obs": 0.0044,
+     "thin": false
+    },
+    {
+     "vb": 9,
+     "one": 0,
+     "n": 2787,
+     "obs": 0.0036,
+     "thin": false
+    }
+   ],
+   "verdict": "NOT CONFIRMED"
+  },
+  "SI": {
+   "n_pitches": 97673,
+   "n_pitchers": 224,
+   "C1_slope_per100_per_sd": 0.047,
+   "C1_ci": [
+    -0.118,
+    0.169
+   ],
+   "C1": false,
+   "slope_mde_80pct_per100": 0.205,
+   "slope_steep_controlled_per100": 0.003,
+   "slope_steep_controlled_ci": [
+    -0.162,
+    0.134
+   ],
+   "C2_ge97_per100": 0.054,
+   "C2_ci": [
+    -0.33,
+    0.427
+   ],
+   "C2_n": 11274,
+   "C2": false,
+   "ge97_by_season": {
+    "2021": {
+     "n": 2247,
+     "r_per100": -0.595
+    },
+    "2022": {
+     "n": 2581,
+     "r_per100": -0.047
+    },
+    "2023": {
+     "n": 2321,
+     "r_per100": 0.348
+    },
+    "2024": {
+     "n": 1882,
+     "r_per100": 0.806
+    },
+    "2025": {
+     "n": 2243,
+     "r_per100": -0.116
+    }
+   },
+   "grid_velo": [
+    {
+     "vb": 0,
+     "one": 0,
+     "n": 31639,
+     "obs": -0.0017,
+     "thin": false
+    },
+    {
+     "vb": 1,
+     "one": 0,
+     "n": 12672,
+     "obs": -0.0008,
+     "thin": false
+    },
+    {
+     "vb": 2,
+     "one": 0,
+     "n": 13054,
+     "obs": -0.0036,
+     "thin": false
+    },
+    {
+     "vb": 3,
+     "one": 0,
+     "n": 11477,
+     "obs": 0.0004,
+     "thin": false
+    },
+    {
+     "vb": 4,
+     "one": 0,
+     "n": 9735,
+     "obs": -0.0014,
+     "thin": false
+    },
+    {
+     "vb": 5,
+     "one": 0,
+     "n": 7822,
+     "obs": -0.0029,
+     "thin": false
+    },
+    {
+     "vb": 6,
+     "one": 0,
+     "n": 5617,
+     "obs": -0.0002,
+     "thin": false
+    },
+    {
+     "vb": 7,
+     "one": 0,
+     "n": 3328,
+     "obs": 0.0004,
+     "thin": false
+    },
+    {
+     "vb": 8,
+     "one": 0,
+     "n": 1487,
+     "obs": 0.0012,
+     "thin": false
+    },
+    {
+     "vb": 9,
+     "one": 0,
+     "n": 842,
+     "obs": 0.0049,
+     "thin": true
+    }
+   ],
+   "verdict": "NOT CONFIRMED"
+  }
+ },
+ "dev_reference": {
+  "FF": {
+   "n_pitches": 945983,
+   "n_pitchers": 1207,
+   "C1_slope_per100_per_sd": 0.065,
+   "C1_ci": [
+    0.015,
+    0.112
+   ],
+   "C1": true,
+   "slope_mde_80pct_per100": 0.068,
+   "slope_steep_controlled_per100": 0.056,
+   "slope_steep_controlled_ci": [
+    0.006,
+    0.107
+   ],
+   "C2_ge97_per100": 0.195,
+   "C2_ci": [
+    0.072,
+    0.319
+   ],
+   "C2_n": 114192,
+   "C2": false,
+   "ge97_by_season": {
+    "2021": {
+     "n": 17798,
+     "r_per100": 0.006
+    },
+    "2022": {
+     "n": 20413,
+     "r_per100": 0.286
+    },
+    "2023": {
+     "n": 22664,
+     "r_per100": 0.142
+    },
+    "2024": {
+     "n": 24567,
+     "r_per100": 0.171
+    },
+    "2025": {
+     "n": 28750,
+     "r_per100": 0.309
+    }
+   },
+   "grid_velo": [
+    {
+     "vb": 0,
+     "one": 0,
+     "n": 166418,
+     "obs": -0.0002,
+     "thin": false
+    },
+    {
+     "vb": 1,
+     "one": 0,
+     "n": 123415,
+     "obs": 0.0008,
+     "thin": false
+    },
+    {
+     "vb": 2,
+     "one": 0,
+     "n": 154160,
+     "obs": 0.0004,
+     "thin": false
+    },
+    {
+     "vb": 3,
+     "one": 0,
+     "n": 156769,
+     "obs": 0.001,
+     "thin": false
+    },
+    {
+     "vb": 4,
+     "one": 0,
+     "n": 133508,
+     "obs": 0.0021,
+     "thin": false
+    },
+    {
+     "vb": 5,
+     "one": 0,
+     "n": 97521,
+     "obs": 0.0015,
+     "thin": false
+    },
+    {
+     "vb": 6,
+     "one": 0,
+     "n": 60605,
+     "obs": 0.002,
+     "thin": false
+    },
+    {
+     "vb": 7,
+     "one": 0,
+     "n": 32154,
+     "obs": 0.0014,
+     "thin": false
+    },
+    {
+     "vb": 8,
+     "one": 0,
+     "n": 14135,
+     "obs": 0.0032,
+     "thin": false
+    },
+    {
+     "vb": 9,
+     "one": 0,
+     "n": 7298,
+     "obs": 0.0014,
+     "thin": false
+    }
+   ],
+   "verdict": "real but immaterial"
+  },
+  "SI": {
+   "n_pitches": 450137,
+   "n_pitchers": 918,
+   "C1_slope_per100_per_sd": -0.001,
+   "C1_ci": [
+    -0.086,
+    0.078
+   ],
+   "C1": false,
+   "slope_mde_80pct_per100": 0.119,
+   "slope_steep_controlled_per100": -0.005,
+   "slope_steep_controlled_ci": [
+    -0.1,
+    0.076
+   ],
+   "C2_ge97_per100": 0.035,
+   "C2_ci": [
+    -0.183,
+    0.26
+   ],
+   "C2_n": 42476,
+   "C2": false,
+   "ge97_by_season": {
+    "2021": {
+     "n": 7180,
+     "r_per100": -0.112
+    },
+    "2022": {
+     "n": 8337,
+     "r_per100": 0.101
+    },
+    "2023": {
+     "n": 9144,
+     "r_per100": -0.249
+    },
+    "2024": {
+     "n": 7342,
+     "r_per100": 0.401
+    },
+    "2025": {
+     "n": 10473,
+     "r_per100": 0.072
+    }
+   },
+   "grid_velo": [
+    {
+     "vb": 0,
+     "one": 0,
+     "n": 126974,
+     "obs": -0.0005,
+     "thin": false
+    },
+    {
+     "vb": 1,
+     "one": 0,
+     "n": 63404,
+     "obs": -0.0019,
+     "thin": false
+    },
+    {
+     "vb": 2,
+     "one": 0,
+     "n": 67395,
+     "obs": -0.0017,
+     "thin": false
+    },
+    {
+     "vb": 3,
+     "one": 0,
+     "n": 62580,
+     "obs": -0.0021,
+     "thin": false
+    },
+    {
+     "vb": 4,
+     "one": 0,
+     "n": 51261,
+     "obs": -0.0012,
+     "thin": false
+    },
+    {
+     "vb": 5,
+     "one": 0,
+     "n": 36047,
+     "obs": -0.0012,
+     "thin": false
+    },
+    {
+     "vb": 6,
+     "one": 0,
+     "n": 21756,
+     "obs": -0.0001,
+     "thin": false
+    },
+    {
+     "vb": 7,
+     "one": 0,
+     "n": 11852,
+     "obs": 0.0009,
+     "thin": false
+    },
+    {
+     "vb": 8,
+     "one": 0,
+     "n": 5523,
+     "obs": 0.0001,
+     "thin": false
+    },
+    {
+     "vb": 9,
+     "one": 0,
+     "n": 3345,
+     "obs": 0.0017,
+     "thin": false
+    }
+   ],
+   "verdict": "NOT CONFIRMED"
+  }
+ },
+ "verdict": "NOT CONFIRMED"
+}
