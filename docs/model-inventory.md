@@ -43,7 +43,14 @@ In progress (owner, 2026-10-29): MiLB → MLB translation (§88), role conversio
 (§87), would-it-dong across 30 parks (§86), postseason + matchup view, and the
 MLB-unique stats audit for college (`docs/college-port-audit.md`).
 
-Queued for later, in order:
+Queued for later, in order (after the swing program, `docs/swing-program.md`):
+0. **Combined prospect ranking / sleeper model** (owner, 2026-10-29). A hierarchical Bayesian model that pools
+   MiLB lines by level and age (partial pooling across levels, orgs and seasons), the §88 MLEs, AAA Statcast grades,
+   Pipeline ranks and draft slot as priors, and the outcome = MLB arrival and value (our WAR, §85).
+   Research first: the KB, portal-scout's prospect value / translation score, and the MLB_Draft_Model tiers (arrival,
+   comps, hurdle WAR; vt_baseball/MLB_Draft_Model) for what transfers. Then exploration and early
+   tests (matured 2011-19 lists as the backtest; pre-register; sleeper = model rank well above the Pipeline rank
+   that later reached MLB).
 1. Pre-2020 MLB backfill, using the college TrackMan-era methods.
 2. State-space player projections.
 3. Surplus value: projected WAR against salary and control years.
