@@ -3209,7 +3209,7 @@ the IL", a descriptive flag, never a forecast that he will get hurt.
 **Kill / what ships.** Pass (both) → a descriptive drift strip on the Swing tab and a league "bat speed watch" research section.
 Fail → no site surface; recorded here with a data vs handling vs modeling diagnosis.
 
-## §94 Range v4: the responsible fielder's own speed (re-test of §81), pre-registered 2026-10-29 before any read
+## §96 Range v4: the responsible fielder's own speed (re-test of §81), pre-registered 2026-10-29 before any read
 
 **Why.** v3 (§81) uses only the batter's sprint speed (a covariate since §75); the fielder's own speed never enters the model, while Savant's OAA conditions on fielder speed and §81's diagnosis names compressed elite range as the remaining gap. Precedent for the decomposition: the Expected/Actual catch% split of the defense research doc (`BaseballGOAT-scopes/defense-research-doc.md` §5.2–5.3). Fielder identity is on every chance row (`fielder_3..9`), so the join is direct. Step-0 data check (2026-10-29, before this prereg was written, no model output read): the responsible fielder — argmin of §81's own `d_of`/`d_if` — has a `lb_sprint_speed_{s}` row for **97.5–99.5% of plays in every season 2020–2026** (all fielders 3–9: 82–91%; median fill covers the rest).
 
