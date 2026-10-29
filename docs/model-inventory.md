@@ -39,9 +39,18 @@ tables below are the original plan and are kept as written.
 | **WAR** | shipped (r .92 / .81 vs bWAR, team wins r .91) | §85 |
 | Pitch decay / buyback, usage optimizer, count policy, predictability | research only: decay confirmed, the rest no edge | §59–§63 |
 
-Not built yet: state-space projections, MiLB translation matrices, surplus
-value, injury risk, market models, pre-2020 MLB (planned with the TrackMan-era
-methods).
+In progress (owner, 2026-10-29): MiLB → MLB translation (§88), role conversion
+(§87), would-it-dong across 30 parks (§86), postseason + matchup view, and the
+MLB-unique stats audit for college (`docs/college-port-audit.md`).
+
+Queued for later, in order:
+1. Pre-2020 MLB backfill, using the college TrackMan-era methods.
+2. State-space player projections.
+3. Surplus value: projected WAR against salary and control years.
+4. Injury risk.
+5. Market models.
+6. Housekeeping: finish the Savant play-id fetch, then rerun `defense_export.py`
+   and `r2_sync --path defense`. Clearing the npm cache (3.3 GB) is waiting on the owner's OK.
 
 ## A. The college lineage
 
@@ -81,6 +90,8 @@ methods).
 | **Umpire context** | public scorecard data | framing covariate, not a standalone model initially |
 | **Injury/IL risk** | daily roster snapshots + transactions (our feed) | accumulates IL history the longer it runs |
 | **Market-vs-model** | The Odds API (bake-time) | only after grades pass gates; a market benchmark, not a feature |
+
+Which of these MLB-only stats could go back to the college TrackMan site, ranked by value per effort: `docs/college-port-audit.md`.
 
 ## C. Research-sourced candidates (from the KB corpus)
 
