@@ -2886,6 +2886,16 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "decisionPlus": f(decr.decision_plus, 0) if pd.notna(decr.decision_plus) else None}
         from savant_fielding import fielding  # D-16: Savant baserunning / fielding / catcher runs, descriptive
         h_fld = fielding(con, seasons) if level == "mlb" else {}
+        spd_f = ROOT / "pipeline" / "results" / "speed_players.csv"  # D-39: Speed Score + Jump, descriptive
+        h_speed = {}
+        if level == "mlb" and spd_f.exists():
+            for sr in pd.read_csv(spd_f).itertuples():
+                h_speed[(int(sr.id), int(sr.season))] = {
+                    "speedScore": f(sr.speedScore, 1) if pd.notna(sr.speedScore) else None,
+                    "speedSprint": f(sr.sprint, 1) if pd.notna(sr.sprint) else None,
+                    "speedAge": int(sr.age) if pd.notna(sr.age) else None,
+                    "jumpBurst": f(sr.jumpBurst, 1) if pd.notna(sr.jumpBurst) else None,
+                    "jumpRouting": f(sr.jumpRouting, 1) if pd.notna(sr.jumpRouting) else None}
         h_depth = {(int(rr["id"]), int(rr["season"])): {k: f(rr[c], nd) for c, (k, nd) in HD.items() if c in rr}
                    for rr in hd.to_dict("records")}
         def h_line(t) -> dict:
@@ -2954,6 +2964,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             row.update(h_proj.get(key, {}))
             row.update(h_dec.get(key, {}))
             row.update(h_fld.get(key, {}))
+            row.update(h_speed.get(key, {}))
             row["teamSplits"] = h_team_lines.get(key)
             hboard.append(row)
         hj = con.sql(f"""
@@ -3022,7 +3033,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                      "hardHitPct", "barrelPct", "whiffPct", "contactPct", "swingPct",
                      "oSwingPct", "nBip", *dict.fromkeys(k for k, _ in HD.values()),
                      "wobaProj", "kPctProj", "bbPctProj", "drvPer100", "izaPer100", "ozaPer100", "decisionPlus",
-                     "bsrRuns", "xbRuns", "sbRuns", "frvRuns", "oaa", "framingRuns", "blockingRuns", "throwingRuns",
+                     "bsrRuns", "xbRuns", "sbRuns", "speedScore", "frvRuns", "oaa", "framingRuns", "blockingRuns", "throwingRuns",
                      "popTime", "catcherArm"]
         h_pcts = {}
         h_dense = {}
@@ -3266,6 +3277,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 **h_proj.get((pid, season), {}),
                 **h_dec.get((pid, season), {}),
                 **h_fld.get((pid, season), {}),
+                **h_speed.get((pid, season), {}),
                 "percentiles": {},
                 **h_shrunk(t, season),
             }
@@ -4819,6 +4831,14 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                         sav_frv[(int(r_.id), int(s))] = round(float(r_.frv), 1)
             POS_LABEL = {3: "1B", 4: "2B", 5: "3B", 6: "SS", 7: "LF", 8: "CF", 9: "RF"}
             SAV_OF = {"LF", "CF", "RF", "OF"}
+            spd = {}
+            spd_f = ROOT / "pipeline" / "results" / "speed_players.csv"  # D-39: Sprint / Speed Score / Jump burst
+            if spd_f.exists():
+                for sr in pd.read_csv(spd_f).itertuples():
+                    spd[(int(sr.id), int(sr.season))] = {
+                        "sprint": round(float(sr.sprint), 1) if pd.notna(sr.sprint) else None,
+                        "speedScore": round(float(sr.speedScore), 1) if pd.notna(sr.speedScore) else None,
+                        "jumpBurst": round(float(sr.jumpBurst), 1) if pd.notna(sr.jumpBurst) else None}
             rows_out2: dict = {}
             for r_ in dv.itertuples():
                 if r_.chances < 30:
@@ -4831,11 +4851,14 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     if v0 is not None:
                         soaa = v0
                         break
+                sv = spd.get((int(r_.mlbam), int(r_.season)), {})
                 rows_out2.setdefault(str(int(r_.season)), []).append({
                     "id": str(int(r_.mlbam)), "name": names.get(int(r_.mlbam)),
                     "pos": pl, "group": grp, "chances": round(float(r_.chances), 0),
                     "runs": round(float(r_.runs), 1), "oaaOurs": round(float(r_.oaa), 1),
-                    "savOaa": soaa, "savFrv": sav_frv.get((int(r_.mlbam), int(r_.season)))})
+                    "savOaa": soaa, "savFrv": sav_frv.get((int(r_.mlbam), int(r_.season))),
+                    "sprint": sv.get("sprint"), "speedScore": sv.get("speedScore"),
+                    "jumpBurst": sv.get("jumpBurst") if grp == "OF" else None})
             jwrite(out / "defense_index.json", {
                 "_comment": ("league range board: §81's chance model (Savant start positions + hang time, "
                              "game-grouped folds, AUC .94-.95 per season) — runs vs an average fielder at the "

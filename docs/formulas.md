@@ -181,3 +181,19 @@ When a formula changes, update this table and the glossary in the same commit.
   depth (contact swings, then centred within hitter × season × side).
 - Δ = mean residual with two strikes − mean residual at 0–1 strikes. ΔBS 2K (mph), ΔSL (ft), Δ depth (in.), Δ contact (pp).
   Floors: 100 two-strike and 200 other swings. Board column ΔBS 2K = dBS. Descriptive.
+
+## Speed Score (D-39, descriptive)
+
+Mean of the within-season percentile ranks (0-100, among players carrying the component) of:
+
+- **sprint** — Savant sprint speed (ft/s), the anchor and required component;
+- **sb** — stolen-base runs per PA (`lb_baserunning_run_value.runner_runs_SBX`; min 100 PA);
+- **xb** — extra-bases-taken runs per PA (`runner_runs_XB`; min 100 PA);
+- **x3b** — triples per ball in play (site PA/BIP gates; min 50 BIP).
+
+A missing component drops out of the mean. Built by `pipeline/speed_tool.py` from published
+Savant aggregates plus two locally computed rates; PA/BIP use the site's gates (events not
+null, no truncated PA). No gate: the inputs are season aggregates, so no within-season
+split-half exists — reliability is the reported year-to-year stickiness (Speed Score .708,
+sprint .929, 2020-26). Shown on the Savant tab (profiles) and the /defense board beside the
+range runs, per the §100 finding that speed belongs in decomposition views, not in p.

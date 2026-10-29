@@ -245,7 +245,8 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
             : <DefensePanel playerId={playerId} season={profile.season} />
         ) : tab === "savant" ? (
           <PercentilePanel peer={`Baseball Savant's published numbers, ${profile.season} · percentiles among the players Savant lists`} toggle={null}>
-                <PercentileGroup title={<>Speed and baserunning <span className="font-normal text-text-dim">· Savant</span></>} rows={[
+                <PercentileGroup title={<>Speed and baserunning <span className="font-normal text-text-dim">· Savant + ours</span></>} rows={[
+                  statRow("hitter", "speedScore", "Speed score (ours, D-39)", profile.speedScore, (v) => v.toFixed(1), seasonBp?.speedScore),
                   statRow("hitter", "sprintSpeed", "Sprint speed", profile.sprintSpeed, (v) => v.toFixed(2), seasonBp?.sprintSpeed),
                   statRow("hitter", "bsrRuns", "Baserunning runs", profile.bsrRuns, (v) => signedFixed(v, 2), seasonBp?.bsrRuns),
                   statRow("hitter", "xbRuns", "Extra bases", profile.xbRuns, (v) => signedFixed(v, 2), seasonBp?.xbRuns),

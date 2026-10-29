@@ -22,6 +22,9 @@ const COLS = [
   { key: "oaaOurs", label: "OAA (ours)" },
   { key: "savOaa", label: "OAA (Savant)" },
   { key: "savFrv", label: "FRV (Savant)" },
+  { key: "speedScore", label: "SpdSc" },
+  { key: "sprint", label: "Sprint (Sav)" },
+  { key: "jumpBurst", label: "Jump burst (Sav)" },
   { key: "chances", label: "Chances" },
 ];
 
@@ -69,6 +72,11 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
           {" "}Known gap, measured (RESULTS-MLB §97/§100): our numbers <em>compress elite range</em> — Savant grades
           per-play positioning and routes that public data does not carry, so the best outfielders show lower here
           than there (hover a Savant OAA cell on a big gap). The ordering is the signal, not the scale.
+        </span>
+        <span className="text-text-secondary">
+          {" "}Speed columns (D-39, descriptive): SpdSc is our Speed Score from public inputs — Savant sprint speed,
+          stolen-base and extra-base runs per PA, triples per ball in play, each ranked within the season (YoY .71) —
+          Sprint and Jump burst are Savant&apos;s published numbers, shown beside ours per §100.
         </span>
       </p>
       <div className="flex flex-wrap items-center gap-2">
@@ -123,6 +131,45 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
           <span>rows link the profile Defense tab</span>
         </div>
       </div>
+      <SpeedScatter rows={rows} />
+    </div>
+  );
+}
+
+/** D-39: Speed Score vs our OAA for the season's fielders with both — the speed-tool story at a glance. */
+function SpeedScatter({ rows }: { rows: any[] }) {
+  const W = 560, H = 260, PL = 40, PR = 16, PT = 14, PB = 30;
+  const pts = rows.filter((r) => typeof r.speedScore === "number" && typeof r.oaaOurs === "number");
+  if (pts.length < 20) return null;
+  const xs = pts.map((r) => r.speedScore), ys = pts.map((r) => r.oaaOurs);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(0, ...ys), y1 = Math.max(...ys) + 1;
+  const sx = (v: number) => PL + ((v - x0) / Math.max(1e-9, x1 - x0)) * (W - PL - PR);
+  const sy = (v: number) => PT + (1 - (v - y0) / (y1 - y0)) * (H - PT - PB);
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  const b = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / Math.max(1e-9, xs.reduce((s, x) => s + (x - mx) ** 2, 0));
+  const a = my - b * mx;
+  const sdx = Math.sqrt(xs.reduce((s, x) => s + (x - mx) ** 2, 0) / n), sdy = Math.sqrt(ys.reduce((s, y) => s + (y - my) ** 2, 0) / n);
+  const r = b * sdx / Math.max(1e-9, sdy); // Pearson r from the OLS slope: r = slope · sd(x) / sd(y)
+  const yTick = [y0, (y0 + y1) / 2, y1];
+  return (
+    <div className="glass-panel p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-text-primary">Speed Score vs our OAA</h2>
+        <span className="text-[10px] text-text-dim">{n} fielder-seasons · slope {b.toFixed(2)} OAA per SpdSc point · r {r.toFixed(2)} · descriptive</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[720px]" role="img" aria-label="Speed Score against our outs above average">
+        <line x1={PL} x2={W - PR} y1={sy(0)} y2={sy(0)} stroke="rgba(255,255,255,0.15)" />
+        {yTick.map((v) => <text key={v} x={PL - 5} y={sy(v) + 3} textAnchor="end" fontSize={8} fill="#5d6577">{v.toFixed(0)}</text>)}
+        <line x1={sx(x0)} y1={sy(a + b * x0)} x2={sx(x1)} y2={sy(a + b * x1)} stroke="rgba(227,179,65,0.7)" strokeDasharray="4 3" />
+        {pts.map((p) => <circle key={`${p.id}-${p.pos}`} cx={sx(p.speedScore)} cy={sy(p.oaaOurs)} r={2.2}
+          fill={p.group === "OF" ? "#e3b341" : "#7da1c4"} opacity={0.75} />)}
+        <text x={(PL + W - PR) / 2} y={H - 4} textAnchor="middle" fontSize={8} fill="#5d6577">Speed Score (0-100, within-season percentiles: sprint · SB runs/PA · XB runs/PA · 3B/BIP) →</text>
+        <text x={10} y={PT + 6} fontSize={8} fill="#5d6577">OAA (ours)</text>
+      </svg>
+      <p className="text-[10px] text-text-dim">gold = outfielders, blue = infielders; dashed = league trend. Speed Score is
+        descriptive (RESULTS-MLB has no gate; year-to-year stickiness .71) — speed shows up in range, and the
+        above-trend dots at the right edge are the range seasons our model can partially but not fully explain.</p>
     </div>
   );
 }
