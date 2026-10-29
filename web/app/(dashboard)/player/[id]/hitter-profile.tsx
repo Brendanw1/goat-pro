@@ -24,6 +24,7 @@ import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { SeasonArc } from "@/components/ui/season-arc";
 import { YoYDelta } from "@/components/ui/yoy-delta";
 import { SprayPanel } from "@/components/ui/spray-panel";
+import { DongPanel } from "@/components/ui/dong-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
 import { SwingTab } from "@/components/ui/swing-tab";
@@ -481,6 +482,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
               </div>
 
               <SprayPanel data={spray} refs={sprayRefs} season={profile.season} bats={profile.bats} />
+              {level !== "aaa" && <DongPanel playerId={playerId} season={profile.season} />}
               <ScoutingCard data={scouting} />
               <div className="glass-panel p-4">
                 <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">What this profile is</h2>

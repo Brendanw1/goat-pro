@@ -1,0 +1,183 @@
+# Fence distance (ft) and wall height (ft) by spray angle for the 30 current (2026) MLB parks, RESULTS-MLB §86.
+# angle: degrees from straightaway center, -45 = LF line, +45 = RF line (catcher's view). Linear interpolation between knots.
+# Source: published outfield dimensions (Wikipedia ballpark infoboxes, which cite the clubs' ballpark pages, read 2026-10-29)
+# and published wall heights (same pages / club fact sheets). Knot angles for LCF/RCF/alley points are the conventional
+# 22.5 deg unless the park lists more points. elev_ft: field elevation, for the air-density adjustment.
+# Approximate: real walls are curves with many height changes; the gate in §86 measures how much that costs.
+venue_id,park,elev_ft,angle,dist_ft,wall_ft
+1,Angel Stadium,160,-45,347,8
+1,Angel Stadium,160,-22.5,390,8
+1,Angel Stadium,160,0,396,8
+1,Angel Stadium,160,15,370,18
+1,Angel Stadium,160,30,365,18
+1,Angel Stadium,160,45,350,18
+2,Oriole Park at Camden Yards,30,-45,333,13
+2,Oriole Park at Camden Yards,30,-33,373,13
+2,Oriole Park at Camden Yards,30,-22.5,376,13
+2,Oriole Park at Camden Yards,30,-12,410,7
+2,Oriole Park at Camden Yards,30,0,400,7
+2,Oriole Park at Camden Yards,30,22.5,373,7
+2,Oriole Park at Camden Yards,30,32,350,21
+2,Oriole Park at Camden Yards,30,45,318,21
+3,Fenway Park,20,-45,310,37
+3,Fenway Park,20,-30,335,37
+3,Fenway Park,20,-14,379,37
+3,Fenway Park,20,-8,390,17
+3,Fenway Park,20,10,420,5
+3,Fenway Park,20,25,380,5
+3,Fenway Park,20,35,350,5
+3,Fenway Park,20,45,302,5
+4,Rate Field,595,-45,330,8
+4,Rate Field,595,-22.5,375,8
+4,Rate Field,595,0,400,8
+4,Rate Field,595,22.5,375,8
+4,Rate Field,595,45,335,8
+5,Progressive Field,650,-45,325,19
+5,Progressive Field,650,-22.5,370,19
+5,Progressive Field,650,-8,410,9
+5,Progressive Field,650,0,400,9
+5,Progressive Field,650,22.5,375,9
+5,Progressive Field,650,45,325,9
+7,Kauffman Stadium,750,-45,330,8.5
+7,Kauffman Stadium,750,-22.5,379,8.5
+7,Kauffman Stadium,750,0,410,8.5
+7,Kauffman Stadium,750,22.5,379,8.5
+7,Kauffman Stadium,750,45,330,8.5
+12,Tropicana Field,40,-45,315,11
+12,Tropicana Field,40,-22.5,370,10
+12,Tropicana Field,40,0,404,10
+12,Tropicana Field,40,22.5,370,10
+12,Tropicana Field,40,45,322,10
+14,Rogers Centre,270,-45,328,12
+14,Rogers Centre,270,-30,368,12
+14,Rogers Centre,270,-20,381,12
+14,Rogers Centre,270,0,400,12
+14,Rogers Centre,270,20,372,12
+14,Rogers Centre,270,30,359,12
+14,Rogers Centre,270,45,328,12
+15,Chase Field,1090,-45,330,8
+15,Chase Field,1090,-25,374,8
+15,Chase Field,1090,-12,413,8
+15,Chase Field,1090,0,407,25
+15,Chase Field,1090,12,413,8
+15,Chase Field,1090,25,374,8
+15,Chase Field,1090,45,334,8
+17,Wrigley Field,595,-45,355,15
+17,Wrigley Field,595,-35,360,11.5
+17,Wrigley Field,595,-22.5,368,11.5
+17,Wrigley Field,595,0,400,11.5
+17,Wrigley Field,595,22.5,368,11.5
+17,Wrigley Field,595,35,358,11.5
+17,Wrigley Field,595,45,353,15
+19,Coors Field,5200,-45,347,8
+19,Coors Field,5200,-22.5,390,8
+19,Coors Field,5200,0,415,8
+19,Coors Field,5200,22.5,375,14
+19,Coors Field,5200,45,350,14
+22,Dodger Stadium,340,-45,330,8
+22,Dodger Stadium,340,-30,360,8
+22,Dodger Stadium,340,-20,375,8
+22,Dodger Stadium,340,0,395,8
+22,Dodger Stadium,340,20,375,8
+22,Dodger Stadium,340,30,360,8
+22,Dodger Stadium,340,45,330,8
+31,PNC Park,730,-45,325,6
+31,PNC Park,730,-25,383,6
+31,PNC Park,730,-12,410,6
+31,PNC Park,730,0,399,10
+31,PNC Park,730,22.5,375,10
+31,PNC Park,730,32,350,21
+31,PNC Park,730,45,320,21
+32,American Family Field,635,-45,344,8
+32,American Family Field,635,-22.5,371,8
+32,American Family Field,635,0,400,8
+32,American Family Field,635,22.5,374,8
+32,American Family Field,635,45,345,8
+680,T-Mobile Park,20,-45,331,8
+680,T-Mobile Park,20,-22.5,378,8
+680,T-Mobile Park,20,0,401,8
+680,T-Mobile Park,20,22.5,381,8
+680,T-Mobile Park,20,45,326,8
+2392,Daikin Park,40,-45,315,19
+2392,Daikin Park,40,-30,335,19
+2392,Daikin Park,40,-20,366,19
+2392,Daikin Park,40,-12,399,10
+2392,Daikin Park,40,0,409,10
+2392,Daikin Park,40,12,408,10
+2392,Daikin Park,40,22.5,370,7
+2392,Daikin Park,40,45,326,7
+2394,Comerica Park,600,-45,342,7
+2394,Comerica Park,600,-22.5,370,7
+2394,Comerica Park,600,0,412,7
+2394,Comerica Park,600,22.5,365,7
+2394,Comerica Park,600,45,330,8
+2395,Oracle Park,10,-45,339,8
+2395,Oracle Park,10,-35,354,8
+2395,Oracle Park,10,-20,399,8
+2395,Oracle Park,10,0,391,10
+2395,Oracle Park,10,15,415,20
+2395,Oracle Park,10,28,365,24
+2395,Oracle Park,10,45,309,24
+2529,Sutter Health Park,25,-45,330,10
+2529,Sutter Health Park,25,-22.5,380,10
+2529,Sutter Health Park,25,0,403,10
+2529,Sutter Health Park,25,22.5,375,10
+2529,Sutter Health Park,25,45,325,10
+2602,Great American Ball Park,490,-45,328,12
+2602,Great American Ball Park,490,-22.5,379,12
+2602,Great American Ball Park,490,0,404,8
+2602,Great American Ball Park,490,22.5,370,8
+2602,Great American Ball Park,490,45,325,8
+2680,Petco Park,20,-45,334,8
+2680,Petco Park,20,-30,357,8
+2680,Petco Park,20,-15,390,8
+2680,Petco Park,20,0,396,8
+2680,Petco Park,20,22.5,391,8
+2680,Petco Park,20,45,322,8
+2681,Citizens Bank Park,20,-45,329,11
+2681,Citizens Bank Park,20,-30,374,11
+2681,Citizens Bank Park,20,-12,409,11
+2681,Citizens Bank Park,20,0,401,6
+2681,Citizens Bank Park,20,22.5,369,13
+2681,Citizens Bank Park,20,45,330,13
+2889,Busch Stadium,455,-45,336,8
+2889,Busch Stadium,455,-22.5,375,8
+2889,Busch Stadium,455,0,400,8
+2889,Busch Stadium,455,22.5,375,8
+2889,Busch Stadium,455,45,335,8
+3289,Citi Field,10,-45,335,8
+3289,Citi Field,10,-30,358,8
+3289,Citi Field,10,-18,385,8
+3289,Citi Field,10,0,408,8
+3289,Citi Field,10,22.5,375,8
+3289,Citi Field,10,45,330,8
+3309,Nationals Park,25,-45,336,8
+3309,Nationals Park,25,-22.5,377,8
+3309,Nationals Park,25,0,402,8
+3309,Nationals Park,25,22.5,370,14
+3309,Nationals Park,25,45,335,14
+3312,Target Field,830,-45,339,8
+3312,Target Field,830,-22.5,377,8
+3312,Target Field,830,0,404,8
+3312,Target Field,830,22.5,367,23
+3312,Target Field,830,45,328,23
+3313,Yankee Stadium,55,-45,318,8
+3313,Yankee Stadium,55,-22.5,399,8
+3313,Yankee Stadium,55,0,408,8
+3313,Yankee Stadium,55,22.5,385,8
+3313,Yankee Stadium,55,45,314,8
+4169,loanDepot park,10,-45,344,9
+4169,loanDepot park,10,-22.5,384,9
+4169,loanDepot park,10,0,400,9
+4169,loanDepot park,10,22.5,387,9
+4169,loanDepot park,10,45,335,9
+4705,Truist Park,1050,-45,335,6
+4705,Truist Park,1050,-22.5,385,8
+4705,Truist Park,1050,0,400,8
+4705,Truist Park,1050,22.5,375,16
+4705,Truist Park,1050,45,325,16
+5325,Globe Life Field,550,-45,329,8
+5325,Globe Life Field,550,-22.5,372,8
+5325,Globe Life Field,550,0,407,8
+5325,Globe Life Field,550,22.5,374,8
+5325,Globe Life Field,550,45,326,8

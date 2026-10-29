@@ -1,0 +1,269 @@
+{
+ "a_own_park": {
+  "n": 74819,
+  "acc": 0.9648,
+  "recall": 0.9115,
+  "precision": 0.9213,
+  "hr": 15805,
+  "pred": 15637
+ },
+ "a_naive": {
+  "n": 74819,
+  "acc": 0.9296,
+  "recall": 0.9773,
+  "precision": 0.759,
+  "hr": 15805,
+  "pred": 20353
+ },
+ "a_per_park": {
+  "Angel Stadium": {
+   "n": 2797,
+   "acc": 0.9693,
+   "recall": 0.9366,
+   "precision": 0.9337,
+   "hr": 662,
+   "pred": 664
+  },
+  "Oriole Park at Camden Yards": {
+   "n": 1007,
+   "acc": 0.9513,
+   "recall": 0.864,
+   "precision": 0.9163,
+   "hr": 228,
+   "pred": 215
+  },
+  "Fenway Park": {
+   "n": 2840,
+   "acc": 0.9201,
+   "recall": 0.9021,
+   "precision": 0.7467,
+   "hr": 562,
+   "pred": 679
+  },
+  "Rate Field": {
+   "n": 2652,
+   "acc": 0.9793,
+   "recall": 0.9519,
+   "precision": 0.9535,
+   "hr": 582,
+   "pred": 581
+  },
+  "Progressive Field": {
+   "n": 2674,
+   "acc": 0.9693,
+   "recall": 0.89,
+   "precision": 0.9457,
+   "hr": 509,
+   "pred": 479
+  },
+  "Tropicana Field": {
+   "n": 1788,
+   "acc": 0.967,
+   "recall": 0.8871,
+   "precision": 0.9548,
+   "hr": 381,
+   "pred": 354
+  },
+  "Rogers Centre": {
+   "n": 2021,
+   "acc": 0.9733,
+   "recall": 0.9176,
+   "precision": 0.957,
+   "hr": 437,
+   "pred": 419
+  },
+  "Chase Field": {
+   "n": 3027,
+   "acc": 0.9742,
+   "recall": 0.9316,
+   "precision": 0.9211,
+   "hr": 526,
+   "pred": 532
+  },
+  "Wrigley Field": {
+   "n": 2656,
+   "acc": 0.9492,
+   "recall": 0.9002,
+   "precision": 0.8933,
+   "hr": 651,
+   "pred": 656
+  },
+  "Coors Field": {
+   "n": 3385,
+   "acc": 0.9592,
+   "recall": 0.8912,
+   "precision": 0.8884,
+   "hr": 625,
+   "pred": 627
+  },
+  "Dodger Stadium": {
+   "n": 2987,
+   "acc": 0.9742,
+   "recall": 0.9687,
+   "precision": 0.9334,
+   "hr": 767,
+   "pred": 796
+  },
+  "PNC Park": {
+   "n": 2677,
+   "acc": 0.9679,
+   "recall": 0.9384,
+   "precision": 0.862,
+   "hr": 406,
+   "pred": 442
+  },
+  "American Family Field": {
+   "n": 2659,
+   "acc": 0.9718,
+   "recall": 0.9143,
+   "precision": 0.9526,
+   "hr": 572,
+   "pred": 549
+  },
+  "T-Mobile Park": {
+   "n": 2656,
+   "acc": 0.9729,
+   "recall": 0.9561,
+   "precision": 0.9248,
+   "hr": 592,
+   "pred": 612
+  },
+  "Daikin Park": {
+   "n": 2920,
+   "acc": 0.976,
+   "recall": 0.94,
+   "precision": 0.949,
+   "hr": 633,
+   "pred": 627
+  },
+  "Comerica Park": {
+   "n": 1891,
+   "acc": 0.9598,
+   "recall": 0.9538,
+   "precision": 0.8651,
+   "hr": 390,
+   "pred": 430
+  },
+  "Oracle Park": {
+   "n": 2595,
+   "acc": 0.9507,
+   "recall": 0.7757,
+   "precision": 0.952,
+   "hr": 486,
+   "pred": 396
+  },
+  "Sutter Health Park": {
+   "n": 1030,
+   "acc": 0.9748,
+   "recall": 0.9781,
+   "precision": 0.9139,
+   "hr": 228,
+   "pred": 244
+  },
+  "Great American Ball Park": {
+   "n": 2726,
+   "acc": 0.9732,
+   "recall": 0.9236,
+   "precision": 0.9677,
+   "hr": 681,
+   "pred": 650
+  },
+  "Petco Park": {
+   "n": 2535,
+   "acc": 0.97,
+   "recall": 0.8911,
+   "precision": 0.9582,
+   "hr": 514,
+   "pred": 478
+  },
+  "Citizens Bank Park": {
+   "n": 2663,
+   "acc": 0.9339,
+   "recall": 0.7813,
+   "precision": 0.9393,
+   "hr": 654,
+   "pred": 544
+  },
+  "Busch Stadium": {
+   "n": 2775,
+   "acc": 0.9859,
+   "recall": 0.94,
+   "precision": 0.9784,
+   "hr": 483,
+   "pred": 464
+  },
+  "Citi Field": {
+   "n": 2603,
+   "acc": 0.9508,
+   "recall": 0.8428,
+   "precision": 0.9244,
+   "hr": 566,
+   "pred": 516
+  },
+  "Nationals Park": {
+   "n": 2799,
+   "acc": 0.9678,
+   "recall": 0.9556,
+   "precision": 0.8973,
+   "hr": 585,
+   "pred": 623
+  },
+  "Target Field": {
+   "n": 3030,
+   "acc": 0.9772,
+   "recall": 0.962,
+   "precision": 0.931,
+   "hr": 631,
+   "pred": 652
+  },
+  "Yankee Stadium": {
+   "n": 2738,
+   "acc": 0.9332,
+   "recall": 0.8094,
+   "precision": 0.9124,
+   "hr": 682,
+   "pred": 605
+  },
+  "loanDepot park": {
+   "n": 2692,
+   "acc": 0.9814,
+   "recall": 0.9538,
+   "precision": 0.9419,
+   "hr": 476,
+   "pred": 482
+  },
+  "Truist Park": {
+   "n": 2955,
+   "acc": 0.9753,
+   "recall": 0.9468,
+   "precision": 0.9454,
+   "hr": 677,
+   "pred": 678
+  },
+  "Globe Life Field": {
+   "n": 3041,
+   "acc": 0.9671,
+   "recall": 0.9386,
+   "precision": 0.9036,
+   "hr": 619,
+   "pred": 643
+  }
+ },
+ "b_n": 1754,
+ "b_r_xhr": 0.99,
+ "b_r_no_doubters": 0.9596,
+ "b_r_doubters": 0.5391,
+ "b_r_mostly_gone": 0.9164,
+ "b_bias_xhr": -0.242,
+ "b_hr_match": 0.9185,
+ "b_totals": {
+  "nd_sv": 7594,
+  "nd": 9228,
+  "mg_sv": 13590,
+  "mg": 7088,
+  "db_sv": 8211,
+  "db": 1146
+ },
+ "pass_a": true,
+ "pass_b": true
+}
