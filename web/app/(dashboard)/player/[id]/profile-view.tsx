@@ -821,6 +821,12 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           className="inline-block text-[11px] text-text-dim underline-offset-2 hover:text-text-secondary hover:underline">
           Percentile card (PNG) ↗
         </a>
+        {level !== "aaa" ? (
+          <a href={`/matchup?pitcher=${playerId}&season=${profile.season}`}
+            className="ml-4 inline-block text-[11px] text-text-dim underline-offset-2 hover:text-text-secondary hover:underline">
+            Matchup vs a lineup →
+          </a>
+        ) : null}
 
         <TrendPanel trend={profile.trend} role="pitcher" />
         <RollingPanel trend={profile.trend} role="pitcher" />

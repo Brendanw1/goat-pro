@@ -50,7 +50,7 @@ export default async function GameReportPage({ params, searchParams }: {
   const { gid } = await params;
   const level = (await searchParams)?.level === "aaa" ? "aaa" : "mlb";
   const g = await getGameReport(gid, level);
-  const wpa = await getGameWpa(gid, level);
+  const g0wpa = await getGameWpa(gid, level);
   if (!g) {
     return (
       <div className="glass-panel p-8 text-center text-sm text-text-dim">
@@ -58,6 +58,8 @@ export default async function GameReportPage({ params, searchParams }: {
       </div>
     );
   }
+  const wpa = g0wpa ?? g.wpa ?? null;   // postseason files carry their own win-probability block
+  const season = String(g.d).slice(0, 4);
   const names: Record<string, string> = {};
   for (const p of g.p ?? []) names[p.id] = p.n ?? p.id;
   for (const b of g.b ?? []) names[b.id] = b.n ?? b.id;
@@ -91,10 +93,47 @@ export default async function GameReportPage({ params, searchParams }: {
           <p className="text-xs text-text-dim">
             {g.d} · {awayWon ? `${g.away} win` : `${g.home} win`} · {g.pas?.length ?? 0} plate appearances
             {level === "aaa" ? " · AAA" : ""}
+            {g.series ? ` · ${g.series.label}${g.series.n ? ` game ${g.series.n}` : ""}` : ""}
           </p>
+          {g.postseason && !g.pas?.length ? (
+            <p className="text-[11px] text-text-dim">Official box score and lineups; the pitch-by-pitch table arrives with the next Statcast ingest.</p>
+          ) : null}
         </div>
-        <Link href={level === "aaa" ? "/minors" : "/pitchers"} className="text-[11px] text-text-dim hover:text-text-secondary">← Back</Link>
+        <Link href={g.postseason ? `/postseason?season=${season}` : level === "aaa" ? "/minors" : "/pitchers"} className="text-[11px] text-text-dim hover:text-text-secondary">← Back</Link>
       </div>
+
+      {g.lineups ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          {(["away", "home"] as const).map((side) => {
+            const opp = side === "away" ? "home" : "away";
+            const sp = g.lineups[`${opp}Sp`];
+            const starters = (g.lineups[side] ?? []).filter((b: any) => !b.sub);
+            return (
+              <div key={side} className="glass-panel p-4">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <TeamCrest team={g[side]} size={16} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">{g[side]} lineup</span>
+                  {sp ? (
+                    <Link href={`/matchup?pitcher=${sp.id}&hitters=${starters.map((b: any) => b.id).join(",")}&season=${season}`}
+                      className="ml-auto rounded border border-usf-gold/40 px-1.5 py-0.5 text-[10px] text-usf-gold hover:bg-white/[0.05]">
+                      Matchup: {sp.n} vs this lineup
+                    </Link>
+                  ) : null}
+                </div>
+                <ol className="space-y-0.5 text-xs">
+                  {(g.lineups[side] ?? []).map((b: any) => (
+                    <li key={b.id} className={`flex items-baseline gap-2 ${b.sub ? "pl-5 text-text-dim" : ""}`}>
+                      {!b.sub ? <span className="w-4 text-right font-data text-text-dim">{b.slot}</span> : null}
+                      <Link href={`/player/${b.id}?season=${season}`} className={b.sub ? "hover:underline" : "text-text-primary hover:underline"}>{b.n}</Link>
+                      <span className="text-[10px] text-text-dim">{b.pos}{b.sub ? " (sub)" : ""}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {wpa?.timeline?.length ? (
         <div className="glass-panel p-4">
