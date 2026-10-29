@@ -2633,3 +2633,448 @@ Reported, not judged:
 - **Definition gap found at the read.** Savant's doubters / mostly gone / no-doubters count *all* batted balls by parks cleared, not only HRs (their three counts sum to 29,395 over these rows against 17,462 actual HRs). Our product splits HRs, per the owner's ask. On Savant's definition: no-doubters r .959 (ours 9,301 vs 7,594), mostly gone r .956 (10,194 vs 13,590), doubters r .859 (7,089 vs 8,211). On the HR-only split, doubters r .54: the gate was registered on no-doubters, so this is reported only. So we put about 22% more balls at 30/30 than Savant does. That fits interpolated straight walls, which miss the deep corners and odd wall shapes that keep a ball in at one or two parks. It is a modeling limit, not a data error.
 - **Weakest parks (odd seasons):** Fenway .920 (precision .75: the Monster's corners and the triangle), Yankee .933 and Citizens Bank .934 (recall .81 / .78: the short corners curve, and the knots don't capture it), Oracle .951 (recall .78). Irregular walls give the biggest errors, as expected.
 - HR counts agree with Savant's on 92% of batter-seasons. The rest is postseason or untracked HRs.
+
+## §90 Swing plane match: does contact square up when the attack angle mirrors the pitch's VAA? Pre-registered 2026-10-29 before any read
+
+`pipeline/plane_match.py` → `data/export/web/plane/`, `results/plane_match.json`. Swing program piece 2
+(docs/swing-program.md). Every definition comes from `pipeline/swing_common.py`: competitive swings, `vaa()`,
+`squared_up()`, `depth_centered()`. Savant `attack_angle` (+ = bat rising), `attack_direction` (− = pull).
+
+**Sample.** Regular season, competitive swings with contact (foul + in play) and non-null attack angle, VAA, plate
+location, depth. Development 2024–25. 2026 is the holdout: read once, after the development read, with the model frozen.
+
+**Mismatch terms (both fixed now).**
+- **M1 (owner's form)** = |AA + VAA| in degrees (VAA < 0, so AA = −VAA is a perfect mirror).
+- **M2 (geometric, derived).** In the side view, the ball's height changes along depth y (toward the pitcher) at
+  dz/dy = tan(−VAA). The sweet spot moves with vertical speed v and horizontal speed h at heading AD from straight
+  out, so along depth dz/dy = tan(AA)/cos(AD). A timing (depth) error of δ inches moves the bat-ball vertical offset by
+  δ·|tan AA / cos AD + tan VAA|. M2 = |tan AA / cos AD + tan VAA| (inches of vertical miss per inch of depth error).
+  It differs from M1 by weighting the slope, not the angle, and by attack direction. (cos AD clipped at 0.5.)
+
+**Outcomes.** Primary: squared-up per contact (`squared_up()`, fouls count 0). Secondary: EV (BIP), sweet-spot rate
+(BIP launch angle 8–32°), xwOBA on contact (BIP `estimated_woba_using_speedangle`).
+
+**Design.** Linear models, every variable demeaned within hitter × season (hitter-season fixed effects).
+Controls C: pitch-group dummies (FF, SI, FC, SL/ST/SV, CU/KC, CH/FS), plate speed, plate_z, plate_z², plate_x,
+plate_x², plate_x·plate_z, count dummies (12), depth_centered, depth_centered².
+- **B_AA** = C + AA + AA² (attack angle alone). **B_VAA** = C + VAA + VAA² (VAA alone).
+- **B_both** = C + AA + AA² + VAA + VAA² (both, additive: the hard baseline). **F_k** = B_both + M_k.
+  M_k only counts if it explains what an additive steep/flat read cannot, i.e. the *match*.
+
+**Gate (primary outcome, each M_k separately).**
+1. β(M_k) < 0 with the 95% CI from a 1,000-draw clustered bootstrap by hitter (seed 90) excluding 0;
+2. effect size |β · IQR(M_k)| ≥ **1.0 pp** of squared-up rate (pre-set minimum);
+3. out-of-fold within-R² gain of F_k over B_both > 0 in hitter-grouped 5-fold CV;
+4. **2026 replication** (read once): β < 0, CI excluding 0, |β·IQR| ≥ 0.5 pp (half the minimum, for a one-season sample).
+PASS = 1–4. If both terms pass, the one with the larger out-of-fold gain is shipped. Secondary outcomes are reported
+with the same CI rule but do not gate.
+
+**Hitter trait (only read if the pooled gate passes on development).** Hitter-seasons with ≥ 300 contact swings: the
+per-hitter slope of the B_both residual of squared-up on the residual of M, in two random halves of his swings
+(seed 90). Stable trait if the split-half r (Spearman-Brown corrected) ≥ 0.50. Otherwise per-hitter sensitivity is noise
+and the hitter visual shows the league curve only.
+
+**Observe (reported, not gated):** β by pitch group and by plate_z tercile; FF with flat VAA (top tercile) × steep AA
+(top tercile) squared-up vs model expectation; β by month (within-season shift).
+
+**Kill / what ships.** PASS: hitter visual (his AA distribution vs the VAA of pitches he sees, his squared-up by
+mismatch), pitcher visual (fastball VAA vs the league's AA distribution), a plane column in /matchup. FAIL: data vs handling
+vs modeling diagnosis; ship descriptive-only, labelled "descriptive, not a forecast", or nothing.
+
+## §89 Contact-depth explorer (MLB) and the personal damage window, pre-registered 2026-10-29 before any read
+
+Swing program piece 1 (`docs/swing-program.md`). Code: `pipeline/contact_depth.py`. College reference: the personal
+damage window failed there (out-front-minus-deep gap split-half SB .21); mean depth vs expected held (YoY .82).
+
+**Data.** MLB regular season 2024–26, competitive swings (`swing_common.competitive_mask`, bunts out), contact only
+(foul + in play; whiff intercepts are projections, Gate 0). Depth = `depth_centered` (in., + = out front, centred within
+hitter × season × batting side, contact-only). Damage = Savant xwOBA (`estimated_woba_using_speedangle`) on balls in play.
+Unit = hitter × season × side (a switch hitter's two stances are separate units).
+
+**League curve L(d).** 2024 balls in play only: xwOBAcon by centred depth in 1-in. bins over −20…+20, Gaussian-smoothed
+(bandwidth 2 in.), flat beyond the end bins. 2025 (the gate season) never touches L.
+
+**Personal window.** For a unit's balls in play, δ = the shift on the grid −10…+10 in. (0.5 steps) minimising
+Σ (xw − m − L(d − δ))², with m (his level) refit for each δ. His optimum depth = peak(L) + δ. δ = 0 is the league shape.
+
+**Gate A, reliability.** 2025 units with ≥ 60 balls in play in each half; halves = his alternate games (ordered by date,
+game_pk). r = Pearson(δ_odd, δ_even) across units; Spearman-Brown 2r/(1+r) **≥ .50** passes.
+**Gate B, beats the league curve.** Same units. Predict each half's xwOBAcon from the other half: league model
+m_A + L(d); window model m'_A + L(d − δ_A) (levels fit on half A in both). ΔMSE = MSE_league − MSE_window over all
+held-out balls, both directions pooled. Passes when ΔMSE > 0 and the hitter-clustered bootstrap 95% CI (2,000 resamples)
+is above 0. The naive baseline is the league curve itself.
+**Both must pass** for the panel to show his own window. **Kill:** either fails → the hitter panel shows the league curve
+with his balls in play on it, labelled "his own window is not a stable trait (§89)", descriptive only; failure gets a
+data vs handling vs modeling diagnosis.
+
+**Reported, not judged:** the same gates on 2024 (dev season) and on 2026 halves; floors 40 and 100 per half; a shrunk
+δ (× its split-half reliability); YoY 2024 → 2025 of δ and of mean raw depth; split-half and YoY of the "late on velo"
+read (his centred depth on 95+ mph fastballs minus the league's at the same velocity). Descriptive observations (league,
+within-hitter centred): depth by month and before/after the All-Star break, by pitch family × velo band, two strikes vs
+not, by location (inside/middle/away, high/low), and the inverted U by pitch family, batter side and pitcher hand.
+
+## §91 Swing quality model (swing program piece 3), pre-registered 2026-10-29 before any read
+
+**Question.** Given how a hitter swung and what he swung at, how much damage should the swing produce, and does a hitter's
+expected damage from his swings forecast next season better than his results do?
+
+**Estimand.**
+- Per swing *s* (regular season, non-bunt, bat-tracked): xDamage(s) = P(contact | X) · P(fair | contact, X⁺) · E[xwOBA | in play, X⁺],
+  where xwOBA is Savant's `estimated_woba_using_speedangle` on the ball in play. A hurdle, so whiffs and fouls count as zero damage
+  rather than being dropped.
+  - X (all three heads) = swing: `bat_speed`, `swing_length`, `attack_angle`, attack direction (+ = pull, `attack_dir_pull`), `swing_path_tilt`;
+    pitch: plate speed, horizontal break and plate_x signed away from the batter, `pfx_z`, VAA, `plate_z`, same-hand flag; count (balls, strikes).
+  - X⁺ (the two contact-conditional heads) = X + contact depth and lateral intercept, each centred on the hitter's **other** contact swings
+    that season and side (leave-one-out, so no swing's own value enters its centre, and nothing outside season S is used).
+  - The contact head never sees intercepts: on whiffs they are projected crossing points (Gate 0), so their distribution encodes the outcome.
+- Per hitter-season, two aggregates, each from hitter-grouped out-of-fold predictions:
+  - **SQcon** = mean of E[xwOBA | in play, X⁺] over his balls in play (expected xwOBAcon given how he swung on contact).
+  - **SQswing** = mean xDamage over all his swings, with depth/lateral set to 0 (his own average contact point) on swings without contact.
+- **The split** (swing quality vs results): actual xwOBAcon − SQcon. Positive = results ran ahead of the swings.
+
+**Population.** Swings: every regular-season, non-bunt swing with bat tracking (2024–26). The competitive-swing rule is **not** used for the
+model set: its rescue clause (slow swing kept if EV ≥ 90) selects on the outcome. Hitter pairs S → S+1: ≥ 200 tracked swings and ≥ 75 balls
+in play in S; ≥ 150 PA and ≥ 75 balls in play in S+1.
+
+**Targets (S+1).** xwOBAcon (mean Savant xwOBA on balls in play), wOBAcon (Σ woba_value / BIP), wOBA (Σ woba_value / Σ woba_denom).
+
+**Baselines (all S, 2024 → 2025):** last-season xwOBAcon; last-season wOBA; mean bat speed; squared-up and blast per bat contact (Savant's
+definitions, reproduced per swing to 0.1 pp in Gate 0, so every hitter has them); Marcel xwOBAcon (S, S−1, S−2 weighted 5/4/3 by BIP,
+regressed with 100 BIP of the S league mean, k fixed here). Metrics per baseline × target: Pearson r (raw), and RMSE and weighted R² from a
+one-variable OLS fitted out of fold (5 hitter-grouped folds). Weights: S+1 BIP for the contact targets, S+1 PA for wOBA.
+**Best baseline** per target = highest r on 2024 → 2025; fixed for the final read.
+
+**Leakage rules.** No batter id or hitter-mean feature in the model. Never as features: `launch_*`, `hc_*`, `hit_distance_sc`, `estimated_*`,
+`woba_*`, `babip_value`, `iso_value`, `bb_type`, `events`, `delta_*`, `hyper_speed`, `miss_distance`. Identity test, mirroring the Stuff+
+memorization check (§17–20): the in-play head trained on a random swing split from 80% of hitters, scored on held-out swings of seen
+vs unseen hitters, for the model's features and for the same plus hitter-season means; per-swing r gap reported. All hitter-level reads
+use hitter-grouped cross-fit, so a memorizing model cannot inflate them.
+
+**Assumption checks (reported; a failure changes the model before the dev read, never after):**
+- Stationarity: the 2024-fit heads scored on 2025 swings (and 2026 swings, league level only, no hitter aggregates) vs a within-season fit:
+  calibration gap and r/AUC. If 2025 calibration is off by > .010 xwOBA or r drops > .03, add a season term.
+- Venue/system: bat speed, attack angle and depth residuals (minus the hitter-season-side mean) averaged by home park; SD of park offsets
+  vs sampling SD, and the 2024 vs 2025 park-offset correlation.
+- Selection: tracked share by pitch outcome; the hitter-level contact vs damage trade-off.
+- Reliability: split-half (Spearman–Brown) of SQcon, SQswing and raw xwOBAcon by swings per hitter. SQ is displayed per hitter only above the
+  N where reliability ≥ .70; if that N > 400 swings, no per-hitter display.
+
+**Model, fixed here.** LightGBM, 400 trees, learning rate .05, 63 leaves, min 200 rows per leaf, subsample .8, colsample .8, seed 13, n_jobs 4.
+Development: 2024 swings, 5 hitter-grouped folds (crc32 of the batter id), each fold's hitters scored by a model that never saw them.
+Final: the same on 2025 swings, scored once against 2026.
+
+**Gates (each read on dev, 2024 → 2025, in phase 2; then once on 2025 → 2026 if dev passes):**
+- **G1 beats the best baseline:** Δr = r(SQ, T) − r(best baseline, T), hitter-clustered bootstrap (2,000 draws, seed 13), 95% CI lower bound > 0.
+  SQcon is judged on T = xwOBAcon, SQswing on T = wOBA. wOBAcon is reported for both.
+- **G2 adds in a combined model:** weighted out-of-fold R² of OLS T ~ best baseline + SQ minus T ~ best baseline ≥ +.005 with the bootstrap
+  CI lower bound > 0, on the same two targets.
+- **Pass:** G1 and G2 on a target. On dev → spend the final read; confirmed on 2025 → 2026 (same bars) → SQ ships as a forecast for that target.
+
+**Kill criteria (fixed now).**
+- Dev G1 and G2 both fail on both targets → no final read; diagnosis (data / handling / modeling); xDamage ships "descriptive, not a forecast"
+  (per-swing and the swing vs result split as description) or not at all.
+- G2 passes but G1 fails → SQ is a component for the hitter combination (ridge, per the hitter audit), not a standalone forecast.
+- Passes dev, fails final → descriptive only, no second final read on 2026.
+- The in-season 2026 first-half → second-half test is not run now; it would need its own pre-registration.
+
+**What this cannot show.** Savant's xwOBA is both a baseline input and the target of the in-play head, so SQcon is at best a de-noised
+xwOBAcon. The hitter audit found only xwOBA clears the naive floor for hitters and our own xwOBA failed twice (§68, §77), so a pass is
+not expected by default. Bat speed is a strong, stable hitter trait (YoY r ≈ .9); much of any SQ signal may be bat speed by another name,
+which G2 against a bat-speed best baseline would show.
+
+### §90 results (2026-10-29, development read once; `pipeline/results/plane_match.json`)
+442,162 competitive contact swings, 783 hitters, 2024–25. Means: AA +8.8°, VAA −6.3°, squared-up 33.1%, M1 7.6° (IQR 7.9°).
+(A first run crashed on a singular bootstrap draw, a rare count missing from a resample, before it printed or saved anything.
+The bootstrap solve was switched to lstsq and the same pre-registered read was rerun.)
+- **Gate fails on both terms, and the sign is backwards.** Squared-up *rises* with mismatch beyond the additive AA + VAA
+  baseline: M1 +2.8 pp per IQR (95% CI +2.0 to +3.5), M2 +1.7 pp (+0.9 to +3.7). Out-of-fold within-R² gain is tiny but
+  positive (M1 +0.0003, M2 +0.00006, on a B_both of .0857). Criterion 1 (β < 0) fails. **The 2026 holdout was not read**, and
+  the hitter-trait read was skipped as pre-registered, so 2026 stays clean for a re-specified claim.
+- Secondary (not gating): EV +1.3 mph per IQR of M1 (+1.1 to +1.6); sweet-spot rate −6.9 pp (−7.6 to −6.2); xwOBA on contact
+  +.001 (−.005 to +.007), a null. Mismatch trades launch-angle band for exit speed, and the two cancel in xwOBA.
+- Baselines: AA alone and VAA alone explain almost the same within-hitter squared-up variance (R² .0848 vs .0839, both .0860).
+- Observed, not gated (M1 effect per IQR on squared-up): FF **+5.8 pp** (CI +4.8 to +7.1), SI −2.2, FC −1.2 (CI spans 0), SL −4.8,
+  CU −8.9, CH −7.6. By height: low third −7.7, middle −0.9 (spans 0), high third **+6.2**. So the owner's mirror holds for low
+  pitches and spin/offspeed, and reverses for four-seamers and pitches up in the zone, which together drive the pooled sign.
+- **Flat-VAA four-seamers do not punish steep swings; they reward them.** FF residuals from the additive model (VAA terciles
+  at −5.13/−4.51°, AA at 2.5/10.0°): flat VAA × steep AA **+4.2 pp** (n 17,134, raw squared-up 37.4%), flat × flat −2.2 pp,
+  steep VAA × steep AA −1.6 pp. The interaction runs against the mirror.
+- Within season: the M1 effect is positive every month, drifting down from +3.8 pp in April to +1.7 pp in September (CIs overlap).
+
+**Diagnosis: modeling (the hypothesis), not data or handling.** Every input passes gate 0 in swing_common, and the reversal
+is concentrated where it would be if it were mechanical. A high, flat four-seamer that a hitter squares up is met with a rising
+bat (Savant's "ideal" 5–20° AA), well above the ball's −4° descent. In the pooled form the symmetric |AA − (−VAA)| treats
+"swing steeper than the pitch" the same as "swing flatter than the pitch". The data say these differ, and they differ by pitch
+type and height. A possible handling caveat (not tested): attack angle is measured around impact, so on a mishit it may
+carry some of the outcome. **What ships: nothing** (no plane visuals, no /matchup column). A re-test needs a new
+pre-registration: a signed, pitch-type × height-specific match term, read on the 2026 holdout that this claim left unread.
+
+### §91 results: phase 1 and the dev gate (read once, 2026-10-29)
+
+`swing_model.py --phase1` / `--dev`. Files: `results/swing_91_{baselines,audit,proto,dev}.json`. No 2026 outcomes were read
+except the pre-registered league-level per-swing stationarity check. The final 2025 → 2026 read was **not** spent.
+
+**Baselines, 2024 → 2025** (n = 317 hitter pairs; r raw, RMSE and weighted R² from out-of-fold OLS):
+
+| S predictor | xwOBAcon r / RMSE / wR² | wOBAcon r / RMSE / wR² | wOBA r / RMSE / wR² |
+|---|---|---|---|
+| xwOBAcon | .726 / .0346 / .561 | **.605** / .0409 / .392 | .430 / .0323 / .173 |
+| wOBA | .381 / .0479 / .160 | .362 / .0487 / .137 | **.480** / .0307 / .253 |
+| bat speed | .604 / .0408 / .391 | .526 / .0440 / .295 | .265 / .0345 / .057 |
+| squared-up / contact | −.218 / .0506 / .061 | −.218 / .0508 / .062 | .087 / .0356 / −.002 |
+| blast / contact | .615 / .0402 / .409 | .525 / .0443 / .287 | .394 / .0328 / .147 |
+| Marcel xwOBAcon (k = 100) | **.744** / .0338 / .581 | .593 / .0411 / .386 | .386 / .0329 / .141 |
+
+The best baselines are Marcel xwOBAcon for xwOBAcon, xwOBAcon for wOBAcon, and wOBA for wOBA. Squared-up rate is *negatively* related
+to next season's contact damage: it rewards low-bat-speed contact hitters. Blast rate carries the signal.
+
+**Leakage audit.**
+- Identity: on the in-play head, the per-swing r was .276 for seen hitters and .308 for unseen ones (gap −.031). With hitter-season means
+  added: .295 vs .312 (−.017). There is no memorization signal. The negative gap is fold composition, not leakage. All hitter reads are
+  cross-fit by hitter anyway.
+- No outcome fields are used as features (list in the pre-registration). The competitive-swing rescue clause was kept out of the model set.
+- Depth and lateral centring are leave-one-out within the hitter-season-side, so they use no data from outside S.
+
+**Assumption checks.**
+- Stationarity: the 2024 fit scored on 2025 swings is calibrated to +.001 xwOBA (fair −.011). Its r is .248 vs .263 for a 2025 fit
+  (−.015, inside the .03 bar). No season term needed. On 2026 swings, contact calibration drifts −.013, consistent with the ABS zone
+  (mean plate_z 2.37 → 2.30). The final fit is in-season, so this is reported only.
+- Venue/system: park offsets are real but small.
+  - Bat speed: SD .12–.15 mph vs .04 noise; 2024–25 r .71; largest .36 mph (SEA, SF).
+  - Attack angle: SD .37–.42° (r .68).
+  - Contact depth: SD .31–.35 in. (r .75).
+  - A hitter's season mean carries about half his home park's offset, at most ≈ .2 mph. That is negligible against the between-hitter
+    spread, but a park/system term belongs in any per-swing display.
+- Selection:
+  - Tracking coverage is lower on balls in play than on fouls and whiffs (2024: 91.9% vs 94.4% / 93.3%; 2025: 95.7% vs 98.2% / 98.8%),
+    so there is mild outcome-dependent missingness.
+  - Across hitters, contact rate vs xwOBAcon r is −.45 (and vs bat speed −.45). A BIP-only model would hide this trade-off, which is why
+    the model is a hurdle.
+- Reliability (split-half, Spearman–Brown): SQcon .75 at 25 BIP, .86 at 50, .92 at 100. Actual xwOBAcon is .43 at 25, .61 at 50, .77 at 100.
+  SQswing reaches .76 at 100 swings. The .70 display floor is about 25 BIP (SQcon) or 100 swings (SQswing). But SQ is reliable because
+  bat speed is: r(SQcon, bat speed) = .70.
+
+**Prototype (20% subsample, 2024, 5 hitter folds).**
+- Per-swing scores: contact AUC .867, fair AUC .746, in-play xwOBA r .247.
+- Timing: 33 s total. The full cross-fit was estimated at 2.8 min; the actual full run took 0.85 min per season (RSS 1.1 GB, nice 10, n_jobs 4).
+
+**Dev gate, full model, 2024 swings → 2025 (n 317).**
+- Full model per-swing scores: contact AUC .875, fair AUC .760, in-play r .290.
+
+| target | SQ | r | best baseline (r) | G1 Δr [95% CI] | G2 ΔwR² [95% CI] | verdict |
+|---|---|---|---|---|---|---|
+| xwOBAcon | SQcon | .681 | Marcel .744 | −.063 [−.112, −.012] | +.019 [−.001, +.042] | **FAIL** |
+| wOBA | SQswing | .192 | wOBA .480 | −.288 [−.437, −.132] | −.002 [−.011, +.007] | **FAIL** |
+
+Reported: on wOBAcon, SQcon r .554 and SQswing .127. The swing-vs-result residual (xwOBAcon − SQcon) correlates −.49 with next season's
+change in xwOBAcon. Most of that is the mechanical regression of xwOBAcon_S, which sits on both sides, so it does not validate a buy/sell list.
+
+**Verdict: kill criterion 1 applies.** Dev G1 and G2 failed on both targets. **No final read.** xDamage is descriptive, not a forecast.
+
+**Diagnosis.**
+- **Modeling / data, not handling.** The leak and identity checks are clean and calibration holds across seasons.
+- SQcon beats bat speed (.68 vs .60) and blast (.62) but loses to the hitter's own xwOBAcon (.73) and Marcel (.74). Bat tracking describes
+  the swing's capacity: speed, plane, depth. It does not describe where the barrel met the ball. That barrel accuracy lives in the batted
+  ball, and so in xwOBAcon, and the public per-swing fields do not carry it (in-play r .29: most per-ball damage is not predictable from the swing).
+- SQswing fails on wOBA because walks, strikeouts and swing decisions are outside the estimand. Its contact-times-damage product also
+  partly cancels out (contact rate vs damage r −.45).
+- **Open, as a new claim only:** the near-miss G2 on xwOBAcon (+.019, CI just touching 0) suggests SQcon may add as a *component* in the
+  pre-registered hitter ridge combination. That needs its own section and the untouched 2025 → 2026 pair.
+
+## §91b Swing quality as an add-on to Marcel xwOBAcon, pre-registered 2026-10-29 before any 2026 outcome read
+
+**One claim.** Adding SQcon (§91, unchanged) to Marcel xwOBAcon in the combined model improves the forecast of next-season xwOBAcon.
+- **Frozen spec:** §91's features, LightGBM settings, hitter folds, floors and Marcel k = 100. The combination is weighted out-of-fold
+  OLS of xwOBAcon_{S+1} on Marcel, plus SQcon, weighted by S+1 BIP. SQcon is the hitter-grouped cross-fit on 2025 swings.
+- **Read once:** 2025 → 2026, regular season, 2026 outcomes as they stand in the mart today (n stated with the result).
+- **Pass:** ΔwR² (Marcel + SQcon minus Marcel) > 0, with the hitter-clustered bootstrap 95% CI (2,000 draws, seed 13) lower bound > 0.
+  Δr (SQcon − Marcel) is reported, not judged.
+- **Fail:** a data / handling / modeling diagnosis. SQcon stays descriptive, with no forecast claim.
+- **Pass:** SQcon may enter the hitter combination as a component. It is still not shown as a standalone forecast.
+- The dev result (+.019 [−.001, +.042]) motivated this claim, so the 2026 read is its only test.
+
+### §91b result (read once, 2026-10-29)
+
+- **Data:** `swing_model.py --final91b`, written to `results/swing_91_91b_final.json`. n = 311 hitter pairs. The 2026 regular season in
+  the mart runs 2026-03-25 → 2026-09-27, so it is complete, not partial.
+- **ΔwR² (Marcel + SQcon − Marcel): +.026 [−.002, +.054]. FAIL**, since the CI includes 0.
+- Reported, not judged: Δr (SQcon − Marcel) = −.055 [−.103, −.007]. SQcon r .708.
+
+**Diagnosis: modeling, not handling or data.** The point estimate repeats the dev result (+.019 → +.026), so the add-on is
+probably real but small. Two pairs of about 310 hitters cannot separate it from 0. SQcon is mostly bat speed and swing plane
+(r .70 with bat speed). Marcel already carries the contact-quality skill that bat tracking does not measure.
+
+**Status:** SQcon stays descriptive. It is not a forecast and not a component. Both season pairs are now spent, and the next
+clean test is 2026 → 2027.
+
+## §92 Timing residual (swing program piece 4), pre-registered 2026-10-29 before any read
+
+`pipeline/timing_residual.py` → `data/export/web/timing/`, `results/timing_92.json`. Every swing definition from
+`swing_common.py`. Development and gates on **2024–25 only**; 2026 is reserved for §90b's confirm, so no 2026 outcome is read
+here (2026 depth may be baked for display, with no claim on it).
+
+**Swings.** Regular season, competitive swings (`competitive_mask`), contact only (foul + in play; a whiff's intercept is a projection,
+Gate 0), non-null `intercept_ball_minus_batter_pos_y_inches` (y, + = met further out front) and the 9-parameter fit. Pitch groups:
+FB = FF/SI/FC, BR = SL/ST/SV/CU/KC/CS, OS = CH/FS/FO; other types dropped.
+
+**Expected depth (fixed now).**
+- Stage 1, league model, no hitter information: LightGBM regression of y on plate speed (`plate_speed`), release speed, pitch type,
+  pfx_x and plate_x signed by batter hand (× −1 for LHB), pfx_z, plate_z, balls, strikes, same-hand flag. 300 trees, learning rate .05,
+  63 leaves, min 200 rows per leaf, subsample .8, colsample .8, seed 92, n_jobs 4; 5 hitter-grouped folds (crc32(batter) mod 5), fit
+  per season, every swing scored by a model that never saw its hitter. ŷ0 = out-of-fold prediction; r0 = y − ŷ0.
+- Stage 2, the hitter's out-of-fold mean: offset = mean r0 over his **other games** that season and side (leave-one-game-out). This is
+  his pitch-adjusted mean, not his raw mean (a raw-mean feature would carry his pitch mix into the residual).
+- **Timing residual** e = y − (ŷ0 + offset), inches, **+ = early** (out front), − = late.
+
+**Traits per hitter-season** (sides pooled after side-specific offsets): bias by group (mean e on FB, BR, OS); fastball bias by
+release-speed band (< 92, 92–95, 95+ mph; "late on 95+" = bias on 95+ fastballs); timing consistency = SD(e).
+
+**Gate (a), split-half reliability.** Halves = his alternate games ordered by (date, game_pk), as §89. Inside a half every trait uses only
+that half: e_h = r0 − (his half mean of r0, per side). Units = hitter-seasons, 2024 and 2025 pooled (each reported). Floors per half: 40
+contact swings in the group (group biases), 25 (95+ band), 100 (SD). r = Pearson across units, Spearman–Brown 2r/(1+r).
+**Pass bar: SB ≥ .60** for each trait separately (FB, BR, OS, each velocity band, SD). A trait that fails is not shown as his read.
+The panel ships if at least one group bias passes. Hitter-bootstrap CIs reported.
+
+**Gate (b), consistency forecasts next season.** SD(e) in 2024 → 2025 targets K% (primary) and xwOBAcon (mean Savant xwOBA on balls in
+play), 2024 → 2025 only. Floors: ≥ 200 contact swings in 2024; ≥ 200 PA in 2025 (and ≥ 75 BIP for xwOBAcon). Naive baseline = the target's
+2024 value. Weighted out-of-fold OLS (5 hitter-grouped folds; weights 2025 PA or BIP): T_2025 ~ T_2024 vs T_2025 ~ T_2024 + SD_2024.
+**Pass on a target:** ΔwR² ≥ +.005 and the 95% CI lower bound > 0 (2,000 hitter resamples, seed 92). Δr and raw r(SD, T) reported;
+also r(SD, bat speed) and r(SD, swing length), so a pass that is bat speed by another name shows.
+
+**Reported, not judged.** YoY 2024 → 2025 of each trait (college's depth spread failed at r .25: do MLB samples change that?);
+league bias by velocity band and pitch type; r of FB bias with bat speed.
+
+**Kill.** (a) fails for every group bias → no panel; data vs handling vs modeling diagnosis. (b) fails → consistency is shown only as a
+descriptive number, never as a forecast. Labels ("late on 95+", "early on breaking") use biases shrunk toward 0 by n/(n + k),
+k = n̄_half·(1 − ρ_half)/ρ_half from the gate (a) per-half r, and fire only beyond the league's 20th/80th percentile of shrunk bias.
+
+## §93 Two-strike adaptation (swing program piece 5), pre-registered 2026-10-29 before any read
+
+`pipeline/two_strike.py` → `data/export/web/twostrike/`, `results/twostrike_93.json`. 2024–25 only for every gate.
+
+**Swings.** Regular season, non-bunt, bat-tracked swings. **Not** the competitive filter: its slowest-10% cut removes exactly the
+shortened two-strike swings this piece measures (the competitive-swing version of Δ bat speed is reported alongside).
+
+**Pitch adjustment (two-strike pitches differ).** One league LightGBM per trait (same settings and hitter folds as §92, seed 93), on
+§92's pitch features **without balls/strikes** and with no hitter information: bat speed and swing length (all swings), contact
+(classifier: foul + in play vs whiff incl. foul tip), depth (contact swings, y). Residual = observed − out-of-fold expected. Depth
+residuals are centred within hitter × season × side first.
+
+**Adaptation per hitter-season:** Δ = mean residual with two strikes − mean residual in 0–1 strike counts, for bat speed (ΔBS 2K, mph),
+swing length (ft), centred depth (in.) and contact (pp). Floors: ≥ 100 two-strike swings and ≥ 200 other swings.
+
+**Gate (a), YoY stability of ΔBS 2K**, 2024 → 2025, hitters over the floors both years. **Pass: Pearson r ≥ .50 and its hitter-bootstrap
+95% CI lower bound ≥ .30.** Reported: YoY of the other three Δs, split-half (alternate games) of ΔBS 2K.
+
+**Gate (b), do bigger adapters strike out less than their whiff rate says?** Hitter-seasons 2024 and 2025 over the floors with ≥ 200 PA.
+OLS K% ~ whiff/swing in 0–1 strike counts + swing rate in 0–1 strike counts + mean competitive bat speed + ΔBS 2K. Claim: β(ΔBS 2K) > 0
+(a bigger slowdown goes with a lower K%), with the hitter-clustered bootstrap 95% CI (2,000, seed 93) excluding 0, and |β|·SD(ΔBS 2K)
+≥ 0.5 pp of K%. Same-season association: descriptive, not causal.
+
+**What it buys and costs (reported, not gated):** slopes on ΔBS 2K of Δ contact 2K (K avoided) and of Δ xwOBAcon 2K (two-strike minus
+other, balls in play; damage lost), per hitter-season.
+
+**Kill.** (a) fails → nothing ships; diagnosis. (a) passes → a descriptive panel + a neutral-coloured ΔBS 2K hitters-board column. (b)
+decides only whether the panel may say the adaptation goes with fewer strikeouts.
+
+### §89 result (read once, 2026-10-29)
+
+`contact_depth.py --gate` → `results/contact_depth_89.json`; observations `--observe` → `results/contact_depth_obs.json`.
+League curve (2024 BIP) peaks at **+6 in.** vs a hitter's own mean. **The personal window FAILS both gates.**
+
+| run | units | r (odd/even) | SB | ΔMSE (league − window) [95% CI] | shrunk δ ΔMSE |
+|---|---|---|---|---|---|
+| **2025, ≥ 60/half (gate)** | 337 | .119 | **.213** | **−.00061 [−.00080, −.00044]** | +.00002 |
+| 2025, ≥ 40 | 412 | .107 | .194 | −.00067 | +.00002 |
+| 2025, ≥ 100 | 240 | .140 | .245 | −.00051 | +.00002 |
+| 2024 (dev) | 344 | .046 | .088 | −.00074 | +.00002 |
+| 2026 | 353 | .080 | .148 | −.00055 | +.00004 |
+
+YoY 2024 → 2025: δ r .19 (259 hitters, 120+ BIP) vs mean raw depth r .86 (334). The college result (SB .21) repeats.
+**Diagnosis: data, not handling or modeling.** The fit recovers a planted shift (`--demo`), the result does not move with the
+floor or the season, and per-ball xwOBA noise (SD ≈ .38) over ~170 balls a half swamps a true spread of optimum depth that is
+small next to the 4.8 in. SD of the estimates. Shrinking δ by its reliability only ties the league curve. **Ships:** the
+hitter panel draws the league curve moved to his level, with his binned balls on it, labelled as not a trait.
+
+**Late on 95+ (reported):** split-half r .44 (SB **.61**, 413 hitters, 2025), YoY r .58 (342). Shown on /depth as a
+descriptive style board.
+
+**Observations (within-hitter centred, 2024–26, 671,783 contacts):**
+- In-season: monthly league means stay within ±0.2 in. of normal every year; no September fade. After the All-Star break
+  hitters sit ~0.1 in. further out front (pre −0.03 to −0.06, post +0.04 to +0.09). Adjusting for fastball velocity leaves the
+  same pattern: April runs ~0.2 in. deep, August ~0.1–0.2 out front. Nothing worth reading as fatigue.
+- Pitch type × velo: fastballs −3.3 in., breaking +5.1, offspeed +4.7 vs normal (offspeed 8.0 in. further out front than
+  fastballs). Within every type, faster = deeper: FF 85–90 −1.3 → 95+ −5.1; SL <85 +5.8 → 90–95 +1.5; CH <85 +6.6 → 90–95
+  +1.8. Fastball depth falls ~0.57 in. per mph (90 → 98). Depth vs velo r −.46 on balls in play.
+- Two strikes: −0.3 in. overall (fastballs −4.5 vs −2.7 in other counts; offspeed +4.3 vs +5.1): hitters shorten up and wait.
+- Location: inside pitches +1.8 vs away −1.8 (3.5 in. further out front); low +3.3 vs high −3.5.
+- Inverted U (xwOBAcon by bin, 8+ deep → 8+ front): all .330/.353/.363/.399/.419/.343. It holds by family (FB peak .464 at
+  4–8 front; BR .401; OS .375), by batter side (R .415, L .425 peak) and by pitcher hand (R .420, L .416), always at 4–8 front.
+
+## §90b Swing plane match, refined after §90: exploration on 2024–25, claims pre-registered 2026-10-29 before any 2026 outcome read
+
+`pipeline/plane_match_v2.py` (`explore`, `confirm`) → `pipeline/results/plane_v2_explore.json`, `plane_v2_confirm.json`.
+Definitions from `swing_common` (competitive swings, VAA, squared-up, centred depth) and `plane_match` (M2, FE demeaning).
+**s = AA + VAA** (degrees, + = swing steeper than the pitch's descent). Cells = pitch group (FF, SI, FC, SL, CU, CH as in §90)
+× plate_z tercile (edges frozen from 2024–25: 2.08, 2.68 ft). Every model is a hitter-season fixed-effects linear (probability)
+model with pitch-group dummies, plate speed, plate_x/z quadratic + interaction and 12 count dummies; contact-conditioned
+models add a linear spline in centred depth (knots −15, −8, 0, 8, 15 in.). CIs: clustered bootstrap by hitter (200 draws in
+exploration, seed 901). 2024–25 was already read in §90, so everything in this exploration is **exploration only**.
+
+### Exploration (2024–25, 579,561 competitive swings with AA, VAA and location; 219,748 balls in play)
+**Confounds first (they decide what can be claimed).**
+- **Attack angle at the intercept is mostly timing.** Within hitter, r(AA, centred depth) = **+.81** on contact. A ball met
+  further out front is met later in the arc, where the bat is rising more. The swing's own AA is therefore partly the depth outcome.
+- **On whiffs AA is taken at a projected point** 4 in. further out front, so it is steeper: whiff AA 14.1° vs contact 8.8°
+  (SD 11.9 vs 9.5); own AA minus the hitter's leave-game-out usual AA in the cell: whiffs **+1.9°**, fouls −0.6°, BIP −0.5°.
+  Any "own AA predicts whiffs" result is mechanically contaminated.
+- Own AA vs his usual AA in the cell (other games): r .59. Contact rate by s bin falls from .83 (s ≤ 3.8) to .46 (s > 16.3),
+  but that is the whiff-AA artefact above as much as plane.
+
+**A. Signed mismatch steers launch (BIP, depth spline in).** Pooled, s P25 → P75 (−2.7 → 8.0°): LA +2.7° (CI 2.2 to 3.2),
+sweet-spot −4.0 pp (−4.7 to −3.2), pop-up +4.5 pp (3.9 to 5.1), GB −3.6 pp (−4.5 to −2.8). Same sign in nearly all 18 cells;
+strongest FF mid/high and SL low. The sweet-spot curve vs the median s is an **inverted U peaking at s ≈ 0** (matched):
+s −15 −11.1 pp, −10 −4.2, −5 +0.2, 0 +0.9, 5 −0.9, 10 −3.2, 15 −7.6, 20 −9.2. So on contact, the owner's mirror holds for
+launch band; §90 missed it by testing squared-up, which rewards the steep, EV-heavy side. Diagnostic: with AA and VAA as separate
+linear terms, LA per degree is AA +0.16 (depth in) / +0.79 (depth out) and **VAA +3.5** (both). The equal-weight s form is not
+what the data say: once depth is held, most of AA's launch effect is depth, and the pitch's descent carries most of the steering.
+**B. Contact on competitive swings (whiffs in, no depth).** s spline P25→P75 pooled −2.2 pp; |s| beyond additive AA+VAA +5.2 pp;
+M2 beyond additive −6.5 pp (all 18 cells negative, 17 exclude 0; −2 to −34 pp). Not claimable: every term uses the swing's own AA,
+which on whiffs is the projected, steeper value (confound above). Diagnosis: **handling/measurement**, not evidence either way.
+**C. Timing forgiveness.** Quality vs |centred depth| beyond the depth spline and additive AA/VAA, slope change per 5 in. of |depth|
+when |s| goes P25 → P75 (IQR 7.06°): xwOBAcon **−.017** (−.020 to −.015) on a baseline slope of −.021 per 5 in. (matched planes
+lose about half as much per inch of timing error); sweet-spot −2.6 pp (−2.9 to −2.3); squared-up +0.6 pp (+0.3 to +0.9, the other
+way). Depth–AA coupling (r .81) means part of this is mechanical; it is a description of contact, not a forecast.
+**D. Hitter plane fit (AA from other swings).** Usual AA per hitter × side × cell. Leave-game-out within season is **not valid**
+under hitter-season FE (the only within-cell variation left is the excluded game itself, which is mechanically tied to that game's
+outcomes; per-cell LGO slopes of ±0.5–1.0 per SD were that artefact). Prior season (2024 usual → 2025 swings, cells with ≥ 20
+swings) is clean: per SD (5.39°) of a steeper usual plane in a cell, contact **−3.9 pp** (−5.0 to −2.7); **−1.9 pp** (−2.9 to −1.1)
+beyond his own 2024 contact rate in that cell (the naive baseline, +4.0 pp per .1). Using his 2024 *contact-swing* AA only: −1.9 pp
+(−2.7 to −1.2) beyond the baseline; whiff-swing AA alone: null. |usual AA + VAA| beyond usual AA: contact +1.2 pp per 5° (CI spans 0),
+squared-up +1.5 pp, xwOBAcon −.007 (spans 0). xwOBAcon and squared-up beyond their own priors: null. So the cell plane predicts
+contact (steeper = less), not damage, and the signed level matters, not the |match|.
+Reliability (odd/even games, 1,128 hitter-cells with ≥ 40 swings per half, deviation from his own mean and the league cell mean):
+split-half r **.72**, Spearman–Brown **.84**; his overall AA .81.
+**E. Pitcher plane separation.** Fastball swings: hitter's usual fastball AA × the pitcher's primary-fastball mean VAA, beyond
+the pitch's own VAA, the pitcher's VAA and hitter-season FE. Difference-in-differences across the IQRs (5.0° × 0.95°):
+LGO **+0.14 pp** (−0.14 to +0.40), prior season +0.02 pp (−0.42 to +0.33). Null. Pitcher VAA alone: −1.8 pp whiff per IQR
+(flatter = fewer whiffs on swings in this control set). No hitter-pitcher interaction to ship.
+
+### Pre-registered claims (frozen 2026-10-29, `CLAIMS` + `confirm()` in plane_match_v2.py; 2026 regular season, read once)
+Sample: 2026 competitive swings (same filters, same frozen knots/edges). 1,000-draw clustered bootstrap by hitter, seed 902.
+One-sided bootstrap p = share of draws on the wrong side of 0. **Holm** over P1–P3 at family α = .05. A claim passes if its Holm
+test passes **and** its point estimate clears the minimum effect. P4 is a reliability threshold, no test.
+- **P1 (A, launch band).** On 2026 BIP, with the §90b A spec (s spline, depth spline): Δ = min(ss(0) − ss(+15), ss(0) − ss(−10)) > 0,
+  minimum **+2.0 pp**. (Exploration: +8.5 and +5.1 pp.)
+- **P2 (C, timing forgiveness on xwOBAcon).** The |depth| × |s| interaction, scaled to 5 in. × 7.06°, < 0, minimum **−.008**
+  xwOBAcon. (Exploration −.017.)
+- **P3 (D, hitter plane fit).** 2025 contact-swing usual AA per batter × side × cell (cells with ≥ 20 2025 swings) predicts 2026 contact
+  on competitive swings, controls + cell dummies + VAA, VAA² + his 2025 contact rate in the cell: effect per 5.39° < 0, minimum
+  **−1.0 pp**. (Exploration −1.9 pp.)
+- **P4 (D, trait reliability).** 2026 split-half (odd/even games) Spearman–Brown of the cell-specific usual AA ≥ **.70** (exploration .84).
+**Not claimed:** B (own-AA whiff artefact), E (null), any |match| form for contact (null in D), squared-up (C sign reversed).
+**On a pass:** P1, P2 → descriptive league reads labelled "descriptive, not a forecast" (sweet-spot vs s curve; xwOBAcon vs
+timing error at matched vs mismatched planes). P3 + P4 → a hitter plane-fit trait (his usual AA by pitch group × height vs the
+league cell, with the contact read), and a /matchup plane column = the pitcher's pitch-cell usage weighted over the hitter's
+cell plane deviations, labelled as a contact (not damage) read. No pitcher-separation column (E null).
+**On a fail:** that piece does not ship; data vs handling vs modeling diagnosis below; no second 2026 read.

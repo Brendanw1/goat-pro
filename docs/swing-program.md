@@ -41,8 +41,8 @@ joined with pitch and batted-ball data. MLB only: TrackMan bat tracking stays in
 
 | # | Piece | Kind | § | Status |
 |---|---|---|---|---|
-| 1 | Contact-depth explorer (MLB) + in-season and pitch-type trends | display + reliability gate on the per-hitter window | §89 | building |
-| 2 | Swing plane match (attack angle vs pitch VAA) | research, within-hitter test | §90 | building |
+| 1 | Contact-depth explorer (MLB) + in-season and pitch-type trends | display + reliability gate on the per-hitter window | §89 | shipped: window gate failed (SB .21), league curve shown; /depth + Swing tab |
+| 2 | Swing plane match (attack angle vs pitch VAA) | research, within-hitter test | §90 | failed (sign reversed); not shipped |
 | 3 | Swing quality model (xDamage per swing, swing vs result split) | ML, forecast gate | §91 | validation and baselines first |
 | 4 | Timing residual (depth vs expected depth) + early/late by pitch type | model + scouting read | §92 | scoped |
 | 5 | Two-strike adaptation | descriptive, stability gate | §93 | scoped |

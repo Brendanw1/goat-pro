@@ -216,6 +216,11 @@ export async function getSwingProfile(id: string, season: string | number, level
   return fetchGzippedJson<any>(lv(level, `swing/${id}-${season}.json.gz`)).catch(() => null);
 }
 
+/** Contact-depth league references (§89): the inverted U, depth vs velo, in-season trend, late-on-velo board. */
+export async function getContactDepthLeague(): Promise<any | null> {
+  return fetchFromR2<any>("depth/league.json", { shared: true }).catch(() => null);
+}
+
 /** League aging curves (depth item 7): FF velo / bat speed / EV / wOBA by age. */
 export async function getAgingCurves(): Promise<any | null> {
   return fetchFromR2<any>("aging/curves.json", { shared: true }).catch(() => null);

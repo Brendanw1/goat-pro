@@ -89,6 +89,16 @@ When a formula changes, update this table and the glossary in the same commit.
 - Park p: R_p(φ), H_p(φ) linear between the knots in `pipeline/data/park_dims.csv`, R shifted by `park_offsets.csv`. Clears p ⇔ height at x = R_p(φ) under ρ_r(p) > H_p(φ).
 - X/30 = parks cleared; xHR = Σ X/30; no-doubter X = 30, mostly gone 8–29, doubter ≤ 7 (HRs only); elsewhere = non-HR with X ≥ 1; best/worst park = argmax/argmin over p of Σ balls clearing p.
 
+## Contact depth (pipeline/contact_depth.py → depth/{id}-{season}.json.gz, depth/league.json, RESULTS-MLB §89)
+
+- Swings: `swing_common.competitive_mask` (bunts out; fastest 90% per hitter-season + 60+ mph swings with 90+ EV), contact = foul + in play.
+- y = intercept_ball_minus_batter_pos_y_inches (+ = out front, from the batter); x = _x_inches (+ = away from his body). dc = y − mean(y | hitter, season, side) (`depth_centered`).
+- Plate in his frame: front edge at y = avg_batter_y_position, centre at x = avg_batter_x_position (Savant swing-path board; league 27.9 / 27.7 in. before 2025); 17 in. wide, back point 17 in. behind the front.
+- League curve L(d): 2024 balls in play, xwOBA by dc on a 1-in. grid −20…+20, Gaussian kernel bw 2 in. Personal shift δ = argmin over −10…+10 (0.5) of Σ(xw − m − L(dc − δ))², m refit per δ.
+- Late on velo: res = dc − mean(dc | season, fastball, round(release_speed)); his read = mean res on fastballs ≥ 95 mph (25+ contacts; 40+ on the board).
+- Rolling trend: mean dc over his last 50 contacts, band ±1.96·SD/√50; league reference = weekly mean dc (weeks from Mar 15).
+- Percentiles: among hitter-seasons with 100+ competitive swings, rank / (n − 1). xwOBAcon and EV good-high (coloured); depth and late-on-velo neutral.
+
 ## Deception+ percentile (web/lib/data.ts deceptionPcts, read-time over deception_index.json)
 
 - Per season, over the index rows (200+ tracked swings): pct(v) = round(100 · (#below + #equal/2) / n), clamped 1–99.
@@ -101,3 +111,12 @@ When a formula changes, update this table and the glossary in the same commit.
 - Peer pool = same pitch type, season and arm-slot band (slotBand of the slot file's primary-fastball arm angle), pitch-weighted by n_pitches.
 - ΔIVB = ivb − (Σ ivb·n − ivb_i·n_i) / (N − n_i); ΔHB likewise on hb_arm. Blank when N − n_i < 1,000 (SHAPE_PEER_MIN).
 - Neutral (no good/bad colour). Age = the pitchers board season age; Deception+ = the pitcher-season grade joined by (id, season).
+
+## Swing plane match (pipeline/plane_match.py, RESULTS-MLB §90; research only, not shipped)
+
+- M1 = |AA + VAA| (deg). AA = Savant attack_angle (+ = rising), VAA from `swing_common.vaa()` (− = descending).
+- M2 = |tan AA / max(cos AD, 0.5) + tan VAA|: inches of vertical bat-ball offset per inch of depth (timing) error, where
+  AD = attack_direction. Ball dz/dy = tan(−VAA); sweet spot dz/dy = tan AA / cos AD.
+- Model: hitter-season-demeaned OLS of squared-up (`swing_common.squared_up`, per contact) on pitch group, plate speed,
+  plate_z/x quadratics, count, centred depth (+²), AA + AA², VAA + VAA², + M. Hitter-clustered bootstrap, 1,000 draws.
+- Verdict: failed. β(M1) is positive (+2.8 pp squared-up per IQR); the mirror holds on low pitches and breaking/offspeed and reverses on four-seamers up in the zone.

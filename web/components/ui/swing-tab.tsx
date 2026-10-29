@@ -13,7 +13,8 @@
  * competitive swings) keep Savant's definitions; see the glossary.
  */
 
-import { percentileColor } from "@/lib/percentiles";
+import { ordinal, percentileColor } from "@/lib/percentiles";
+import { ContactDepthPanel } from "@/components/ui/contact-depth-panel";
 
 const REGION_LABEL: Record<string, string> = {
   heart: "Heart of the zone",
@@ -34,12 +35,11 @@ const VELO_ORDER = ["v85", "v85-90", "v90-95", "v95+"];
 function PctChip({ v, invert, neutral }: { v: number | null | undefined; invert?: boolean; neutral?: boolean }) {
   if (v == null || !Number.isFinite(v)) return null;
   const shown = Math.round(v);
-  if (neutral) return <span className="text-[9px] text-text-dim/80">{shown}th</span>;
-  const good = invert ? shown <= 50 : shown >= 50;
+  if (neutral) return <span className="text-[9px] text-text-dim/80">{ordinal(shown)}</span>;
   return (
     <span className="text-[9px] font-data leading-none" style={{ color: percentileColor(invert ? 100 - shown : shown) }}
       title={`percentile among ${shown === 50 ? "the league's" : ""} qualified swing profiles`}>
-      {shown}th{good ? "" : ""}
+      {ordinal(shown)}
     </span>
   );
 }
@@ -247,6 +247,8 @@ export function SwingTab({ swing, name }: { swing: any | null; name?: string }) 
           </table>
         </div>
       )}
+
+      <ContactDepthPanel id={swing.id} season={swing.season} />
 
       <p className="text-[10px] text-text-dim leading-relaxed max-w-[95ch]">
         Statcast bat tracking (2023 on, tracked swings only; the minors carry no bat data). Our bat-speed average

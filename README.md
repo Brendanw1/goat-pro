@@ -22,6 +22,7 @@ shown. The results are published as a website.
 | Trades | Every MLB-to-MLB trade 2020–26, grouped into deals, with the run value each club got back |
 | Postseason / Matchup | Each October 2020–26 as a bracket with series results, game reports with starting lineups, and postseason WPA and run-value leaders (`postseason.py`, bake family `postseason`); a descriptive pitcher-vs-lineup scouting view from the arsenal, hand/family splits and movement buckets |
 | Would it dong | Every MLB batted ball 2020–26 flown through the 30 current parks: X/30, xHR, no-doubters / doubters, would-be HRs elsewhere, best and worst park per hitter (RESULTS-MLB §86) |
+| Contact depth | Where hitters meet the ball (Statcast intercept, 2024–26): the inverted U of damage vs depth, depth by velocity and pitch type, the in-season trend, who's late on 95+; per hitter a to-scale contact cloud, his damage curve over the league's, small multiples by pitch type, a rolling trend (RESULTS-MLB §89) |
 | Roles | Role conversion (RESULTS-MLB §87): 2026 relievers who could start and starters who play up in a short burst, from real MLB role changes; descriptive (both gates failed) |
 | Teams | Club pages: both sides' boards cut to one team, and team aggregates ranked against the league, with park factors |
 | Defense / Framing | Our range runs and Framing+ beside Savant's OAA and framing runs |
@@ -50,6 +51,7 @@ labelled **descriptive, not a forecast**, or does not ship.
 | Range runs (infield and outfield) | shipped on v3 after two failed attempts | §75, §80, §81 |
 | WAR (position players and pitchers) | r .92 / .81 with Baseball-Reference WAR; team totals track wins at r .91 | §85 |
 | Would it dong (X/30 parks) | own-park HR call 96.5% on held-out seasons; xHR r .99 with Savant's Home Run Tracker | §86 |
+| Contact depth: personal damage window | failed (split-half SB .21; loses to the league curve on held-out balls): panel shows the league curve; late-on-95+ read stable (SB .61, YoY .58), descriptive | §89 |
 | Decision+ | descriptive: stable, but does not beat chase rate as a forecast | §69 |
 | Tunnel+, platoon Whiff+ | descriptive | §73, §74 |
 | Park factors (2B, 3B, HR, SO by hand) | descriptive | §70, §72 |

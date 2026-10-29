@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/abs", label: "ABS" },
   { href: "/wpa", label: "WPA" },
   { href: "/dong", label: "Dong" },
+  { href: "/depth", label: "Depth" },
   { href: "/aging", label: "Aging" },
   { href: "/framing", label: "Framing" },
   { href: "/defense", label: "Defense" },
