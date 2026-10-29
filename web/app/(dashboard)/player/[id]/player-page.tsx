@@ -1,4 +1,4 @@
-import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard, getLoadProfile, getLoadIndex, getAgingTrack, getAgingCurves } from "@/lib/data";
+import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard, getLoadProfile, getLoadIndex, getAgingTrack, getAgingCurves, getDeception } from "@/lib/data";
 import { vaaZoneRows } from "@/lib/vaa-zone";
 import { profilePercentiles } from "@/lib/percentiles";
 import { PlayerReady } from "@/components/ui/player-transition";
@@ -63,7 +63,9 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   // Fatigue profile (pitchers): the load doc plus that season's league TTO
   // baselines from the index, merged so the tab renders one object.
   let load: any = null;
+  let deception: any = null;
   if (profile) {
+    deception = detSeason ? await getDeception(id, detSeason) : null;
     const [loadDoc, loadIdx] = await Promise.all([
       detSeason ? getLoadProfile(id, detSeason, level) : Promise.resolve(null),
       getLoadIndex(),
@@ -196,7 +198,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           careerArsenal={career?.kind === "P" ? career.seasons : null}
           backHref={level === "aaa" ? "/minors" : undefined}
           level={level}
-        load={load} initialTab={tab} agingStrip={agingStrip} />
+        load={load} deception={deception} initialTab={tab} agingStrip={agingStrip} />
       )}
       {extra}
     </>

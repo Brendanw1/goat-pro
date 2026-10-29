@@ -111,7 +111,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging", "mechanism", "deception")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -131,6 +131,8 @@ FAM_NEEDS = {
     "pitches": set(),       # per-pitch explorer files (location/count/outcome/RV), both sides (self-contained)
     "wpa": set(),           # win-probability layer: per-game swings + league WPA boards (self-contained)
     "aging": set(),         # league aging curves, per-player age tracks, decline flags, prospect-age bridges
+    "mechanism": set(),    # the physics study's published tables (MECHANISM-MLB.md) as site content
+    "deception": set(),   # swing disruption vs each batter's own norm (bat tracking; probe item 4)
 }
 
 
@@ -4545,6 +4547,116 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             print(f"prospect season files: {n_season_files}; rank files: {n_rank_files}; farm: {len(farm_rows)} orgs")
         else:
             print("prospects: data/milb/prospects.json missing — run pipeline/prospects_fetch.py first")
+
+    # --------------------------------------------------------------- mechanism
+    # The physics study's published tables (depth item 9). These are kb-
+    # session's measurements (pipeline/MECHANISM-MLB.md, physics.py, 2023-25
+    # regular season, 2.12M pitches) — the "why whiffs happen" layer that
+    # travel under every Whiff+ grade. Re-published verbatim with provenance;
+    # recompute there, not here.
+    print(f"[{time.time() - t0:.0f}s] mechanism", flush=True)
+    if "mechanism" in fams and level == "mlb":
+        jwrite(out / "mechanism" / "tables.json", {
+            "_provenance": "pipeline/MECHANISM-MLB.md (2026-10-25); physics.py over Statcast 2023-25, "
+                           "2.12M regular-season pitches; marginal effects within pitch type",
+            "activeSpinQuartiles": {
+                "_read": "Whiff rate by active-spin quartile (Q1 lowest → Q4 highest). The sign flips by class: ride helps fastballs, gyro delays break on sliders.",
+                "rows": [
+                    {"type": "FF", "q1": 8.3, "q4": 10.2, "effect": "+1.9 pts — more active spin = more carry"},
+                    {"type": "SI", "q1": 5.2, "q4": 6.3, "effect": "+1.1 pts"},
+                    {"type": "SL", "q1": 17.0, "q4": 14.8, "effect": "-2.2 pts — gyro sliders whiff MORE"},
+                    {"type": "CU", "q1": 12.9, "q4": 12.1, "effect": "-0.8 pts"},
+                    {"type": "CH", "q1": 14.9, "q4": 14.3, "effect": "-0.6 pts"},
+                ],
+            },
+            "veloShapeGrid": {
+                "_read": "FB/SI whiff% by velocity tercile x IVB tercile: shape matters more as velocity rises — velo is the enabler, shape the multiplier.",
+                "rows": [
+                    {"velo": "low", "ivbLow": 5.2, "ivbMid": 6.5, "ivbHi": 7.4, "spread": 2.2},
+                    {"velo": "mid", "ivbLow": 5.7, "ivbMid": 7.9, "ivbHi": 9.8, "spread": 4.1},
+                    {"velo": "high", "ivbLow": 6.5, "ivbMid": 9.6, "ivbHi": 12.6, "spread": 6.1},
+                ],
+            },
+            "drag": {
+                "_read": "Higher deceleration (drag) whiffs more within type — a Hawk-Eye-only measurement, consistent with seam-orientation effects.",
+                "rows": [
+                    {"type": "SI", "spread": "+1.7 pts"},
+                    {"type": "SL", "spread": "+2.3 pts"},
+                    {"type": "CH", "spread": "+1.1 pts"},
+                ],
+            },
+        }, sort_keys=True)
+        counts["mechanism"] = 1
+    elif "mechanism" in fams:
+        print("mechanism: MLB-only — skipped at AAA")
+
+    # --------------------------------------------------------------- deception
+    # Swing disruption (depth item 10): how far a pitcher pushes each batter's
+    # swing off that batter's OWN season norm — bat speed below it, contact
+    # point pushed out of it. Batter quality cancels by construction (every
+    # delta is vs the same batter's mean), which is the probe's design
+    # (pipeline/probe_bat_tracking.py: timing disruption survives a pitch-mix
+    # control on CSW%). Descriptive; the Deception+ model request is queued
+    # model-lane and will gate any forecast claim.
+    print(f"[{time.time() - t0:.0f}s] deception", flush=True)
+    if "deception" not in fams:
+        pass
+    elif level == "aaa":
+        print("deception: no bat tracking at AAA — skipped")
+    else:
+        dec_seasons = [s for s in seasons if s >= 2023]
+        if dec_seasons:
+            dec_csv = ",".join(str(s) for s in dec_seasons)
+            dec = con.sql(f"""
+                WITH norms AS (
+                    SELECT season, batter, avg(bat_speed) AS bs, avg(intercept_ball_minus_batter_pos_y_inches) AS ic
+                    FROM pitches_all
+                    WHERE game_type = 'R' AND season IN ({dec_csv}) AND bat_speed IS NOT NULL
+                    GROUP BY 1, 2 HAVING count(*) >= 100
+                )
+                SELECT p.pitcher, p.season, count(*) AS n,
+                       avg(p.bat_speed - n.bs) AS d_bs,
+                       avg(abs(p.intercept_ball_minus_batter_pos_y_inches - n.ic)) AS d_icpt
+                FROM pitches_all p JOIN norms n ON n.season = p.season AND n.batter = p.batter
+                WHERE p.game_type = 'R' AND p.season IN ({dec_csv}) AND p.bat_speed IS NOT NULL
+                GROUP BY 1, 2 HAVING count(*) >= 200
+            """).df()
+            names = dict(con.sql(
+                "SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register "
+                "WHERE TRY_CAST(key_mlbam AS BIGINT) IS NOT NULL").fetchall())
+            dec = dec.sort_values(["season", "d_bs"]).reset_index(drop=True)
+            n_dec = 0
+            index_rows: dict = {}
+            for s in dec_seasons:
+                sub = dec[dec["season"] == s]
+                sub = sub.assign(pctBs=((sub["d_bs"].rank() / len(sub)) * 100).round(1))  # low rank = drops bats more
+                for r_ in sub.itertuples():
+                    if player is not None and int(r_.pitcher) != player:
+                        continue
+                    jwrite_gz(out / "deception" / f"{int(r_.pitcher)}-{s}.json.gz", {
+                        "id": str(int(r_.pitcher)), "season": s, "name": names.get(int(r_.pitcher)),
+                        "nSwings": int(r_.n),
+                        "batSpeedVsNorm": f(r_.d_bs, 2), "batSpeedPct": float(r_.pctBs) if pd.notna(r_.pctBs) else None,
+                        "timingDisruption": f(r_.d_icpt, 1),
+                        "_comment": ("per-swing bat speed minus THAT batter's season mean (100+ swing norms), "
+                                     "averaged over the pitcher's tracked swings (200+); timing disruption is the "
+                                     "mean absolute contact-point shift off the batter's norm, inches. Descriptive."),
+                    }, sort_keys=True)
+                    index_rows.setdefault(str(s), []).append({
+                        "id": str(int(r_.pitcher)), "name": names.get(int(r_.pitcher)), "nSwings": int(r_.n),
+                        "batSpeedVsNorm": f(r_.d_bs, 2), "timingDisruption": f(r_.d_icpt, 1),
+                        "pctBs": float(r_.pctBs) if pd.notna(r_.pctBs) else None})
+                    n_dec += 1
+            jwrite(out / "deception_index.json", {
+                "_comment": ("swing disruption per pitcher-season: mean bat-speed delta vs each batter's own norm "
+                             "(negative = batters swing slower against him), timing disruption = mean |contact-depth "
+                             "shift| in inches. 200+ tracked swings. Descriptive — probe item 4 found timing "
+                             "disruption survives a pitch-mix control; the model gate is queued model-lane"),
+                "seasons": {k: sorted(v, key=lambda e: (e["batSpeedVsNorm"] if e["batSpeedVsNorm"] is not None else 0))
+                            for k, v in sorted(index_rows.items())},
+            }, sort_keys=True)
+            counts["deception_files"] = n_dec
+            print(f"deception files: {n_dec}")
 
     # ------------------------------------------------------------------ swing
     # Hitter swing profiles from bat tracking (depth list item 1). MLB-only:

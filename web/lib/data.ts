@@ -200,6 +200,16 @@ export async function getBucketBoard(season: number | string, type: string, leve
   return fetchFromR2<any>(lv(level, `buckets/${season}-${type}.json`)).catch(() => null);
 }
 
+/** Swing-disruption profile per pitcher-season (item 10). */
+export async function getDeception(id: string, season: string | number): Promise<any | null> {
+  return fetchGzippedJson<any>(`deception/${id}-${season}.json.gz`).catch(() => null);
+}
+
+/** The physics study's published tables (item 9): mechanism/tables.json. */
+export async function getMechanismTables(): Promise<any | null> {
+  return fetchFromR2<any>("mechanism/tables.json", { shared: true }).catch(() => null);
+}
+
 /** Farm-system output table + tier time-to-MLB curves + risers (item 8). */
 export async function getFarmOutput(): Promise<any | null> {
   return fetchFromR2<any>("prospects/farm.json", { shared: true }).catch(() => null);

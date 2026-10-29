@@ -203,6 +203,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
           <Link href={link({ view: "team" })} className={chip(false)}>By team</Link>
           <Link href={link({ view: "pos" })} className={chip(false)}>By position</Link>
           <Link href={link({ view: "hitrate" })} className={chip(false)}>Hit rates</Link>
+          <Link href={link({ view: "farm" })} className={chip(false)}>Farm output</Link>
           <Link href={link({ view: "farm" })} className={chip(true)}>Farm output</Link>
         </div>
         <div className="glass-panel overflow-hidden">
@@ -328,6 +329,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
         <Link href={link({ view: "team" })} className={chip(view === "team")}>By team</Link>
         <Link href={link({ view: "pos" })} className={chip(view === "pos")}>By position</Link>
           <Link href={link({ view: "hitrate" })} className={chip(false)}>Hit rates</Link>
+          <Link href={link({ view: "farm" })} className={chip(false)}>Farm output</Link>
       </div>
       {view === "team" && (
         <div className="flex flex-wrap items-center gap-1.5">

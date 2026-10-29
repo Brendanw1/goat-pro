@@ -1,4 +1,5 @@
 import { Nav } from "@/components/nav";
+import { LavaBar } from "@/components/ui/lava-bar";
 import { LaunchIntro } from "@/components/ui/launch-intro";
 import { PlayerTransitionOverlay } from "@/components/ui/player-transition";
 import { SnapshotTool } from "@/components/ui/snapshot";
@@ -24,6 +25,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <LaunchIntro />
+      <LavaBar />
       <Nav />
       {/*
         `min-w-0` is load-bearing, not tidiness. As a flex item this defaults to

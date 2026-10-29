@@ -69,6 +69,7 @@ type ProfileViewProps = {
   level?: string;
   situational?: any | null;
   load?: any | null;
+  deception?: any | null;
   initialTab?: string | null;
   agingStrip?: React.ReactNode;
 };
@@ -281,7 +282,7 @@ function PlatoonCell({ pitch, h }: { pitch: any; h: "LHH" | "RHH" }) {
   );
 }
 
-export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, load, initialTab, agingStrip, backHref = "/pitchers", level }: ProfileViewProps) {
+export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, load, deception, initialTab, agingStrip, backHref = "/pitchers", level }: ProfileViewProps) {
   const [vaaPitchFilter, setVaaPitchFilter] = useState<string>("all");
   const [percentilePitchTab, setPercentilePitchTab] = useState<string | null>(null);
   // ?tab= deep link (the fatigue board links here); stale keys fall back to Overview.
@@ -594,6 +595,22 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "arsenal" ? (
         <div className="space-y-5">
+          {deception?.batSpeedVsNorm != null && (
+            <div className="glass-panel px-4 py-3 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">
+                Swing disruption · bat tracking
+              </span>
+              <span className="text-xs font-data text-text-secondary">
+                batters swing <span className="text-text-primary">{Math.abs(deception.batSpeedVsNorm).toFixed(2)} mph {deception.batSpeedVsNorm < 0 ? "slower" : "faster"}</span> than their own norm vs him
+              </span>
+              <span className="text-xs font-data text-text-secondary">
+                timing shifted <span className="text-text-primary">{deception.timingDisruption}&quot;</span> off their contact point
+              </span>
+              <span className="text-[10px] text-text-dim">
+                {deception.nSwings?.toLocaleString()} tracked swings · {deception.batSpeedPct != null ? `${Math.round(deception.batSpeedPct)}th pct` : ""} · descriptive
+              </span>
+            </div>
+          )}
           {careerArsenal && careerArsenal.length > 0 && <CareerArsenal seasons={careerArsenal} />}
           {/* Every model grade in one strip, so the Arsenal tab carries the whole model read. */}
           <div className="glass-panel px-4 py-3">
