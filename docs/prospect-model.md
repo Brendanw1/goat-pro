@@ -261,3 +261,12 @@ bottleneck is **outcome lag**: true value takes 3–6 years to mature.
    plus a descriptive layer).
 5. Org development effects, handed to team identities.
 6. The retrain/promote loop with surrogate endpoints, plus a dated-prediction archive from day one.
+
+**Owner notes for the full build (2026-10-29).**
+- NumPyro is approved. It is installed in `~/.venvs/goat-bayes`, not the anaconda base.
+- Start wide: every legitimate factor goes in the dev model (level/age/league/park, rate and Statcast-quality stats, promotion
+  speed, draft slot and bonus, Pipeline grades, health, org). Feature selection and engineering happen after, and only inside
+  nested time-forward, player-grouped CV, with a feature-family ablation table. The holdout is read once on the frozen spec.
+- v0 drew on the draft model's README only. The full build reviews `vt_baseball/MLB_Draft_Model` code itself (the five-tier
+  Draft Intelligence project, not the older Streamlit dashboard in `mlb-draft-model-main/`): Tier 2 Platt calibration, the
+  Tier 3 prior-offset Elastic Net, the Tier 4 comps, and the Tier 5 hurdle and its backtest.
