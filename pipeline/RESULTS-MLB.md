@@ -3628,3 +3628,13 @@ plane incl. length, attack angle, direction, tilt / contact point / pitch diet /
 to the grade − 100 up to rounding), results − swing gap in xwOBAcon points, n BIP, reliability fair (25–49 BIP, SB ≈ .75) / good (50–99,
 ≈ .86) / high (100+, ≈ .92), and a one-line story. Cross-fit by hitter only. 1,645 rows (2025: Judge 123 with results +140 ahead;
 Arraez 86, bat speed −20).
+
+## §98 Is our range residual skill? Ours − Savant OAA vs the Jump components (descriptive, pre-registered 2026-10-29 before any read)
+
+**Why.** §97 declared the out-probability model at its public-data ceiling: what our p cannot express is per-play positioning and routes. Savant's Jump leaderboard (in the mart since 2026-10-29, `lb_outfield_jump_{s}`, 2016+) decomposes each outfielder's range into burst / reaction / routing / bootup distance, relative to league. If our residual (our OAA − Savant's, per OF fielder-season) is skill rather than noise, it should correlate with what Jump measures — and with WHICH component tells us what our residual is made of: v3 conditions on season-average starts, so credit we give for unusual positioning stays in the residual, and Savant (per-play positions) removes it; routing is Jump's closest analogue.
+
+**The check** (`pipeline/range_residual_jump.py`): `defense_players_v3.csv` OF rows (2020–2026) joined to `lb_outfield_jump_{s}` on (mlbam, season); residual = ours − Savant; Pearson r of residual with each Jump component, player-clustered bootstrap CI (the §75 instrument), n; our raw OAA vs each component as context.
+
+**Reported, no gate:** r + CI per component; the residual's r with Savant OAA (its scale dependence). Descriptive — it decides where D-39's speed-tool profile points and whether the residual is worth showing beside Jump on the site.
+
+**Expected:** routing and burst correlate positively; reaction less; bootup least. Magnitude modest (|r| .2–.4 — the residual's reliability is .40, so ~.40 is its ceiling vs anything). If the residual is uncorrelated with all four, it is either noise or something Jump does not measure — either answer steers the site.
