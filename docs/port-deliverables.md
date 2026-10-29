@@ -153,6 +153,17 @@ validated against OAA**, not a copy of the college one.
 | D-36 | **Projection percentiles with visuals.** | M→W | **Done 2026-10-27** (`8d54c23`, `75648bf`). Pitchers: K% and Prevention+ (shown as next-season RV/100) ranges from out-of-fold misses (`proj_bands.py`, 3,275 pairs, binned by BF). Hitters: Marcel wOBA/K%/BB% passed §67 vs persistence (all 3), with measured ranges (`hitter_proj.py`, MLB only). ProjectionBand over the league's middle 80% plus percentile, on both profiles. | M |
 | D-37 | **Expected-stat and run-value graphs, league view.** | W | **Done 2026-10-27** (`8d54c23`, `65fbf4e`). LeagueScatter (xwOBA vs wOBA, Savant scale, `/api/data/league-scatter`), RvFamilyBars (hitters; pitchers have it as a percentile group), percentile card PNG (`/api/card/[id]`). | S–M |
 
+## Added 2026-10-29 (owner)
+
+| ID | Item | Lane | What "done" means | Size |
+|---|---|---|---|---|
+| D-38 | **Range v4: the responsible fielder's own speed + reach decomposition.** | M→W | Pre-register (§94, re-test of §81), then one new model feature: `f_sprint` = the sprint speed of the responsible fielder (min-distance fielder 3–9, from `lb_sprint_speed_{s}`), plus per-chance emission of `hang`/`req_speed`/`f_sprint`/`reach` so the OF speed-tool split ships: within-reach (`f_sprint ≥ req_speed`) vs beyond-reach credit/runs per fielder-season, split-half + YoY reported, labelled approximate. Gates as §75/§80/§81; a group ships v4 only if it passes AND r ≥ its §81 r. | M |
+| D-39 | **Speed tool profile (descriptive).** | M→W | Sprint-speed aging curve, speed vs OAA/FRV scatter, and a public-input Speed Score (sprint speed, SB/CS runs, XBT rate, triples rate) on profiles and the defense page. Data already in `lb_sprint_speed_2015–2026` (position players only) and the D-16 artifacts. Descriptive label; no gate beyond reliability reporting. | M |
+| D-40 | **Baserunning runs from play data.** | M | Own XBT + SB/CS run model from base-out states and hit data (`lb_baserunning*` columns `runner_runs_XB`/`runner_runs_SBX` are the validation reference), runner sprint speed as an input. Pre-registered vs Savant baserunning RV. Fills the own-WAR baserunning leg (§85 currently carries none). | M |
+| D-41 | **Location+ as a residual.** | M | Re-test of §36's failed standalone called-strike design: `location_xRV = Pitching_xRV − Stuff_xRV` per pitch type (the Pitch Profiler V12 residual design; FanGraphs reportedly the same). Gate: per-pitch-type reliability + forecast value vs naive. Only ships if it adds beyond Pitching+ alone. | M |
+| D-42 | **Swing-conditional run-value target (Stuff v4).** | M | Richer Whiff+ target per the Pitch Profiler V12 note and the R&D status report: P(whiff/foul/in-play) + P(HR&#124;in-play) weighted by run-value constants (swing-conditional, no location). Ships only if it beats v3 Whiff+ on the forecast gate (§34/§82 recipe). | L |
+| D-43 | **VectorSSM (Kalman) projections.** | M | Multivariate state-space over Stuff+/Pitching+/Location+ feeding D-17's projections page (R&D status report idea 10). Only after D-17 exists. | M |
+
 ## Not porting
 
 - /live, /fall, /reports/live, /reports/practice: TrackMan only (clean-room rule 1).
