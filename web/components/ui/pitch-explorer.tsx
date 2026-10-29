@@ -16,7 +16,7 @@ type File = {
 };
 
 const colorOf = (t: string) => PITCH_CONFIG[t as PitchType]?.color ?? "#8C9591";
-const X0 = -1.9, X1 = 1.9, Z0 = 0.4, Z1 = 4.6, NX = 10, NZ = 11;
+const X0 = -1.9, X1 = 1.9, Z0 = 0.4, Z1 = 4.6;
 const SWING = new Set([2, 3, 4, 5, 6, 7, 8]);
 const BIP = new Set([4, 5, 6, 7, 8]);
 
@@ -24,7 +24,7 @@ const COUNTS = [["all", "All counts"], ["first", "0-0"], ["pAhead", "Pitcher ahe
   ["hAhead", "Hitter ahead"], ["two", "Two strikes"]] as const;
 const OUTCOMES = [["all", "All pitches"], ["swing", "Swings"], ["whiff", "Whiffs"], ["called", "Called strikes"],
   ["bip", "In play"], ["hard", "Hard-hit (95+)"]] as const;
-const METRICS = [["density", "Where"], ["whiff", "Whiff%"], ["rv", "RV/100"], ["xwoba", "xwOBA"]] as const;
+const METRICS = [["density", "Where"], ["whiff", "Whiff%"], ["rv", "RV/100"], ["xwoba", "xwOBAcon"]] as const;
 
 function countOk(c: number, g: string) {
   const b = Math.floor(c / 3), s = c % 3;
@@ -105,7 +105,8 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
     return clamp(50 + (pitcher ? -1 : 1) * ((v - 0.36) / 0.25) * 50);
   };
 
-  // grid
+  // grid: fine for where the pitches go, coarser for rates so a cell can reach its floor
+  const [NX, NZ] = metric === "density" ? [10, 11] : [6, 7];
   const cells = Array.from({ length: NX * NZ }, () => ({ n: 0, sw: 0, wh: 0, r: 0, wn: 0, ws: 0 }));
   for (const i of rows) {
     const x = file.x[i] / 100, z = file.z[i] / 100;
@@ -132,7 +133,12 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
     const ooz = file.q ? ix.filter((i) => file.q![i] === 0) : [];
     const chase = ooz.length ? (100 * ooz.filter((i) => SWING.has(file.o[i])).length) / ooz.length : null;
     let cum = 0;
-    const path = ix.map((i) => { cum += file.r[i] / 1000; return [file.d[i], cum] as [number, number]; });
+    const path: [number, number][] = [];  // one point per day: the running total after that day's pitches
+    for (const i of ix) {
+      cum += file.r[i] / 1000;
+      if (path.length && path[path.length - 1][0] === file.d[i]) path[path.length - 1][1] = cum;
+      else path.push([file.d[i], cum]);
+    }
     return { t, n, usage: base.length ? (100 * n) / base.length : 0, rv100: n ? (100 * rv) / n : null, rv,
       whiff: sw ? (100 * wh) / sw : null, csw: n ? (100 * csw) / n : null, chase,
       xw: ws.length ? ws.reduce((a, b) => a + b, 0) / ws.length / 1000 : null,
@@ -170,21 +176,24 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
               if (metric === "density" && c.n) { fill = `rgba(232,180,60,${(0.12 + 0.88 * c.n / maxN).toFixed(3)})`; }
               if (metric === "whiff" && c.sw >= 8) { const v = c.wh / c.sw; fill = percentileColor(good("whiff", v)); tip = `whiff ${(100 * v).toFixed(0)}% of ${c.sw} swings`; }
               if (metric === "rv" && c.n >= 15) { const v = (100 * c.r) / 1000 / c.n; fill = percentileColor(good("rv", v)); tip = `${v.toFixed(1)} runs/100 on ${c.n} pitches`; }
-              if (metric === "xwoba" && c.wn >= 5) { const v = c.ws / c.wn; fill = percentileColor(good("xwoba", v)); tip = `xwOBA ${v.toFixed(3).replace(/^0/, "")} on ${c.wn} in play`; }
+              if (metric === "xwoba" && c.wn >= 5) { const v = c.ws / c.wn; fill = percentileColor(good("xwoba", v)); tip = `xwOBAcon ${v.toFixed(3).replace(/^0/, "")} on ${c.wn} in play`; }
               return fill ? <rect key={k} x={i * cw} y={H - (j + 1) * ch} width={cw - 1} height={ch - 1} fill={fill} rx={2}><title>{tip}</title></rect> : null;
             })}
             <rect x={px(-0.83)} y={pz(file.zone[1])} width={px(0.83) - px(-0.83)} height={pz(file.zone[0]) - pz(file.zone[1])}
               fill="none" stroke="currentColor" className="text-text-secondary" strokeWidth={1.2} />
           </svg>
+          {metric !== "density" && !cells.some((c) => (metric === "whiff" ? c.sw >= 8 : metric === "rv" ? c.n >= 15 : c.wn >= 5)) && (
+            <p className="mt-1 text-[11px] text-text-secondary max-w-[220px]">Too few pitches in any one spot for this view. Widen the filters, or switch to Where.</p>
+          )}
           <p className="mt-1 text-[10px] text-text-dim max-w-[220px]">
-            Catcher&rsquo;s view · {rows.length.toLocaleString()} pitches. Rates need 8+ swings, RV 15+ pitches, xwOBA 5+ balls in play per cell.
+            Catcher&rsquo;s view · {rows.length.toLocaleString()} pitches. Rates need 8+ swings, RV 15+ pitches, xwOBAcon 5+ balls in play per cell.
             Green = good for {pitcher ? "him on the mound" : "him at the plate"}.
           </p>
         </div>
         <div className="space-y-3 overflow-x-auto">
           <table className="text-[11px] font-data">
             <thead className="text-text-dim"><tr>
-              {["Type", "Pitches", "Usage", "RV/100", "Runs", "Whiff%", "Chase%", "CSW%", "xwOBA", "EV"].map((h) => <th key={h} className="pr-3 text-right first:text-left font-normal">{h}</th>)}
+              {["Type", "Pitches", "Usage", "RV/100", "Runs", "Whiff%", "Chase%", "CSW%", "xwOBAcon", "EV"].map((h) => <th key={h} className="pr-3 text-right first:text-left font-normal">{h}</th>)}
             </tr></thead>
             <tbody>{byType.map((r) => (
               <tr key={r.t} className="text-text-secondary">
@@ -203,7 +212,7 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
               <line x1={0} x2={PW} y1={sy(0)} y2={sy(0)} stroke="currentColor" className="text-white/20" />
               {byType.map((r) => (
                 <polyline key={r.t} fill="none" stroke={colorOf(r.t)} strokeWidth={1.5}
-                  points={r.path.filter((_, k) => k % 4 === 0 || k === r.path.length - 1).map(([d, v]) => `${sx(d).toFixed(1)},${sy(v).toFixed(1)}`).join(" ")}>
+                  points={r.path.map(([d, v]) => `${sx(d).toFixed(1)},${sy(v).toFixed(1)}`).join(" ")}>
                   <title>{`${r.t}: ${r.rv.toFixed(1)} runs on ${r.n} pitches`}</title>
                 </polyline>
               ))}
