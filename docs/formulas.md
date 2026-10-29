@@ -96,6 +96,9 @@ When a formula changes, update this table and the glossary in the same commit.
 - Plate in his frame: front edge at y = avg_batter_y_position, centre at x = avg_batter_x_position (Savant swing-path board; league 27.9 / 27.7 in. before 2025); 17 in. wide, back point 17 in. behind the front.
 - League curve L(d): 2024 balls in play, xwOBA by dc on a 1-in. grid −20…+20, Gaussian kernel bw 2 in. Personal shift δ = argmin over −10…+10 (0.5) of Σ(xw − m − L(dc − δ))², m refit per δ.
 - Late on velo: res = dc − mean(dc | season, fastball, round(release_speed)); his read = mean res on fastballs ≥ 95 mph (25+ contacts; 40+ on the board).
+- Late by type (depth/late-{season}.json; keys FB95, FB, FF, SI, CT, SL, SW, CB, CH, FS): rt = dc − norm(season, type, round(velo)); a norm cell under 300 contacts falls back to the pitch family at that velo, then all types. Board floor 40 contacts (fastball keys) or 30. Reliability per key: split-half by alternate games (2025, 15+ per half), YoY 2024→2025 (25+).
+- Pitcher mirror (depth/pitchers-{season}.json): over contacts by hitters with 100+ competitive swings, per pitcher (100+ contacts) and pitcher × type (50+): dc = mean centred depth (velo and mix included), rt = mean (dc − the type × velo norm above), xwOBAcon, EV, mean velo. Reliability: split-half by his alternate games (50+ per half overall, 25+ per type) and YoY.
+- Hitter filters (client, contact-depth-panel.tsx): pts carry pitcher id `pid` and hand `th`; the cloud, damage bins and rolling trend recompute on the filtered set (rolling window 50, or n/3 with a 15 floor under 150 contacts; needs 30+).
 - Rolling trend: mean dc over his last 50 contacts, band ±1.96·SD/√50; league reference = weekly mean dc (weeks from Mar 15).
 - Percentiles: among hitter-seasons with 100+ competitive swings, rank / (n − 1). xwOBAcon and EV good-high (coloured); depth and late-on-velo neutral.
 

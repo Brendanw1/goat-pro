@@ -19,16 +19,46 @@ const evColor = (ev: number) => percentileRamp((ev - 70) / 38);
 const binPhrase = (b: string) => { const [r, w] = b.split(" "); return `${r.replace("-", "–")} in. ${w === "deep" ? "deeper than" : "in front of"}`; };
 const inch = (v: number, dp = 1) => `${Math.abs(v).toFixed(dp)} in.`;
 
-type Pt = { y: number; x: number | null; dc: number; ev: number | null; xw: number | null; pt: string | null; v: number; k2: boolean; day: number; L: boolean };
+type Pt = { y: number; x: number | null; dc: number; ev: number | null; xw: number | null; pt: string | null; v: number; k2: boolean; day: number; L: boolean; pid: string; th: "L" | "R" };
+type Hand = "all" | "R" | "L";
+type SortKey = "name" | "th" | "n" | "nBip" | "dc" | "ev" | "xw";
 
 function unpack(p: any, codes: string[]): Pt[] {
   return p.y.map((y: number, i: number) => ({
     y: y / 10, x: p.x[i] <= -9000 ? null : p.x[i] / 10, dc: p.dc[i] / 10,
     ev: p.ev[i] < 0 ? null : p.ev[i], xw: p.xw[i] < 0 ? null : p.xw[i] / 1000,
     pt: p.pt[i] >= 0 ? codes[p.pt[i]] : null, v: p.v[i] / 10, k2: !!p.k2[i], day: p.day[i], L: !!p.side[i],
+    pid: String(p.pid?.[i] ?? ""), th: p.th?.[i] ? "L" : "R",
   }));
 }
 const mean = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN);
+const BIN_LABELS = Object.keys(BIN_X);
+const binOf = (dc: number) => (dc <= -8 ? 0 : dc <= -4 ? 1 : dc <= 0 ? 2 : dc <= 4 ? 3 : dc <= 8 ? 4 : 5);  // as the bake's pd.cut
+
+/** His xwOBAcon by centred-depth bin for any subset of balls in play. */
+function hisBins(pts: Pt[]) {
+  const acc = BIN_LABELS.map(() => ({ s: 0, n: 0 }));
+  for (const p of pts) if (p.xw != null) { const b = acc[binOf(p.dc)]; b.s += p.xw; b.n++; }
+  return BIN_LABELS.map((bin, i) => ({ bin, n: acc[i].n, xw: acc[i].n ? acc[i].s / acc[i].n : null }));
+}
+
+/** Rolling mean of centred depth over the subset (pts are in game order), 95% band, at most 150 points. */
+function rollOf(pts: Pt[]): { roll: number[][]; w: number } {
+  const n = pts.length;
+  const w = n >= 150 ? 50 : Math.max(15, Math.floor(n / 3));
+  if (n < 30) return { roll: [], w };
+  const out: number[][] = [];
+  const step = Math.max(1, Math.floor((n - w + 1) / 150));
+  for (let i = w - 1; i < n; i += step) {
+    const win = pts.slice(i - w + 1, i + 1).map((p) => p.dc);
+    const m = mean(win), sd = Math.sqrt(mean(win.map((v) => (v - m) ** 2)));
+    out.push([pts[i].day, Math.round(m * 10) / 10, Math.round((19.6 * sd) / Math.sqrt(w)) / 10]);
+  }
+  return { roll: out, w };
+}
+
+const CHIP = "px-2 py-0.5 rounded-md text-[11px] border transition-colors";
+const chipCls = (on: boolean) => `${CHIP} ${on ? "border-usf-gold/60 text-text-primary bg-white/[0.06]" : "border-border-subtle text-text-secondary hover:bg-white/[0.04]"}`;
 
 function Card({ title, read, n, children }: { title: string; read: string; n: string; children: React.ReactNode }) {
   return (
@@ -206,14 +236,31 @@ function Rolling({ roll, week }: { roll: number[][]; week: any[] }) {
 export function ContactDepthPanel({ id, season }: { id: string | number; season: string | number }) {
   const [d, setD] = useState<any | null | undefined>(undefined);
   const [lg, setLg] = useState<any | null>(null);
+  const [types, setTypes] = useState<string[]>([]);
+  const [hand, setHand] = useState<Hand>("all");
+  const [pitcher, setPitcher] = useState<string>("");
+  const [sort, setSort] = useState<{ k: SortKey; desc: boolean }>({ k: "n", desc: true });
   useEffect(() => {
     let live = true;
     setD(undefined);
+    setTypes([]); setHand("all"); setPitcher("");
     fetch(`/api/data/depth/${id}?season=${season}`).then((r) => (r.ok ? r.json() : null)).then((x) => live && setD(x)).catch(() => live && setD(null));
     fetch(`/api/data/depth/league`).then((r) => (r.ok ? r.json() : null)).then((x) => live && setLg(x)).catch(() => {});
     return () => { live = false; };
   }, [id, season]);
   const pts = useMemo(() => (d ? unpack(d.pts, d.ptCodes) : []), [d]);
+  // type + hand filter feeds the pitcher list and table; the pitcher pick narrows every chart further
+  const th = useMemo(() => pts.filter((p) => (!types.length || (p.pt && types.includes(p.pt))) && (hand === "all" || p.th === hand)), [pts, types, hand]);
+  const shown = useMemo(() => (pitcher ? th.filter((p) => p.pid === pitcher) : th), [th, pitcher]);
+  const byPitcher = useMemo(() => {
+    const m = new Map<string, Pt[]>();
+    for (const p of th) m.set(p.pid, [...(m.get(p.pid) ?? []), p]);
+    return [...m.entries()].map(([pid, ps]) => {
+      const b = ps.filter((p) => p.xw != null);
+      return { pid, name: d?.pitchers?.[pid] ?? pid, th: ps[0].th, n: ps.length, nBip: b.length, dc: mean(ps.map((p) => p.dc)),
+        ev: b.length ? mean(b.filter((p) => p.ev != null).map((p) => p.ev!)) : NaN, xw: b.length ? mean(b.map((p) => p.xw!)) : NaN };
+    });
+  }, [th, d]);
   if (d === undefined) return <div className="h-40 animate-pulse rounded-lg bg-white/[0.03]" />;
   if (!d) return (
     <div className="glass-panel p-4 text-xs text-text-dim">
@@ -221,20 +268,47 @@ export function ContactDepthPanel({ id, season }: { id: string | number; season:
     </div>
   );
   const s = d.summary, pc = d.pct ?? {};
-  const main = pts.filter((p) => p.L === (d.side === "L"));
-  const vsPlate = s.depth - d.plate.yFront;
   const curve = lg?.curve;
   const gate = lg?.gate?.main;
-  // finding: best bin, pitch-type gap, drift
-  const best = [...(d.his as any[])].filter((b) => b.n >= 15 && b.xw != null).sort((a, b) => b.xw - a.xw)[0];
-  const byType = Object.keys(PT_NAME).map((t) => ({ t, p: pts.filter((q) => q.pt === t) })).filter((g) => g.p.length >= 15)
+  const havePid = Array.isArray(d.pts?.pid);
+  const typesFaced = Object.keys(PT_NAME).filter((t) => pts.some((p) => p.pt === t));
+  const pName = pitcher ? d.pitchers?.[pitcher] ?? pitcher : null;
+  const subset = [
+    types.length ? `on ${types.map((t) => PT_NAME[t]).join(", ")}` : null,
+    hand !== "all" ? `vs ${hand}HP` : null,
+    pName ? `vs ${pName}` : null,
+  ].filter(Boolean).join(" · ");
+  const tag = (t: string) => (subset ? `${t} (${subset})` : t);
+  const main = shown.filter((p) => p.L === (d.side === "L"));
+  const mainBip = main.filter((p) => p.xw != null).length;
+  const bip = shown.filter((p) => p.xw != null);
+  const his = hisBins(shown);
+  const vsPlate = main.length ? mean(main.map((p) => p.y)) - d.plate.yFront : s.depth - d.plate.yFront;
+  const best = his.filter((b) => b.n >= 15 && b.xw != null).sort((a, b) => b.xw! - a.xw!)[0];
+  const byType = Object.keys(PT_NAME).map((t) => ({ t, p: shown.filter((q) => q.pt === t) })).filter((g) => g.p.length >= 15)
     .map((g) => ({ t: g.t, m: mean(g.p.map((q) => q.y)), n: g.p.length })).sort((a, b) => a.m - b.m);
   const deep = byType[0], front = byType[byType.length - 1];
-  const roll: number[][] = d.roll ?? [];
+  const { roll, w } = rollOf(shown);
   const k = Math.max(1, Math.floor(roll.length / 6));
   const drift = roll.length > 2 * k ? mean(roll.slice(-k).map((r) => r[1])) - mean(roll.slice(0, k).map((r) => r[1])) : null;
-  const k2 = pts.filter((p) => p.k2), k0 = pts.filter((p) => !p.k2);
-  const k2gap = k2.length >= 30 ? mean(k2.map((p) => p.dc)) - mean(k0.map((p) => p.dc)) : null;
+  const k2 = shown.filter((p) => p.k2), k0 = shown.filter((p) => !p.k2);
+  const k2gap = k2.length >= 30 && k0.length >= 30 ? mean(k2.map((p) => p.dc)) - mean(k0.map((p) => p.dc)) : null;
+  const pitchersFaced = [...byPitcher].sort((a, b) => b.n - a.n);
+  const tableRows = [...byPitcher].filter((r) => r.n >= 3).sort((a, b) => {
+    const va = a[sort.k], vb = b[sort.k];
+    const c = typeof va === "string" ? String(va).localeCompare(String(vb)) : (Number.isFinite(va as number) ? (va as number) : -1e9) - (Number.isFinite(vb as number) ? (vb as number) : -1e9);
+    return sort.desc ? -c : c;
+  });
+  const sortBy = (k: SortKey) => setSort((o) => ({ k, desc: o.k === k ? !o.desc : k !== "name" && k !== "th" }));
+  const Th = ({ k: key, label, right = true }: { k: SortKey; label: string; right?: boolean }) => (
+    <th className={`py-1 font-semibold ${right ? "text-right" : "text-left"}`} aria-sort={sort.k === key ? (sort.desc ? "descending" : "ascending") : "none"}>
+      <button type="button" onClick={() => sortBy(key)} className="uppercase tracking-wider hover:text-text-primary">
+        {label}{sort.k === key ? (sort.desc ? " ↓" : " ↑") : ""}
+      </button>
+    </th>
+  );
+  const f3 = (v: number) => (Number.isFinite(v) ? v.toFixed(3).replace(/^0/, "") : "—");
+  const f1 = (v: number) => (Number.isFinite(v) ? v.toFixed(1) : "—");
 
   return (
     <section className="space-y-3">
@@ -245,16 +319,60 @@ export function ContactDepthPanel({ id, season }: { id: string | number; season:
         </span>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Chip label="Contact depth (from his body)" value={`${s.depth}"`} pct={pc.depth} good={false} />
-        <Chip label="xwOBA on contact" value={s.xw != null ? s.xw.toFixed(3).replace(/^0/, "") : "—"} pct={pc.xw} good />
-        <Chip label="Exit velo in play" value={s.ev != null ? `${s.ev}` : "—"} pct={pc.ev} good />
+        <Chip label="Contact depth (from his body), season" value={`${s.depth}"`} pct={pc.depth} good={false} />
+        <Chip label="xwOBA on contact, season" value={s.xw != null ? s.xw.toFixed(3).replace(/^0/, "") : "—"} pct={pc.xw} good />
+        <Chip label="Exit velo in play, season" value={s.ev != null ? `${s.ev}` : "—"} pct={pc.ev} good />
         <Chip label="Depth vs league on 95+ fastballs" value={s.late != null ? `${s.late > 0 ? "+" : ""}${s.late}"` : "—"} pct={pc.late} good={false} />
       </div>
 
+      <div className="glass-panel p-3 space-y-2" role="group" aria-label="filter contacts">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-text-dim mr-1">Pitch type</span>
+          <button type="button" className={chipCls(!types.length)} aria-pressed={!types.length} onClick={() => setTypes([])}>All</button>
+          {typesFaced.map((t) => {
+            const on = types.includes(t);
+            return (
+              <button key={t} type="button" aria-pressed={on} className={chipCls(on)}
+                style={on ? { borderColor: PITCH_CONFIG[t as PitchType]?.color } : undefined}
+                onClick={() => setTypes((o) => (on ? o.filter((x) => x !== t) : [...o, t]))}>
+                {PITCH_CONFIG[t as PitchType]?.label ?? t} <span className="font-data text-text-dim">{pts.filter((p) => p.pt === t).length}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-text-dim mr-1">Pitcher hand</span>
+          {(["all", "R", "L"] as Hand[]).map((h) => (
+            <button key={h} type="button" aria-pressed={hand === h} className={chipCls(hand === h)} onClick={() => setHand(h)}>
+              {h === "all" ? "Both" : `vs ${h}HP`}
+            </button>
+          ))}
+          {havePid && (
+            <label className="ml-2 flex items-center gap-1.5 text-[10px] text-text-dim">
+              Pitcher
+              <select value={pitcher} onChange={(e) => setPitcher(e.target.value)}
+                className="rounded-md border border-border-subtle bg-black/40 px-2 py-0.5 text-[11px] text-text-secondary max-w-[240px]">
+                <option value="">All {pitchersFaced.length} pitchers</option>
+                {pitchersFaced.map((r) => <option key={r.pid} value={r.pid}>{r.name} ({r.th}) · {r.n}</option>)}
+              </select>
+            </label>
+          )}
+          {(types.length > 0 || hand !== "all" || pitcher) && (
+            <button type="button" className="ml-auto text-[10px] text-text-dim underline" onClick={() => { setTypes([]); setHand("all"); setPitcher(""); }}>Clear filters</button>
+          )}
+        </div>
+        <div className="text-[10px] text-text-dim">
+          Showing <span className="font-data text-text-secondary">{shown.length}</span> of {pts.length} contacts ({bip.length} in play){subset ? ` · ${subset}` : ""}. Season chips above ignore the filter.
+        </div>
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="glass-panel p-4 text-xs text-text-dim">No contacts match these filters. Clear one to see his contact points.</div>
+      ) : (<>
       <div className="grid gap-3 lg:grid-cols-2">
         <Card
-          title={`He meets the ball ${inch(vsPlate)} ${vsPlate >= 0 ? "in front of" : "behind"} the front of the plate`}
-          n={`${main.length} contacts as a ${d.side}HB · coloured by exit velo (fouls faint)`}
+          title={tag(`He meets the ball ${inch(vsPlate)} ${vsPlate >= 0 ? "in front of" : "behind"} the front of the plate`)}
+          n={`${main.length} contacts as a ${d.side}HB (${mainBip} in play) · coloured by exit velo (fouls faint)`}
           read={`Seen from above, in his own frame: 0 is his body, up is toward the pitcher. The plate is placed from ${d.plate.src === "savant" ? "his Savant stance position this season" : "the league-average stance (Savant has no stance position before 2025)"}.`}>
           <Cloud pts={main} plate={d.plate} side={d.side} />
           <div className="mt-1 flex items-center justify-center gap-1 text-[9px] text-text-dim">
@@ -263,32 +381,79 @@ export function ContactDepthPanel({ id, season }: { id: string | number; season:
             <span>108+</span>
           </div>
         </Card>
-        {curve && (
+        {curve && bip.length >= 8 && (
           <Card
-            title={best ? `His best bin was ${binPhrase(best.bin)} his normal; the league peaks ${curve.peak} in. out front` : `The league does its damage ${curve.peak} in. out front of normal`}
-            n={`${d.nBip} balls in play in 6 bins · league curve from ${lg.n_bip?.toLocaleString()} balls, moved to his level`}
-            read={`His own peak is noise, not a trait: split halves of each hitter's best depth agree at r ${gate?.r_split ?? ".12"} (Spearman-Brown ${gate?.sb ?? ".21"}, §89), and the league curve predicts his held-out balls better. Read the dashed line.`}>
-            <DamageCurve his={d.his} league={curve} peak={curve.peak} />
+            title={tag(best ? `His best bin was ${binPhrase(best.bin)} his normal; the league peaks ${curve.peak} in. out front` : `The league does its damage ${curve.peak} in. out front of normal`)}
+            n={`${bip.length} balls in play in 6 bins (bins under 8 hidden) · league curve from ${lg.n_bip?.toLocaleString()} balls, moved to his level`}
+            read={`His own peak is noise, not a trait: split halves of each hitter's best depth agree at r ${gate?.r_split ?? ".12"} (Spearman-Brown ${gate?.sb ?? ".21"}, §89), and the league curve predicts his held-out balls better. Read the dashed line; a filtered subset is noisier still.`}>
+            <DamageCurve his={his} league={curve} peak={curve.peak} />
           </Card>
         )}
       </div>
 
-      {deep && front && deep.t !== front.t && (
+      {deep && (
         <Card
-          title={`He meets ${PT_NAME[front.t]} ${inch(front.m - deep.m)} further out front than ${PT_NAME[deep.t]}`}
+          title={tag(front && deep.t !== front.t
+            ? `He meets ${PT_NAME[front.t]} ${inch(front.m - deep.m)} further out front than ${PT_NAME[deep.t]}`
+            : `He meets ${PT_NAME[deep.t]} ${deep.m.toFixed(1)} in. out from his body`)}
           n={`${byType.reduce((a, b) => a + b.n, 0)} contacts on types with 15+ · rows = pitch velo band (n) · white tick = mean · dotted = front of plate`}
           read="Slower pitches get met further out front for nearly every hitter; the gap between bands is the velocity effect, the gap between panels is the pitch type.">
-          <TypeStrips pts={pts} plateFront={d.plate.yFront} />
+          <TypeStrips pts={shown} plateFront={d.plate.yFront} />
         </Card>
       )}
 
-      {roll.length > 2 && (
+      {roll.length > 2 ? (
         <Card
-          title={drift == null || Math.abs(drift) < 1 ? `His contact point held within an inch all season` : `His contact point moved ${inch(drift)} ${drift > 0 ? "out front" : "deeper"} from his first contacts to his last`}
-          n={`rolling 50 contacts, 95% band · dashed = league weekly within-hitter drift${k2gap != null ? ` · with two strikes he meets it ${inch(k2gap)} ${k2gap < 0 ? "deeper" : "further out front"}` : ""}`}
+          title={tag(drift == null || Math.abs(drift) < 1 ? `His contact point held within an inch all season` : `His contact point moved ${inch(drift)} ${drift > 0 ? "out front" : "deeper"} from his first contacts to his last`)}
+          n={`${shown.length} contacts · rolling ${w}, 95% band · dashed = league weekly within-hitter drift${k2gap != null ? ` · with two strikes he meets it ${inch(k2gap)} ${k2gap < 0 ? "deeper" : "further out front"}` : ""}`}
           read="The league line barely moves (±0.2 in. by month): any swing in his line bigger than the band is him, not the calendar.">
           <Rolling roll={roll} week={lg?.week?.[String(d.season)] ?? []} />
         </Card>
+      ) : (
+        <div className="glass-panel p-3 text-[11px] text-text-dim">The rolling trend needs 30+ contacts in the subset ({shown.length} now).</div>
+      )}
+      </>)}
+
+      {havePid && (
+        <figure className="glass-panel p-3 overflow-x-auto">
+          <figcaption className="mb-1.5">
+            <div className="text-[13px] font-semibold text-text-primary leading-snug">
+              {(() => {
+                const t = tableRows.length ? `He made the most contact against ${[...byPitcher].sort((a, b) => b.n - a.n)[0].name}` : "Contact by pitcher";
+                const sub = [types.length ? `on ${types.map((x) => PT_NAME[x]).join(", ")}` : null, hand !== "all" ? `vs ${hand}HP` : null].filter(Boolean).join(" · ");
+                return sub ? `${t} (${sub})` : t;  // the table follows type + hand, not the pitcher pick
+              })()}
+            </div>
+            <div className="text-[10px] text-text-dim">{tableRows.length} pitchers with 3+ contacts · click a header to sort, again to flip · depth vs his own season mean (+ out front)</div>
+          </figcaption>
+          <table className="w-full text-xs font-data">
+            <thead>
+              <tr className="text-[9px] text-text-dim">
+                <Th k="name" label="Pitcher" right={false} />
+                <Th k="th" label="Hand" right={false} />
+                <Th k="n" label="Contacts" />
+                <Th k="nBip" label="In play" />
+                <Th k="dc" label="Depth vs norm" />
+                <Th k="ev" label="EV" />
+                <Th k="xw" label="xwOBAcon" />
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.slice(0, 30).map((r) => (
+                <tr key={r.pid} className={`border-t border-white/[0.04] ${r.pid === pitcher ? "bg-white/[0.04]" : ""}`}>
+                  <td className="py-1 font-sans"><a href={`/player/${r.pid}`} className="text-text-secondary hover:underline">{r.name}</a></td>
+                  <td className="py-1 text-text-dim">{r.th}HP</td>
+                  <td className="py-1 text-right">{r.n}</td>
+                  <td className="py-1 text-right text-text-dim">{r.nBip}</td>
+                  <td className="py-1 text-right text-text-primary">{Number.isFinite(r.dc) ? `${r.dc > 0 ? "+" : ""}${r.dc.toFixed(1)}` : "—"}</td>
+                  <td className="py-1 text-right">{f1(r.ev)}</td>
+                  <td className="py-1 text-right">{f3(r.xw)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-1.5 text-[11px] text-text-secondary">A handful of contacts per pitcher is a description of what happened, not a matchup read. Top 30 by the current sort.</p>
+        </figure>
       )}
       <p className="text-[10px] text-text-dim leading-relaxed max-w-[95ch]">
         Statcast&apos;s intercept point, measured from the batter, so raw depth includes where he stands; every curve centres it on

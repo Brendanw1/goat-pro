@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getContactDepthLeague } from "@/lib/data";
+import { getContactDepthLate, getContactDepthLeague, getContactDepthPitchers } from "@/lib/data";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { PITCH_CONFIG } from "@/lib/constants";
 
@@ -127,14 +127,75 @@ function Trend({ week }: { week: Record<string, any[]> }) {
   );
 }
 
-export default async function DepthPage({ searchParams }: { searchParams?: Promise<{ season?: string; dir?: string }> }) {
+type Q = { season?: string; lk?: string; ls?: string; la?: string; pk?: string; ps?: string; pa?: string };
+type Col = { k: string; label: string; left?: boolean; title?: string };
+const LATE_LABEL: Record<string, string> = { FB95: "Fastballs 95+", FB: "All fastballs", FF: "Four-seam", SI: "Sinker", CT: "Cutter", SL: "Slider", SW: "Sweeper", CB: "Curveball", CH: "Changeup", FS: "Splitter" };
+const LATE_PLURAL: Record<string, string> = { FB95: "95+ fastballs", FB: "fastballs", FF: "four-seamers", SI: "sinkers", CT: "cutters", SL: "sliders", SW: "sweepers", CB: "curveballs", CH: "changeups", FS: "splitters" };
+const TYPE_KEYS = ["FF", "SI", "CT", "SL", "SW", "CB", "CH", "FS"];
+
+/** Rows sorted by any column, both ways (strings A-Z first when ascending; missing values always last). */
+function sortRows<T extends Record<string, any>>(rows: T[], k: string, asc: boolean): T[] {
+  return [...rows].sort((a, b) => {
+    const va = a[k], vb = b[k];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const c = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+    return asc ? c : -c;
+  });
+}
+
+function SortHead({ cols, sort, asc, href }: { cols: Col[]; sort: string; asc: boolean; href: (k: string, asc: boolean) => string }) {
+  return (
+    <thead>
+      <tr className="text-[9px] uppercase tracking-wider text-text-dim">
+        {cols.map((c) => {
+          const on = c.k === sort;
+          // first click: text columns A-Z, numbers high-to-low; a second click flips
+          const next = on ? !asc : c.left === true;
+          return (
+            <th key={c.k} className={`py-1 font-semibold ${c.left ? "text-left" : "text-right"}`} title={c.title}
+              aria-sort={on ? (asc ? "ascending" : "descending") : "none"}>
+              <Link href={href(c.k, next)} scroll={false} className={`hover:text-text-primary ${on ? "text-text-primary" : ""}`}>
+                {c.label}{on ? (asc ? " ↑" : " ↓") : ""}
+              </Link>
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+  );
+}
+
+const x3 = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(3).replace(/^0/, ""));
+const sgn = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}`);
+
+export default async function DepthPage({ searchParams }: { searchParams?: Promise<Q> }) {
   const q = (await searchParams) ?? {};
-  const lg = await getContactDepthLeague();
-  if (!lg) return <div className="glass-panel p-8 text-center text-sm text-text-dim">Contact depth has not been baked yet (pipeline/contact_depth.py).</div>;
   const season = SEASONS.includes(q.season ?? "") ? q.season! : "2026";
-  const early = q.dir === "early";
-  const board: any[] = [...(lg.late_board?.[season] ?? [])].filter((r) => r.n >= 40);
-  const rows = (early ? [...board].reverse() : board).slice(0, 25);
+  const [lg, late, pit] = await Promise.all([getContactDepthLeague(), getContactDepthLate(season), getContactDepthPitchers(season)]);
+  if (!lg) return <div className="glass-panel p-8 text-center text-sm text-text-dim">Contact depth has not been baked yet (pipeline/contact_depth.py).</div>;
+  const state: Required<Q> = {
+    season,
+    lk: Object.keys(LATE_LABEL).includes(q.lk ?? "") ? q.lk! : "FB95",
+    ls: ["name", "n", "late", "nBip", "xw", "ev"].includes(q.ls ?? "") ? q.ls! : "late",
+    la: q.la === "0" ? "0" : "1",
+    pk: ["all", ...TYPE_KEYS].includes(q.pk ?? "") ? q.pk! : "all",
+    ps: ["name", "th", "n", "v", "dc", "rt", "xw", "ev"].includes(q.ps ?? "") ? q.ps! : "dc",
+    pa: q.pa === "0" ? "0" : "1",
+  };
+  const link = (o: Partial<Q>) => `/depth?${new URLSearchParams({ ...state, ...o } as Record<string, string>).toString()}`;
+  const lateFloor = ["FB95", "FB", "FF", "SI"].includes(state.lk) ? 40 : 30;
+  const lateAll: any[] = (late?.boards?.[state.lk] ?? []).filter((r: any) => r.n >= lateFloor);
+  const lateRows = sortRows(lateAll, state.ls, state.la === "1").slice(0, 40);
+  const lrel = late?.reliability?.[state.lk];
+  const pRows: any[] = (pit?.rows ?? []).map((r: any) => (state.pk === "all" ? r : r.types?.[state.pk] ? { ...r, ...r.types[state.pk] } : null)).filter(Boolean);
+  const pitRows = sortRows(pRows, state.ps, state.pa === "1").slice(0, 40);
+  const prel = pit?.reliability ?? {};
+  const prDc = prel[state.pk === "all" ? "all_dc" : `${state.pk}_dc`], prRt = prel[state.pk === "all" ? "all_rt" : `${state.pk}_rt`];
+  const deepest = sortRows(pRows, "dc", true)[0];
+  const lateTop = sortRows(lateAll, "late", true)[0];
+
   const u = lg.ushape;
   const peakBin = u.all.reduce((a: any, b: any) => (b.xw > a.xw ? b : a));
   const fb = lg.velo.FB ?? [];
@@ -142,13 +203,23 @@ export default async function DepthPage({ searchParams }: { searchParams?: Promi
   const perMph = lo && hi ? (hi.dc - lo.dc) / 8 : null;
   const monthAll = Object.values<any[]>(lg.month).flat().map((m) => m.dc);
   const monthRange = Math.max(...monthAll.map(Math.abs));
-  const rel = lg.late_reliability, gate = lg.gate?.main;
+  const gate = lg.gate?.main;
   const chip = (on: boolean) => `px-2.5 py-1 rounded-md text-[11px] border ${on ? "border-usf-gold/60 text-text-primary bg-white/[0.06]" : "border-border-subtle text-text-secondary hover:bg-white/[0.04]"}`;
-  const link = (o: Record<string, string>) => `/depth?${new URLSearchParams({ season, dir: early ? "early" : "late", ...o }).toString()}`;
   const fact = (label: string, v: string) => (
     <div className="rounded-md border border-white/[0.06] px-3 py-2"><div className="font-data text-sm text-text-primary">{v}</div><div className="text-[10px] text-text-dim">{label}</div></div>
   );
   const sg = (v: number) => `${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(1)} in.`;
+  const lateCols: Col[] = [
+    { k: "name", label: "Hitter", left: true }, { k: "n", label: "Contacts" },
+    { k: "late", label: "vs league (in.)", title: "his centred depth minus the league's at the same type and velo; − = later" },
+    { k: "nBip", label: "In play" }, { k: "xw", label: "xwOBAcon" }, { k: "ev", label: "EV" },
+  ];
+  const pitCols: Col[] = [
+    { k: "name", label: "Pitcher", left: true }, { k: "th", label: "Hand", left: true }, { k: "n", label: "Contacts" }, { k: "v", label: "Velo" },
+    { k: "dc", label: "Depth vs norm", title: "mean depth of contact against him vs each hitter's own season mean; − = deeper" },
+    { k: "rt", label: "Beyond type + velo", title: "the same, minus the league's depth for that pitch type at that velo" },
+    { k: "xw", label: "xwOBAcon" }, { k: "ev", label: "EV" },
+  ];
 
   return (
     <div className="space-y-4">
@@ -186,45 +257,77 @@ export default async function DepthPage({ searchParams }: { searchParams?: Promi
         <Trend week={lg.week} />
       </Fig>
 
-      <div className="glass-panel p-4 overflow-x-auto">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <h2 className="text-[13px] font-semibold text-text-primary mr-2">{early ? "Who's out front on 95+" : "Who's late on 95+"}</h2>
-          {SEASONS.map((y) => <Link key={y} href={link({ season: y })} className={chip(y === season)}>{y}</Link>)}
-          <span className="mx-1 h-4 w-px bg-white/10" />
-          <Link href={link({ dir: "late" })} className={chip(!early)}>Latest</Link>
-          <Link href={link({ dir: "early" })} className={chip(early)}>Most out front</Link>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] text-text-dim">Boards season</span>
+        {SEASONS.map((y) => <Link key={y} href={link({ season: y })} scroll={false} className={chip(y === season)}>{y}</Link>)}
+      </div>
+
+      <section className="glass-panel p-4 overflow-x-auto" id="late">
+        <h2 className="text-[13px] font-semibold text-text-primary">
+          {lateTop ? `${lateTop.name} meets ${LATE_PLURAL[state.lk]} latest, ${Math.abs(lateTop.late)} in. deeper than the league` : `Who's late on ${LATE_PLURAL[state.lk]}`}
+        </h2>
+        <div className="my-2 flex flex-wrap items-center gap-1.5">
+          {Object.entries(LATE_LABEL).map(([k, l]) => <Link key={k} href={`${link({ lk: k })}#late`} scroll={false} className={chip(k === state.lk)}>{l}</Link>)}
         </div>
         <p className="mb-2 text-[11px] text-text-dim max-w-[90ch]">
-          Depth on 95+ mph fastballs against the league at the same velocity, after centring on his own normal. Negative = he meets the
-          heat deeper than hitters usually do. It is a stable read: split halves r {rel?.split_r} (Spearman-Brown {rel?.sb}, {rel?.n_split} hitters, 2025),
-          year to year r {rel?.yoy_r}. A style, not a grade: being late can come with damage to the opposite field.
+          His depth on {LATE_PLURAL[state.lk]} against the league on the same pitch type at the same velocity (1-mph bins),
+          after centring on his own normal. Negative = later than hitters usually are. Split halves r {lrel?.split_r} (Spearman-Brown {lrel?.sb},
+          {" "}{lrel?.n_split} hitters, 2025), year to year r {lrel?.yoy_r}{lrel?.sb != null && lrel.sb < 0.5 ? ": below .50, so read this type as a description of the season, not a trait" : ""}.
+          A style, not a grade: being late can come with damage the other way.
         </p>
         <table className="w-full text-xs font-data">
-          <thead>
-            <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-              <th className="py-1 text-left font-semibold">Hitter</th>
-              <th className="py-1 text-right font-semibold">Contacts 95+</th>
-              <th className="py-1 text-right font-semibold">vs league (in.)</th>
-              <th className="py-1 text-right font-semibold">In play</th>
-              <th className="py-1 text-right font-semibold">xwOBAcon</th>
-              <th className="py-1 text-right font-semibold">EV</th>
-            </tr>
-          </thead>
+          <SortHead cols={lateCols} sort={state.ls} asc={state.la === "1"} href={(k, a) => `${link({ ls: k, la: a ? "1" : "0" })}#late`} />
           <tbody>
-            {rows.map((r) => (
+            {lateRows.map((r) => (
               <tr key={r.id} className="border-t border-white/[0.04]">
                 <td className="py-1"><Link href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline">{r.tm && <PixelTeamLogo team={r.tm} size={14} />}{r.name}</Link></td>
                 <td className="py-1 text-right text-text-dim">{r.n}</td>
-                <td className="py-1 text-right text-text-primary">{r.late > 0 ? "+" : ""}{r.late}</td>
+                <td className="py-1 text-right text-text-primary">{sgn(r.late)}</td>
                 <td className="py-1 text-right text-text-dim">{r.nBip}</td>
-                <td className="py-1 text-right">{r.xw != null ? r.xw.toFixed(3).replace(/^0/, "") : "—"}</td>
+                <td className="py-1 text-right">{x3(r.xw)}</td>
                 <td className="py-1 text-right">{r.ev ?? "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="mt-2 text-[10px] text-text-dim">{rows.length} of {board.length} hitters with 40+ contacts on 95+ fastballs in {season}.</p>
-      </div>
+        <p className="mt-2 text-[10px] text-text-dim">{lateRows.length} of {lateAll.length} hitters with {lateFloor}+ contacts on {LATE_PLURAL[state.lk]} in {season}, by the current sort.</p>
+      </section>
+
+      <section className="glass-panel p-4 overflow-x-auto" id="pitchers">
+        <h2 className="text-[13px] font-semibold text-text-primary">
+          {deepest ? `${deepest.name} pushes contact deepest${state.pk === "all" ? "" : ` on his ${LATE_PLURAL[state.pk]}`}: ${Math.abs(deepest.dc)} in. behind hitters' normal` : "Pitchers who push contact deepest"}
+        </h2>
+        <div className="my-2 flex flex-wrap items-center gap-1.5">
+          <Link href={`${link({ pk: "all" })}#pitchers`} scroll={false} className={chip(state.pk === "all")}>All pitches</Link>
+          {TYPE_KEYS.map((k) => <Link key={k} href={`${link({ pk: k })}#pitchers`} scroll={false} className={chip(k === state.pk)}>{LATE_LABEL[k]}</Link>)}
+        </div>
+        <p className="mb-2 text-[11px] text-text-dim max-w-[90ch]">
+          The pitcher mirror: where hitters (100+ competitive swings) meet the ball against him, against each hitter&apos;s own season
+          normal. <strong>Depth vs norm</strong> includes his velocity and mix; <strong>beyond type + velo</strong> subtracts the league&apos;s
+          depth for the same pitch type at the same speed, so what remains is the pitch, not the radar gun. Reliability ({season === "2025" ? "this season" : "2025"} split
+          halves by alternate games): depth vs norm Spearman-Brown {prDc?.sb ?? "—"} (r {prDc?.split_r ?? "—"}, {prDc?.n_split ?? 0} pitchers),
+          beyond type + velo {prRt?.sb ?? "—"}; year to year r {prDc?.yoy_r ?? "—"} / {prRt?.yoy_r ?? "—"}. Stable, but descriptive: deeper contact is
+          not by itself weaker contact.
+        </p>
+        <table className="w-full text-xs font-data">
+          <SortHead cols={pitCols} sort={state.ps} asc={state.pa === "1"} href={(k, a) => `${link({ ps: k, pa: a ? "1" : "0" })}#pitchers`} />
+          <tbody>
+            {pitRows.map((r) => (
+              <tr key={r.id} className="border-t border-white/[0.04]">
+                <td className="py-1"><Link href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline">{r.tm && <PixelTeamLogo team={r.tm} size={14} />}{r.name}</Link></td>
+                <td className="py-1 text-text-dim">{r.th}HP</td>
+                <td className="py-1 text-right text-text-dim">{r.n}</td>
+                <td className="py-1 text-right">{r.v ?? "—"}</td>
+                <td className="py-1 text-right text-text-primary">{sgn(r.dc)}</td>
+                <td className="py-1 text-right">{sgn(r.rt)}</td>
+                <td className="py-1 text-right">{x3(r.xw)}</td>
+                <td className="py-1 text-right">{r.ev ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-2 text-[10px] text-text-dim">{pitRows.length} of {pRows.length} pitchers with {state.pk === "all" ? "100+ contacts" : `50+ contacts on his ${LATE_PLURAL[state.pk]}`} in {season}, by the current sort.</p>
+      </section>
     </div>
   );
 }

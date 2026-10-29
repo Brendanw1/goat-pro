@@ -314,7 +314,7 @@ function SwingDisruption({ d }: { d: any }) {
     <div className="glass-panel px-4 py-3">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Swing disruption · bat tracking</span>
-        <span className="text-[10px] text-text-dim">{d.nSwings?.toLocaleString()} tracked swings · percentiles: high = more deceptive</span>
+        <span className="text-[10px] text-text-dim">{d.nSwings?.toLocaleString()} tracked swings · percentiles: high = more deceptive · <a href={`/depth?${d.season ? `season=${d.season}&` : ""}ps=dc#pitchers`} className="underline">how deep hitters meet him</a></span>
       </div>
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
         {typeof d.plus === "number" && trait("Deception+", Math.round(d.plus).toString(), "100 = average", d.plusPct, DECEPTION_TIP)}

@@ -38,12 +38,14 @@ MIN_SWINGS = 100                       # same floor as the swing family
 
 def load() -> pd.DataFrame:
     if CACHE.exists():
-        return pd.read_parquet(CACHE)
+        d = pd.read_parquet(CACHE)
+        if "pitcher" in d:
+            return d  # older caches lack the pitcher id: rebuild
     sys.path.insert(0, str(MART_DIR))
     import mart
     con = mart.connect()
     con.execute("SET threads TO 4")
-    cols = ("game_date", "game_pk", "pitch_type", "release_speed", "p_throws", "balls", "strikes", "plate_x", "plate_z",
+    cols = ("pitcher", "game_date", "game_pk", "pitch_type", "release_speed", "p_throws", "balls", "strikes", "plate_x", "plate_z",
             "sz_top", "sz_bot", "launch_angle", "estimated_woba_using_speedangle", "hc_x", "hc_y",
             "intercept_ball_minus_batter_pos_y_inches", "intercept_ball_minus_batter_pos_x_inches")
     d = con.sql(sc.swing_sql(SEASONS, cols)).df()
@@ -59,7 +61,7 @@ def load() -> pd.DataFrame:
     d["bip"] = d["description"] == "hit_into_play"
     d.loc[~d["bip"], "xw"] = np.nan
     d["game_date"] = pd.to_datetime(d["game_date"])
-    keep = ["batter", "season", "stand", "game_date", "game_pk", "pt", "velo", "p_throws", "balls", "strikes", "plate_x",
+    keep = ["batter", "pitcher", "season", "stand", "game_date", "game_pk", "pt", "velo", "p_throws", "balls", "strikes", "plate_x",
             "plate_z", "sz_top", "sz_bot", "y", "x", "dc", "ev", "la", "xw", "pull", "bip", "bat_speed", "n_comp"]
     d = d[keep].dropna(subset=["y"]).reset_index(drop=True)
     CACHE.parent.mkdir(exist_ok=True)
@@ -258,26 +260,84 @@ def league_doc(d: pd.DataFrame, curve: np.ndarray) -> dict:
     return doc
 
 
+LATE_KEYS = ["FB95", "FB", "FF", "SI", "CT", "SL", "SW", "CB", "CH", "FS"]  # FB95 = any fastball at 95+
+
+
+def type_residual(d: pd.DataFrame) -> pd.DataFrame:
+    """Per contact: centred depth minus the league's for the same season, pitch type and 1-mph velo (beyond velo and type)."""
+    t = d.dropna(subset=["dc", "velo", "pt"]).copy()
+    t["v1"] = t["velo"].round()
+    # thin cells (one pitcher can be the whole cell): fall back to the pitch family, then all types, at that velo
+    norm = t.groupby(["season", "v1"])["dc"].transform("mean")
+    for keys in (["season", "fam", "v1"], ["season", "pt", "v1"]):
+        cell = t.groupby(keys)["dc"]
+        norm = cell.transform("mean").where(cell.transform("size") >= 300, norm)
+    t["rt"] = t["dc"] - norm
+    return t
+
+
+def late_sets(d: pd.DataFrame) -> dict:
+    """key -> (contacts, residual column). FB95/FB use the fastball-family velo norm, single types their own."""
+    fb = late_on_velo(d)
+    tr = type_residual(d)
+    out = {"FB95": (fb[fb["velo"] >= 95], "res"), "FB": (fb, "res")}
+    for t in LATE_KEYS[2:]:
+        out[t] = (tr[tr["pt"] == t], "rt")
+    return out
+
+
+def split_rel(g: pd.DataFrame, unit: str, col: str, per_half: int, per_season: int) -> dict:
+    """Split-half (2025, alternate games of the unit) and YoY 2024->2025 of the unit's mean `col`."""
+    g = g.copy()
+    gm = g[[unit, "season", "game_date", "game_pk"]].drop_duplicates().sort_values([unit, "season", "game_date", "game_pk"])
+    gm["h"] = gm.groupby([unit, "season"]).cumcount() % 2
+    g = g.merge(gm, on=[unit, "season", "game_date", "game_pk"])
+    sh = g[g["season"] == 2025].groupby([unit, "h"])[col].agg(["mean", "size"]).unstack()
+    sh = sh[(sh["size"] >= per_half).all(axis=1)]
+    r = float(sh["mean"][0].corr(sh["mean"][1])) if len(sh) > 10 else float("nan")
+    yo = g.groupby([unit, "season"])[col].agg(["mean", "size"]).query(f"size >= {per_season}")["mean"].unstack()
+    yr = float(yo[2024].corr(yo[2025])) if {2024, 2025} <= set(yo.columns) else float("nan")
+    return {"split_r": _m(r, 3), "sb": _m(2 * r / (1 + r), 3), "n_split": int(len(sh)), "yoy_r": _m(yr, 3),
+            "n_yoy": int(yo.reindex(columns=[2024, 2025]).dropna().shape[0])}
+
+
 def late_board(d: pd.DataFrame) -> tuple[dict, dict]:
-    """Who's late on velo: per hitter-season, mean depth vs the league at the same velo on 95+ fastballs.
-    Returns the board rows by season and the reliability read (split-half 2025, YoY 2024->2025)."""
-    fb = late_on_velo(frame(d))
-    hv = fb[fb["velo"] >= 95].copy()
-    hv["h"] = halves(hv)
+    """Who's late, per key: per hitter-season mean depth vs the league at the same type/velo (25+ contacts).
+    Returns {season: {key: rows}} and {key: reliability}; reliability['FB95'] is the §89 pre-registered read."""
     rows: dict = {}
-    for (pid, s), g in hv.groupby(["batter", "season"]):
-        if len(g) < 25:
-            continue
-        rows.setdefault(str(s), []).append({"id": str(pid), "n": int(len(g)), "late": _m(g["res"].mean(), 1),
-                                            "xw": _m(g.loc[g["bip"], "xw"].mean(), 3), "nBip": int(g["bip"].sum()),
-                                            "ev": _m(g.loc[g["bip"], "ev"].mean(), 1)})
-    sh = hv[hv["season"] == 2025].groupby(["batter", "h"])["res"].agg(["mean", "size"]).unstack()
-    sh = sh[(sh["size"] >= 15).all(axis=1)]
-    r = float(sh["mean"][0].corr(sh["mean"][1]))
-    yo = hv.groupby(["batter", "season"])["res"].agg(["mean", "size"]).query("size >= 25")["mean"].unstack()
-    rel = {"split_r": round(r, 3), "sb": round(2 * r / (1 + r), 3), "n_split": int(len(sh)),
-           "yoy_r": round(float(yo[2024].corr(yo[2025])), 3), "n_yoy": int(yo[[2024, 2025]].dropna().shape[0])}
+    rel: dict = {}
+    for key, (g, col) in late_sets(frame(d)).items():
+        for (pid, s), u in g.groupby(["batter", "season"]):
+            if len(u) < 25:
+                continue
+            b = u[u["bip"]]
+            rows.setdefault(str(s), {}).setdefault(key, []).append(
+                {"id": str(pid), "n": int(len(u)), "late": _m(u[col].mean(), 1), "xw": _m(b["xw"].mean(), 3),
+                 "nBip": int(len(b)), "ev": _m(b["ev"].mean(), 1)})
+        rel[key] = split_rel(g, "batter", col, 15, 25)
     return rows, rel
+
+
+def pitcher_board(d: pd.DataFrame) -> tuple[dict, dict]:
+    """Pitcher mirror: contact against him, depth vs each hitter's own norm (hitters with 100+ competitive swings).
+    dc = raw centred depth (velo and mix included); rt = beyond his pitch type and velo. Floors: 100 contacts, 50 per type."""
+    t = type_residual(frame(d[d["n_comp"] >= MIN_SWINGS]))
+
+    def stats(u):
+        b = u[u["bip"]]
+        return {"n": int(len(u)), "dc": _m(u["dc"].mean(), 1), "rt": _m(u["rt"].mean(), 1),
+                "xw": _m(b["xw"].mean(), 3), "ev": _m(b["ev"].mean(), 1), "v": _m(u["velo"].mean(), 1)}
+    out: dict = {}
+    for (pid, s), u in t.groupby(["pitcher", "season"]):
+        if len(u) < 100:
+            continue
+        types = {pt: stats(g) for pt, g in u.groupby("pt") if len(g) >= 50}
+        out.setdefault(int(s), []).append({"id": str(int(pid)), "th": u["p_throws"].iloc[0], **stats(u), "types": types})
+    rel = {"all_dc": split_rel(t, "pitcher", "dc", 50, 100), "all_rt": split_rel(t, "pitcher", "rt", 50, 100)}
+    for pt in PT_CODES:
+        rel[f"{pt}_dc"] = split_rel(t[t["pt"] == pt], "pitcher", "dc", 25, 50)
+        rel[f"{pt}_rt"] = split_rel(t[t["pt"] == pt], "pitcher", "rt", 25, 50)
+    return out, rel
 
 
 def observe(d: pd.DataFrame) -> None:
@@ -285,10 +345,12 @@ def observe(d: pd.DataFrame) -> None:
     doc = league_doc(d, curve)
     _, rel = late_board(d)
     doc["late_reliability"] = rel
+    _, prel = pitcher_board(d)
+    doc["pitcher_reliability"] = prel
     RES.mkdir(exist_ok=True)
     (RES / "contact_depth_obs.json").write_text(json.dumps(doc, indent=1, default=str))
     for k in ("month", "asb", "month_fb_velo_adj", "fam", "two_strike", "two_strike_fam", "loc", "height", "loc_x_raw",
-              "velo_r_bip", "late_reliability"):
+              "velo_r_bip", "late_reliability", "pitcher_reliability"):
         print(k, json.dumps(doc[k], default=str))
     print("type_velo", json.dumps(doc["type_velo"]))
     for k, v in doc["ushape"].items():
@@ -321,9 +383,11 @@ def bake(d: pd.DataFrame) -> None:
     gate_res = json.loads((RES / "contact_depth_89.json").read_text()) if (RES / "contact_depth_89.json").exists() else {}
     lg["gate"] = {"verdict": gate_res.get("verdict"), "main": (gate_res.get("runs") or [None])[0], "yoy": gate_res.get("yoy")}
     late_rows, late_rel = late_board(d)
-    lg["late_reliability"] = late_rel
+    d_all = d
+    lg["late_reliability"] = late_rel["FB95"]   # the §89 pre-registered read
+    lg["late_rel"] = late_rel
+    lg["late_keys"] = LATE_KEYS
     names = json.loads((ROOT / "data" / "export" / "web" / "player_index.json").read_text())
-    nm = lambda i: names.get(str(i), {}).get("n", str(i))  # noqa: E731
     d = frame(d)
     d = d[d["n_comp"] >= MIN_SWINGS]
     fb = late_on_velo(d)
@@ -332,6 +396,9 @@ def bake(d: pd.DataFrame) -> None:
     sys.path.insert(0, str(MART_DIR))
     import mart
     con = mart.connect()
+    reg = dict(con.sql("SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register "
+                       "WHERE TRY_CAST(key_mlbam AS BIGINT) IS NOT NULL AND name_last IS NOT NULL").fetchall())
+    nm = lambda i: names.get(str(i), {}).get("n") or reg.get(int(i), str(i))  # noqa: E731
     for s in SEASONS:
         try:
             t = con.sql(f"SELECT id, side, avg_batter_y_position, avg_batter_x_position FROM lb_swingpath_{s}").df()
@@ -349,6 +416,7 @@ def bake(d: pd.DataFrame) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     n = 0
     for (pid, s), g in d.groupby(["batter", "season"]):
+        g = g.sort_values(["game_date", "game_pk"])  # pts in game order: the client's rolling trend relies on it
         a = agg.loc[(pid, s)]
         side = g["stand"].mode().iloc[0]
         pos = sp.get((int(pid), s, side))
@@ -362,6 +430,7 @@ def bake(d: pd.DataFrame) -> None:
             "pt": [PT_CODES.index(t) if t in PT_CODES else -1 for t in g["pt"]],
             "v": (g["velo"].fillna(0) * 10).round().astype(int).tolist(), "k2": (g["strikes"] == 2).astype(int).tolist(),
             "day": (g["game_date"] - day0).dt.days.astype(int).tolist(), "side": (g["stand"] == "L").astype(int).tolist(),
+            "pid": g["pitcher"].astype(int).tolist(), "th": (g["p_throws"] == "L").astype(int).tolist(),
         }
         doc = {"id": str(pid), "season": int(s), "side": side, "sides": sorted(g["stand"].unique().tolist()),
                "n": int(len(g)), "nBip": int(a.nBip),
@@ -372,14 +441,24 @@ def bake(d: pd.DataFrame) -> None:
                            "osDepth": _m(g.loc[g["fam"].isin(["BR", "OS"]), "y"].mean(), 1)},
                "pct": {c: (None if pd.isna(a[c + "Pct"]) else int(a[c + "Pct"])) for c in ("depth", "xw", "ev", "late")},
                "his": [{"bin": k, "xw": _m(r["mean"], 3), "n": int(r["size"])} for k, r in his.iterrows()],
-               "roll": rolling(g), "pts": pts, "ptCodes": PT_CODES}
+               "roll": rolling(g), "pts": pts, "ptCodes": PT_CODES,
+               "pitchers": {str(int(p)): nm(p) for p in g["pitcher"].unique()}}
         with gzip.open(OUT / f"{pid}-{s}.json.gz", "wt", compresslevel=9) as fh:
             json.dump(doc, fh, separators=(",", ":"))
         n += 1
-    lg["late_board"] = {s: sorted([{**r, "name": nm(r["id"]), "tm": names.get(r["id"], {}).get("tm")} for r in rows], key=lambda r: r["late"])
-                        for s, rows in late_rows.items()}
+    for s, keys in late_rows.items():  # one file per season, so the hitter panel's league.json stays small
+        board = {k: sorted([{**r, "name": nm(r["id"]), "tm": names.get(r["id"], {}).get("tm")} for r in rows],
+                           key=lambda r: r["late"]) for k, rows in keys.items()}
+        (OUT / f"late-{s}.json").write_text(json.dumps({"season": int(s), "keys": LATE_KEYS, "reliability": late_rel,
+                                                        "boards": board}, separators=(",", ":"), default=str))
+    prow, prel = pitcher_board(d_all)
+    for s, rows in prow.items():
+        doc = {"season": s, "reliability": prel, "floors": {"pitcher": 100, "type": 50},
+               "rows": sorted([{**r, "name": nm(r["id"]), "tm": names.get(r["id"], {}).get("tm")} for r in rows], key=lambda r: r["dc"])}
+        (OUT / f"pitchers-{s}.json").write_text(json.dumps(doc, separators=(",", ":"), default=str))
+    lg["pitcher_reliability"] = prel
     (OUT / "league.json").write_text(json.dumps(lg, separators=(",", ":"), default=str))
-    print(f"depth bake: {n} hitter-season files + league.json -> {OUT}")
+    print(f"depth bake: {n} hitter-season files + league.json + late-/pitchers-*.json -> {OUT}; pitcher rel {prel['all_dc']} {prel['all_rt']}")
 
 
 def demo() -> None:

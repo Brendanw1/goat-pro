@@ -3123,3 +3123,12 @@ the hitter's cell plane deviations), labelled a contact read. No pitcher-separat
 - Buys and costs (reported): each mph shed goes with +1.6 pp two-strike contact [1.3, 1.9] and −.009 xwOBAcon on two-strike contact
   [.005, .013]. r(ΔBS, bat speed) .08: adaptation is not just the big swingers.
 - **Ships, descriptive:** Swing-tab two-strike panel and a neutral ΔBS 2K column on /hitters. Same-season association, not causal.
+
+### §89 addendum: per-type late boards and the pitcher mirror (owner ask 2026-10-29; reported, not judged)
+
+Reliability only (no outcome claim), 2025 split halves by alternate games, YoY 2024 → 2025. Hitter "late vs league at the same
+type and velo": FB95 SB .61, all fastballs .60, FF .63, SI .58, SW .57, CB .52, CH .52, FS .70 (40 hitters only), CT .42,
+SL .22 (CT and SL labelled "a description of the season" on the board). Pitcher mirror, depth of contact against him vs
+each hitter's norm (535 pitchers, 50+ contacts per half): raw SB .92 (YoY .79), beyond type × velo .89 (YoY .83); per type
+FF .84 / .83, SL .89 / .83, CH .90 / .84. Type × velo norms fall back to family then all types for cells under 300 contacts
+(one pitcher can be a whole cell, e.g. Tyler Rogers's 83 mph sinker). Shipped descriptive on /depth.

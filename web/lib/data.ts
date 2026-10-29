@@ -223,6 +223,16 @@ export async function getContactDepthLeague(): Promise<any | null> {
   return fetchFromR2<any>("depth/league.json", { shared: true }).catch(() => null);
 }
 
+/** Who's-late boards per pitch-type key for one season (§89): depth vs the league at the same type and velo. */
+export async function getContactDepthLate(season: string | number): Promise<any | null> {
+  return fetchFromR2<any>(`depth/late-${season}.json`, { shared: true }).catch(() => null);
+}
+
+/** Pitcher mirror for one season (§89): depth of contact against him vs each hitter's own norm, overall and per type. */
+export async function getContactDepthPitchers(season: string | number): Promise<any | null> {
+  return fetchFromR2<any>(`depth/pitchers-${season}.json`, { shared: true }).catch(() => null);
+}
+
 /** Swing plane match (§90b, pipeline/plane_match_v2.py): league curves, a hitter's cell planes, pitchers' cell usage. */
 export async function getPlaneLeague(): Promise<any | null> {
   return fetchFromR2<any>("plane/league.json", { shared: true }).catch(() => null);
