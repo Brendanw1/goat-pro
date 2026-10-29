@@ -93,7 +93,10 @@ def main() -> None:
     bucket = env["R2_BUCKET_NAME"]
 
     t0 = time.time()
-    local = {f"{PREFIX}/{p.relative_to(LOCAL).as_posix()}": p for p in sorted(base.rglob("*")) if p.is_file()}
+    # BAKE_LOCK is the concurrent-bake lockfile (web_export.py run_bake), not
+    # data — it appears and vanishes mid-sync and its upload race aborts the run.
+    local = {f"{PREFIX}/{p.relative_to(LOCAL).as_posix()}": p
+             for p in sorted(base.rglob("*")) if p.is_file() and p.name != "BAKE_LOCK"}
     with ThreadPoolExecutor(WORKERS) as ex:
         local_md5 = dict(zip(local, ex.map(md5, local.values())))
     remote = remote_etags(s3, bucket, scope)
