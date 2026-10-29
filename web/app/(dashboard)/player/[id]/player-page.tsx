@@ -14,6 +14,8 @@ import { WpaAbsStrip } from "@/components/ui/wpa-abs-strip";
 export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   id: string; season?: string; tab?: string; level?: Level; extra?: React.ReactNode;
 }) {
+  // Other level's career, for the MLB/AAA toggle; started now so it rides wave 1.
+  const otherCareerP = getCareer(id, level === "aaa" ? "mlb" : "aaa");
   // Wave 1: the pitcher and hitter docs in parallel (a 404 is cheap; the hitter
   // doc is used only when there is no pitcher doc, as before).
   let [profile, hitterDoc] = await Promise.all([
@@ -128,7 +130,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           </span>
         </div>
       )}
-      <SeasonSelector id={id} seasons={career?.seasons ?? null} current={detSeason} level={level} />
+      <SeasonSelector id={id} seasons={career?.seasons ?? null} current={detSeason} level={level} otherSeasons={(await otherCareerP)?.seasons ?? null} />
       {detSeason ? <WpaAbsStrip id={id} season={detSeason} level={level} name={(hitter ?? profile)?.name} team={(hitter ?? profile)?.team} /> : null}
       <div className="no-print flex flex-wrap items-center gap-4">
         <Link href={`/player/${id}/sheet?season=${detSeason}${level === "aaa" ? "&level=aaa" : ""}`}
