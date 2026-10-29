@@ -3437,12 +3437,13 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                                "h": int(t.h), "r": int(t.runs), "bf": int(t.pa)})
             starts.sort(key=lambda x: (-x["k"], -float(x["ip"])))
         hday = []
+        h_names = {int(r["id"]): r.get("name") for r in hboard}
         if latest_date:
             day = hg[hg["game_date"].astype(str).str.startswith(latest_date)]
             for t in day.itertuples():
                 if (int(t.id), int(t.season)) not in h_pop:
                     continue
-                hday.append({"id": str(int(t.id)), "season": int(t.season), "d": str(t.game_date)[:10],
+                hday.append({"id": str(int(t.id)), "n": h_names.get(int(t.id)), "season": int(t.season), "d": str(t.game_date)[:10],
                              "pa": int(t.pa), "h": int(t.h), "hr": int(t.hr), "bb": int(t.bb), "k": int(t.k)})
             hday.sort(key=lambda x: (-x["hr"], -x["h"], x["k"]))
         # movers: Whiff+ season over season, 300+ graded pitches both seasons
