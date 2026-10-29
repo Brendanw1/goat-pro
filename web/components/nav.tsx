@@ -5,6 +5,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "@/components/search";
 import { LavaNav } from "@/components/ui/lava-bar";
+import { RESEARCH_SECTIONS } from "@/lib/research-sections";
 
 const NAV_ITEMS = [
   { href: "/pitchers", label: "Pitchers" },
@@ -17,27 +18,20 @@ const NAV_ITEMS = [
   { href: "/matchup", label: "Matchup" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/defense", label: "Defense" },
+  { href: "/research", label: "Research" },
   { href: "/glossary", label: "Glossary" },
 ] as const;
 
 /* Everything else lives in the More menu, grouped, so the top row fits one line. */
 const MORE_GROUPS = [
-  { label: "Swing", items: [
-    { href: "/depth", label: "Contact depth" },
-    { href: "/plane", label: "Swing plane" },
+  { label: "Boards", items: [
     { href: "/dong", label: "Would it dong" },
-  ] },
-  { label: "Pitching", items: [
-    { href: "/tunneling", label: "Tunneling" },
-    { href: "/fatigue", label: "Fatigue" },
     { href: "/roles", label: "Roles" },
-    { href: "/buckets", label: "Buckets" },
+    { href: "/framing", label: "Framing" },
   ] },
-  { label: "League", items: [
+  { label: "Game & league", items: [
     { href: "/wpa", label: "WPA" },
     { href: "/abs", label: "ABS" },
-    { href: "/aging", label: "Aging" },
-    { href: "/framing", label: "Framing" },
     { href: "/scouting/savant", label: "Savant boards" },
   ] },
 ] as const;
@@ -112,7 +106,9 @@ export function Nav() {
           phone the strip takes its own row under the brand and search. */}
       <div className="nav-strip order-last flex w-full min-w-0 items-center gap-0.5 overflow-x-auto pr-6 sm:order-none sm:w-auto sm:flex-1 lg:ml-2 xl:ml-4 xl:gap-1">
         {NAV_ITEMS.map((item) => {
-          const isActive = target
+          const isActive = item.href === "/research"
+            ? RESEARCH_SECTIONS.some((s) => pathname === s.href || pathname.startsWith(s.href + "/")) || pathname === "/research"
+            : target
             ? target === item.href
             : pathname === item.href || pathname.startsWith(item.href + "/");
 
@@ -159,7 +155,7 @@ function MoreMenu({ pathname }: { pathname: string }) {
         More <span aria-hidden className="text-[10px]">▾</span>
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full mt-2 grid w-[440px] max-w-[90vw] grid-cols-3 gap-4 rounded-xl border border-white/10 bg-[#0b0f16]/95 p-4 shadow-2xl backdrop-blur">
+        <div role="menu" className="absolute right-0 top-full mt-2 grid w-[320px] max-w-[90vw] grid-cols-2 gap-4 rounded-xl border border-white/10 bg-[#0b0f16]/95 p-4 shadow-2xl backdrop-blur">
           {MORE_GROUPS.map((g) => (
             <div key={g.label}>
               <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-dim">{g.label}</div>
