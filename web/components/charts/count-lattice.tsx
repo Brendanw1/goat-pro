@@ -54,7 +54,8 @@ function wedge(cx: number, cy: number, rOuter: number, rInner: number, from: num
       `M ${cx} ${cy - rInner} A ${rInner} ${rInner} 0 1 0 ${cx - 0.001} ${cy - rInner} Z`
     );
   }
-  const p = (r: number, a: number) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+  // rounded so server and browser trig agree (hydration)
+  const p = (r: number, a: number) => [Math.round((cx + r * Math.sin(a)) * 100) / 100, Math.round((cy - r * Math.cos(a)) * 100) / 100];
   const [x1, y1] = p(rOuter, from);
   const [x2, y2] = p(rOuter, to);
   const [x3, y3] = p(rInner, to);

@@ -36,7 +36,8 @@ export function SpinClock({ dots, colorOf }: {
     const pts = located.map(([t, axis, rpm]) => {
       const a = toMathRad(axis);
       const r = rpm > 0 ? radiusOf(rpm) : 0.35 * R;
-      return { t, cx: C + r * Math.cos(a), cy: C - r * Math.sin(a), rpm, axis };
+      // rounded so server and browser trig agree (hydration)
+      return { t, cx: Math.round((C + r * Math.cos(a)) * 100) / 100, cy: Math.round((C - r * Math.sin(a)) * 100) / 100, rpm, axis };
     });
     const rings = [lo, lo + span / 2, hi].map((v) => ({ v, r: radiusOf(v) }));
     const types = [...new Set(pts.map((p) => p.t))];
@@ -50,7 +51,7 @@ export function SpinClock({ dots, colorOf }: {
   const clockLabel = (text: string, deg: number) => {
     const a = toMathRad(deg);
     return (
-      <text key={text} x={C + (R + 20) * Math.cos(a)} y={C - (R + 20) * Math.sin(a) + 3}
+      <text key={text} x={Math.round((C + (R + 20) * Math.cos(a)) * 100) / 100} y={Math.round((C - (R + 20) * Math.sin(a) + 3) * 100) / 100}
         textAnchor="middle" className="fill-text-dim font-data" fontSize="11">
         {text}
       </text>
