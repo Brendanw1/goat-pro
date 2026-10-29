@@ -226,7 +226,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
         {tab === "gamelog" ? (
           <GameLogPanel data={gameLog ?? null} playerId={playerId} season={profile.season} level={level} />
         ) : tab === "visuals" ? (
-          <HitterVisualsTab visuals={visuals ?? null} />
+          <HitterVisualsTab visuals={visuals ?? null} explorer={{ id: String(playerId), season: profile.season, level }} />
         ) : tab === "swing" ? (
           <SwingTab swing={swing ?? null} name={profile.name} />
         ) : tab === "defense" ? (

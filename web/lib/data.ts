@@ -126,6 +126,11 @@ export async function getWhiffShap(id: string, season: string | number): Promise
 }
 
 /** Per-PA pitch sequences (wave 6, gzipped): every pitch under every PA, joined from the gamelog rows' `g`. */
+/** Every pitch of a player-season, compact columns (pitch explorer); side P = thrown, H = seen. */
+export async function getPitchFile(side: "P" | "H", id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
+  return fetchGzippedJson<any>(lv(level, `pitches/${side}${id}-${season}.json.gz`)).catch(() => null);
+}
+
 export async function getPaLog(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
   return fetchGzippedJson<any>(lv(level, `pa_log/${id}-${season}.json.gz`)).catch(() => null);
 }

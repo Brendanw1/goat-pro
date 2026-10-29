@@ -111,7 +111,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -128,6 +128,7 @@ FAM_NEEDS = {
     "swing": set(),         # hitter swing profiles from bat tracking (self-contained, 2023+)
     "load": set(),          # TTO / rest / velo-fade fatigue surfaces (self-contained; per-pitch columns)
     "draft": set(),         # draft + transactions surfaces (amateur_fetch.py outputs; MLB only)
+    "pitches": set(),       # per-pitch explorer files (location/count/outcome/RV), both sides (self-contained)
 }
 
 
@@ -634,6 +635,81 @@ def pitcher_team_splits(con, season_list: str, stints: dict, level: str, fip_c: 
                           "rvPer100": f(100 * t.rv / t.n_pitches, 2), "velo": f(t.velo, 1)})
         out[key] = sorted(lines, key=lambda x: order.get(x["team"], 99))
     return out
+
+
+# Pitch explorer: every pitch of a player-season in a compact column form, so the profile can filter
+# location / count / outcome / batter hand and draw surfaces and run value client-side.
+PITCH_OUTCOMES = ("ball", "called", "whiff", "foul", "out", "1B", "2B", "3B", "HR", "HBP", "other")
+PITCH_MIN = 100  # pitches thrown / seen in the season
+
+
+def _pitch_outcome(desc: pd.Series, ev: pd.Series) -> np.ndarray:
+    o = np.full(len(desc), 10, dtype=np.int8)
+    o[desc.isin(["ball", "blocked_ball", "pitchout", "intent_ball"]).to_numpy()] = 0
+    o[(desc == "called_strike").to_numpy()] = 1
+    o[desc.isin(["swinging_strike", "swinging_strike_blocked", "foul_tip", "missed_bunt"]).to_numpy()] = 2
+    o[desc.isin(["foul", "foul_bunt", "bunt_foul_tip"]).to_numpy()] = 3
+    bip = (desc == "hit_into_play").to_numpy()
+    o[bip] = 4
+    for code, e in ((5, "single"), (6, "double"), (7, "triple"), (8, "home_run")):
+        o[bip & (ev == e).to_numpy()] = code
+    o[(desc == "hit_by_pitch").to_numpy()] = 9
+    return o
+
+
+def bake_pitches(con, out: Path, seasons: list[int], site_case: str) -> int:
+    """pitches/{P|H}{id}-{season}.json.gz. Columns (same length): t type index into `types`, x/z plate
+    location in hundredths of a foot (catcher's view, as Statcast), h opponent hand (0 L, 1 R), c count
+    (balls * 3 + strikes), o outcome index into `outcomes`, r run value in thousandths of a run from the
+    file owner's side (pitcher: delta_pitcher_run_exp; hitter: its negative), e exit velo x10 and w xwOBA
+    x1000 on balls in play (null otherwise), d day of season (0 = his first game)."""
+    n_files = 0
+    for season in seasons:
+        df = con.sql(f"""
+            SELECT pitcher, batter, CAST(game_date AS DATE) AS gd, {site_case} AS site, plate_x, plate_z,
+                   stand, p_throws, balls, strikes, description, events, delta_pitcher_run_exp AS rv,
+                   launch_speed, estimated_woba_using_speedangle AS xw, bb_type, sz_top, sz_bot,
+                   game_pk, at_bat_number, pitch_number
+            FROM pitches_all
+            WHERE game_type = 'R' AND season = {season} AND pitch_type IS NOT NULL
+              AND plate_x IS NOT NULL AND plate_z IS NOT NULL AND pitcher IS NOT NULL AND batter IS NOT NULL
+            ORDER BY game_date, game_pk, at_bat_number, pitch_number""").df()
+        if df.empty:
+            continue
+        o = _pitch_outcome(df["description"], df["events"])
+        bip = df["bb_type"].notna().to_numpy()
+        cols = {"x": np.round(df["plate_x"].to_numpy() * 100).astype(int),
+                "z": np.round(df["plate_z"].to_numpy() * 100).astype(int),
+                "c": (df["balls"].clip(0, 3) * 3 + df["strikes"].clip(0, 2)).to_numpy().astype(int), "o": o,
+                "e": np.where(bip & df["launch_speed"].notna(), np.round(df["launch_speed"].fillna(0) * 10), np.nan),
+                "w": np.where(bip & df["xw"].notna(), np.round(df["xw"].fillna(0) * 1000), np.nan),
+                "rv": df["rv"].fillna(0).to_numpy()}
+        for side, who, opp_hand, sign in (("P", "pitcher", "stand", 1), ("H", "batter", "p_throws", -1)):
+            ids = df[who].to_numpy()
+            hand = (df[opp_hand] == "R").to_numpy().astype(int)
+            for pid, idx in pd.Series(np.arange(len(df))).groupby(ids):
+                ix = idx.to_numpy()
+                if len(ix) < PITCH_MIN:
+                    continue
+                sites = df["site"].to_numpy()[ix]
+                types = sorted(set(sites), key=lambda t: -int((sites == t).sum()))
+                tix = {t: i for i, t in enumerate(types)}
+                gd = df["gd"].to_numpy()[ix]
+                day = ((gd - gd[0]) / np.timedelta64(1, "D")).astype(int)
+                nul = lambda a: [None if np.isnan(v) else int(v) for v in a]  # noqa: E731
+                doc = {"id": str(int(pid)), "side": side, "season": season, "types": types,
+                       "outcomes": list(PITCH_OUTCOMES), "start": str(gd[0])[:10],
+                       "zone": [round(float(np.nanmean(df["sz_bot"].to_numpy()[ix])), 2),
+                                round(float(np.nanmean(df["sz_top"].to_numpy()[ix])), 2)],
+                       "t": [tix[t] for t in sites], "x": cols["x"][ix].tolist(), "z": cols["z"][ix].tolist(),
+                       "h": hand[ix].tolist(), "c": cols["c"][ix].tolist(), "o": cols["o"][ix].tolist(),
+                       "r": np.round(sign * cols["rv"][ix] * 1000).astype(int).tolist(),
+                       "e": nul(cols["e"][ix]), "w": nul(cols["w"][ix]), "d": day.tolist()}
+                jwrite_gz(out / "pitches" / f"{side}{int(pid)}-{season}.json.gz", doc)
+                n_files += 1
+        del df
+        print(f"pitches {season}: {n_files} files so far", flush=True)
+    return n_files
 
 
 def team_stints(con, role: str, season_list: str) -> tuple[dict, dict]:
@@ -4690,6 +4766,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     # outputs: hit-rate tables (Pipeline rank buckets and draft rounds joined to
     # MLB debut dates) and per-player roster-move timelines. MLB only; every
     # join is a public-source descriptive read — no model claims.
+    print(f"[{time.time() - t0:.0f}s] pitches", flush=True)
+    if "pitches" in fams:
+        counts["pitch_files"] = bake_pitches(con, out, seasons, site_case_sql())
     print(f"[{time.time() - t0:.0f}s] draft", flush=True)
     if "draft" not in fams:
         pass

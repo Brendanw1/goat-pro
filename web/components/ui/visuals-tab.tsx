@@ -15,6 +15,7 @@ import { SpinClock } from "@/components/charts/spin-clock";
 import { ReleaseCloud } from "@/components/charts/release-cloud";
 import { LocationSurfaces } from "@/components/charts/location-surfaces";
 import { CountLattice } from "@/components/charts/count-lattice";
+import { PitchExplorer } from "@/components/ui/pitch-explorer";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { PitchType } from "@/types";
 
@@ -215,8 +216,20 @@ function MovementBySeason({ career }: { career: any | null }) {
   );
 }
 
-export function PitcherVisualsTab({ visuals, career }: { visuals: any | null; career: any | null }) {
+type Explorer = { id: string; season: number; level?: string };
+
+function ExplorerPanel({ ex, side }: { ex?: Explorer; side: "P" | "H" }) {
+  if (!ex) return null;
+  return (
+    <Panel title="Pitch explorer" note={side === "P" ? "filter by type, hand, count, outcome" : "pitches seen, filter by type, hand, count, outcome"}>
+      <PitchExplorer id={ex.id} season={ex.season} side={side} level={ex.level} />
+    </Panel>
+  );
+}
+
+export function PitcherVisualsTab({ visuals, career, explorer }: { visuals: any | null; career: any | null; explorer?: Explorer }) {
   if (!visuals) {
+    if (explorer) return <div className="space-y-5"><ExplorerPanel ex={explorer} side="P" /></div>;
     return (
       <div className="glass-panel p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">Visuals</h2>
@@ -226,6 +239,7 @@ export function PitcherVisualsTab({ visuals, career }: { visuals: any | null; ca
   }
   return (
     <div className="space-y-5">
+      <ExplorerPanel ex={explorer} side="P" />
       <Panel title="The radar gun" note="one curve per pitch, area = usage">
         <VeloDistribution velo={visuals.velo ?? null} colorOf={colorOf} />
       </Panel>
@@ -261,8 +275,9 @@ export function PitcherVisualsTab({ visuals, career }: { visuals: any | null; ca
   );
 }
 
-export function HitterVisualsTab({ visuals }: { visuals: any | null }) {
+export function HitterVisualsTab({ visuals, explorer }: { visuals: any | null; explorer?: Explorer }) {
   if (!visuals?.loc?.types) {
+    if (explorer) return <div className="space-y-5"><ExplorerPanel ex={explorer} side="H" /></div>;
     return (
       <div className="glass-panel p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">Visuals</h2>
@@ -272,6 +287,7 @@ export function HitterVisualsTab({ visuals }: { visuals: any | null }) {
   }
   return (
     <div className="space-y-5">
+      <ExplorerPanel ex={explorer} side="H" />
       <Panel title="Where pitchers come to him" note="pitches seen, density per type">
         <LocationSurfaces loc={visuals.loc} zone={visuals.zone ?? null} stand={visuals.stand} colorOf={colorOf} />
       </Panel>
