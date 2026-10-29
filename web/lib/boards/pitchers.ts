@@ -91,6 +91,18 @@ export const PITCHER_FILTER_COLUMNS: FilterColumn[] = [
   ...DISCIPLINE_COLUMNS.map((c) => ({ key: c.key, label: c.label, group: "Discipline (raw rates)" })),
   { key: "confidence", label: "Grade confidence", group: "Context" },
 ];
+/** Every stat with a percentile on the pitcher profile is filterable too (owner ask), column or not. */
+const PITCHER_PROFILE_FILTERS: [string, [string, string][]][] = [
+  ["Contact allowed", [["xwobaAg", "xwOBA"], ["xbaAg", "xBA"], ["xslgAg", "xSLG"], ["xwobaconAg", "xwOBACON"], ["evAg", "Avg EV"],
+    ["hardHitPctAg", "Hard-hit%"], ["barrelPctAg", "Barrel%"], ["sweetSpotPctAg", "Sweet-spot%"]]],
+  ["Swings against (bat tracking)", [["batSpeedAg", "Bat speed"], ["squaredUpPctAg", "Squared-up%"], ["blastPctAg", "Blast%"]]],
+  ["Run value", [["rvPer100Fb", "RV/100 fastballs"], ["rvPer100Br", "RV/100 breaking"], ["rvPer100Os", "RV/100 offspeed"],
+    ["xrvPer100", "xRV/100"], ["rvLuck", "RV − xRV"], ["pitchingRunsPer100", "Runs+/100"]]],
+  ["Profile", [["kPct", "K%"], ["bbPct", "BB%"], ["kProj", "K proj"], ["tunnelPlus", "Tunnel+"]]],
+];
+for (const [group, cols] of PITCHER_PROFILE_FILTERS)
+  for (const [key, label] of cols)
+    if (!PITCHER_FILTER_COLUMNS.some((c) => c.key === key)) PITCHER_FILTER_COLUMNS.push({ key, label, group });
 
 export const PITCHER_SORT_KEYS = [...TRAD_COLUMNS, ...MODEL_COLUMNS, ...DISCIPLINE_COLUMNS].map((c) => c.key as string);
 

@@ -61,6 +61,22 @@ export const HITTER_FILTER_COLUMNS: FilterColumn[] = [
   ...HITTER_MODEL_COLUMNS.map((c) => ({ key: c.key, label: c.label, group: "Models & value" })),
   { key: "bats", label: "Bats", group: "Context" },
 ];
+/** Every stat with a percentile on the hitter profile is filterable too (owner ask), even when the board has no
+ * column for it: the filter reads the full row, so a range on Ideal AA% or pop time works like any column. */
+const HITTER_PROFILE_FILTERS: [string, [string, string][]][] = [
+  ["Swing (bat tracking)", [["fastSwingPct", "Fast-swing%"], ["blastPct", "Blast%"], ["idealAaPct", "Ideal AA%"],
+    ["attackAngle", "Attack angle"], ["swingLength", "Swing length"]]],
+  ["Batted ball", [["xba", "xBA"], ["xslg", "xSLG"], ["xwobacon", "xwOBACON"], ["sweetSpotPct", "Sweet-spot%"],
+    ["pullAirPct", "Pull-air%"], ["pullPct", "Pull%"], ["laSd", "LA spread"], ["batRvPer100", "RV/100"]]],
+  ["Decisions", [["drvPer100", "Decision runs/100"], ["izaPer100", "In-zone decisions/100"], ["ozaPer100", "Out-of-zone decisions/100"],
+    ["swingPct", "Swing%"], ["contactPct", "Contact%"]]],
+  ["Running & defense", [["xbRuns", "Extra-base runs"], ["sbRuns", "Stolen-base runs"], ["oaa", "Outs above avg"],
+    ["framingRuns", "Framing runs"], ["blockingRuns", "Blocking runs"], ["throwingRuns", "Throwing runs"],
+    ["popTime", "Pop time (2B)"], ["catcherArm", "Arm strength"]]],
+];
+for (const [group, cols] of HITTER_PROFILE_FILTERS)
+  for (const [key, label] of cols)
+    if (!HITTER_FILTER_COLUMNS.some((c) => c.key === key)) HITTER_FILTER_COLUMNS.push({ key, label, group });
 
 export const HITTER_SORT_KEYS = [...HITTER_RESULT_COLUMNS, ...HITTER_QUALITY_COLUMNS, ...HITTER_MODEL_COLUMNS].map((c) => c.key as string);
 export const HITTER_ROW_KEYS = rowKeys("hitter", HITTER_SORT_KEYS, [
