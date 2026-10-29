@@ -6,6 +6,7 @@ export const metadata = { title: "Research" };
 const BLURB: Record<string, string> = {
   "/depth": "Where hitters meet the ball, how damage changes with it, and who is late on velocity.",
   "/plane": "Whether the bat's path matches the pitch's, and how a matched plane forgives timing.",
+  "/archetypes": "Two broad swing shapes from six bat-tracking traits, each hitter's five closest swings, and how each shape ages.",
   "/aging": "League age curves for velocity, bat speed, exit velocity and wOBA, with each player's track.",
   "/tunneling": "How long pitch pairs look alike on the way in, and what it buys.",
   "/fatigue": "Times through the order, rest days and velocity fade within an outing.",

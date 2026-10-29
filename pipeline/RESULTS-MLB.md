@@ -3209,6 +3209,40 @@ the IL", a descriptive flag, never a forecast that he will get hurt.
 **Kill / what ships.** Pass (both) → a descriptive drift strip on the Swing tab and a league "bat speed watch" research section.
 Fail → no site surface; recorded here with a data vs handling vs modeling diagnosis.
 
+### §94 result (read once, 2026-10-29; `results/archetypes_94.json`)
+734 hitter-seasons 2024–25 (462 hitters) over the floors; 1,107 with 2026. **BIC picks k* = 2** (the cloud has no gaps).
+- **Gate (a) passes, k-means only:** bootstrap median ARI **.85** (5th pct .66), 2024 → 2025 ARI **.44**, same type **83%** (chance 50%,
+  272 hitters). GMM .22 / .52 / 86% and Ward .18 / .52 / 86% fail the bootstrap bar: their boundary moves on every resample.
+  Reported: k-means also clears the bars at k = 4 (.64 / .47 / 77%) and 5 (.62 / .45 / 74%), not at 3, 6–8; GMM never; Ward never
+  (bootstrap .27–.35). Not shipped: k* is BIC's.
+- **Claim (b) fails:** type beyond bat speed ΔwR² **−.0001 [−.007, +.007]** (545 pairs, 335 hitters; base wR² .44). Beyond bat speed +
+  last xwOBAcon +.0001 [−.004, +.004]; type beyond all six traits −.002 [−.004, −.000]. Reported: **the five other traits beyond bat
+  speed +.132 [+.088, +.178]**; the information is in the continuous traits and cutting them into two types discards it.
+- Types (2024–26): "pull-side path, long, fast bat" (626 hitter-seasons; z +.49 bat speed, +.52 length, +.40 AA, +.55 pull, +.38
+  depth; xwOBAcon .391) vs "opposite-field path, short, flat" (481; mirror image; .356). Tilt does not separate them (z ±.02).
+  PCA: PC1 33% (bat speed, length, pull, depth together), PC2 22% (attack angle + tilt).
+- Aging (delta method, Δ bat speed S → S+1): ≤26 +.34 [.16, .52] long vs +.58 [.38, .81] short; 27–30 −.08 vs +.23 [.05, .40];
+  31+ −.14 vs +.07 (n 46). League ≤26 +.45, 27–30 +.06, 31+ −.07. Two season pairs only: wide bands.
+- **Diagnosis of (b): modeling.** The traits are a continuum and two types are a coarse cut of PC1, which is mostly bat speed; holding
+  bat speed leaves the type nothing. **Ships descriptive:** /archetypes (map, legend, profiles, stability, outcome table, aging) and a
+  Swing-tab chip with type + 5 comps; "descriptive, not a forecast".
+
+### §95 result (read once, 2026-10-29; `results/drift_95.json`)
+2024–25: 1,299 hitter-seasons, 78,837 hitter-games (67,046 with a baseline), **404 eligible IL stints** (51% retroactive). Game-mean
+SD vs baseline 1.79 mph; 4.4% of eligible games sit in a 14-day pre-IL window.
+| detector | alerts / 100 games | precision | null | lift | p (Holm) | recall | F1 | median lead |
+|---|---|---|---|---|---|---|---|---|
+| CUSUM | 0.69 | .056 | .049 | 1.14 | .24 (.24) | .064 | .060 | 7 d |
+| BOCPD | 1.13 | .065 | .053 | 1.21 | .068 (.14) | .121 | .084 | 6 d |
+| naive z ≤ −2 | 2.85 | .050 | .046 | 1.09 | .19 | .198 | .079 | 5 d |
+**FAIL** for both detectors (no p < .05, lift < 1.5). The 2026 replication was not read (pre-registered to run only on a pass).
+Diagnostic (after the verdict, not a claim): mean bat speed vs baseline in games 1–3 days before an IL start −0.18 mph (621 games),
+4–7 days −0.08, 8–14 days +0.04, other games +0.03. Whatever signal exists is in the last few days, a tenth of the game-to-game SD:
+the reverse-causation shape (already hurt, playing through), not an early warning.
+**Diagnosis: data + modeling.** Data: ~12 competitive swings a game give a 1.8 mph game SD that swamps a few-tenths drop; many IL
+stints are acute (HBP, hamstring, oblique) with nothing to precede. Handling checked: detectors recover a planted 2.5 mph drop
+(`--demo`), IL starts use retroactive dates. **No site surface;** no bat speed watch.
+
 ## §96 Range v4: the responsible fielder's own speed (re-test of §81), pre-registered 2026-10-29 before any read
 
 **Why.** v3 (§81) uses only the batter's sprint speed (a covariate since §75); the fielder's own speed never enters the model, while Savant's OAA conditions on fielder speed and §81's diagnosis names compressed elite range as the remaining gap. Precedent for the decomposition: the Expected/Actual catch% split of the defense research doc (`BaseballGOAT-scopes/defense-research-doc.md` §5.2–5.3). Fielder identity is on every chance row (`fielder_3..9`), so the join is direct. Step-0 data check (2026-10-29, before this prereg was written, no model output read): the responsible fielder — argmin of §81's own `d_of`/`d_if` — has a `lb_sprint_speed_{s}` row for **97.5–99.5% of plays in every season 2020–2026** (all fielders 3–9: 82–91%; median fill covers the rest).
@@ -3230,3 +3264,4 @@ Fail → no site surface; recorded here with a data vs handling vs modeling diag
 - IF may gain more than OF: the fielder-vs-runner speed gap is genuinely new play-level signal for grounders (v3 has the runner's speed but not the fielder's).
 - OF direction uncertain: `req_speed` is already a feature, and conditioning p on the fielder may double-count what Savant's OAA already includes; risk is r flat or slightly lower, with the decomposition the real deliverable.
 - Risk either group: YoY shifts as stable speed credit is absorbed into p — the same direction as §81's positioning effect.
+

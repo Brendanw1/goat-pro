@@ -46,8 +46,8 @@ joined with pitch and batted-ball data. MLB only: TrackMan bat tracking stays in
 | 3 | Swing quality model (xDamage per swing, swing vs result split) | ML, forecast gate | §91 | validation and baselines first |
 | 4 | Timing residual (depth vs expected depth) + early/late by pitch type | model + scouting read | §92 | shipped descriptive: biases reliable (SB .70–.84), spread does not forecast |
 | 5 | Two-strike adaptation | descriptive, stability gate | §93 | shipped descriptive: YoY .64; adapters strike out less (1.1 pp/SD) |
-| 6 | Swing archetypes + comps + aging by type | unsupervised, stability gate | §94 | scoped |
-| 7 | Bat speed drift as a fatigue/injury flag | change detection, validated against IL stints | §95 | scoped |
+| 6 | Swing archetypes + comps + aging by type | unsupervised, stability gate | §94 | shipped descriptive: k-means k = 2 stable (bootstrap ARI .85, YoY same 83% vs 50%); no outcome info beyond bat speed; /archetypes + Swing-tab chip with comps |
+| 7 | Bat speed drift as a fatigue/injury flag | change detection, validated against IL stints | §95 | failed: alerts precede IL no more than shuffled dates (lift 1.14–1.21, p .07–.24); no site surface |
 
 ### 1. Contact-depth explorer
 Purpose: show where a hitter meets the ball, how his damage changes with where he meets it, and how

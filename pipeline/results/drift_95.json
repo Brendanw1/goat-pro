@@ -1,0 +1,59 @@
+{
+ "dev": {
+  "seasons": [
+   2024,
+   2025
+  ],
+  "hitter_seasons": 1299,
+  "games": 78837,
+  "eligible_games": 67046,
+  "stints": 404,
+  "stints_retro_share": 0.505,
+  "base_rate_hw": 0.044,
+  "game_sd_mph": 1.79,
+  "cusum": {
+   "alerts": 461,
+   "alerts_per_100_games": 0.69,
+   "precision": 0.0564,
+   "recall": 0.0644,
+   "f1": 0.0601,
+   "lead_days_median": 7.0,
+   "null_precision": 0.0494,
+   "null_recall": 0.0547,
+   "null_f1": 0.0519,
+   "lift": 1.141,
+   "p": 0.2388,
+   "p_holm": 0.2388,
+   "pass": false
+  },
+  "bocpd": {
+   "alerts": 760,
+   "alerts_per_100_games": 1.13,
+   "precision": 0.0645,
+   "recall": 0.1213,
+   "f1": 0.0842,
+   "lead_days_median": 6.0,
+   "null_precision": 0.0532,
+   "null_recall": 0.097,
+   "null_f1": 0.0687,
+   "lift": 1.212,
+   "p": 0.0679,
+   "p_holm": 0.1358,
+   "pass": false
+  },
+  "naive": {
+   "alerts": 1913,
+   "alerts_per_100_games": 2.85,
+   "precision": 0.0497,
+   "recall": 0.198,
+   "f1": 0.0794,
+   "lead_days_median": 5.0,
+   "null_precision": 0.0455,
+   "null_recall": 0.1916,
+   "null_f1": 0.0735,
+   "lift": 1.092,
+   "p": 0.1908
+  }
+ },
+ "verdict": "fail"
+}

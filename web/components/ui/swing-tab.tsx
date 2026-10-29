@@ -18,6 +18,7 @@ import { ContactDepthPanel } from "@/components/ui/contact-depth-panel";
 import { PlanePanel } from "@/components/ui/plane-panel";
 import { TimingPanel } from "@/components/ui/timing-panel";
 import { TwoStrikePanel } from "@/components/ui/two-strike-panel";
+import { ArchetypeChip } from "@/components/ui/archetype-chip";
 
 const REGION_LABEL: Record<string, string> = {
   heart: "Heart of the zone",
@@ -254,6 +255,7 @@ export function SwingTab({ swing, name }: { swing: any | null; name?: string }) 
       <ContactDepthPanel id={swing.id} season={swing.season} />
       <PlanePanel id={swing.id} season={swing.season} />
       <div className="grid gap-3 lg:grid-cols-2"><TimingPanel id={swing.id} season={swing.season} /><TwoStrikePanel id={swing.id} season={swing.season} /></div>
+      <ArchetypeChip id={swing.id} season={swing.season} />
 
       <p className="text-[10px] text-text-dim leading-relaxed max-w-[95ch]">
         Statcast bat tracking (2023 on, tracked swings only; the minors carry no bat data). Our bat-speed average

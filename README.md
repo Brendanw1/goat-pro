@@ -25,6 +25,7 @@ shown. The results are published as a website.
 | Contact depth | Where hitters meet the ball (Statcast intercept, 2024–26): the inverted U of damage vs depth, depth by velocity and pitch type, the in-season trend, who's late on 95+; per hitter a to-scale contact cloud, his damage curve over the league's, small multiples by pitch type, a rolling trend (RESULTS-MLB §89) |
 | Swing plane | Does the bat's path match the pitch's (attack angle + VAA)? League: sweet-spot rate peaks at a matched plane, and a matched plane forgives timing error; per hitter a plane map by pitch group × height with the contact it implies (Swing tab) and a Plane column on /matchup (RESULTS-MLB §90b) |
 | Timing + two-strike | Swing tab: each contact's depth vs the depth the pitch, count and his own mean predict, as early/late by pitch group and on 95+ (RESULTS-MLB §92); how much bat speed, length, depth and contact he trades with two strikes, plus a ΔBS 2K column on /hitters (§93) |
+| Archetypes | Two broad swing shapes from six bat-tracking traits (k-means, stable year to year), a PCA map, profiles, aging by type, and each hitter's five closest swings on the Swing tab; descriptive (RESULTS-MLB §94) |
 | Roles | Role conversion (RESULTS-MLB §87): 2026 relievers who could start and starters who play up in a short burst, from real MLB role changes; descriptive (both gates failed) |
 | Teams | Club pages: both sides' boards cut to one team, and team aggregates ranked against the league, with park factors |
 | Defense / Framing | Our range runs and Framing+ beside Savant's OAA and framing runs |
@@ -57,6 +58,8 @@ labelled **descriptive, not a forecast**, or does not ship.
 | Swing plane match (launch band, timing forgiveness, hitter cell-plane contact trait) | confirmed on 2026, 4/4 pre-registered claims (§90 failed first); descriptive, the hitter read is a contact read, not damage | §90, §90b |
 | Timing residual (early/late by pitch group, 95+) | reliable (split-half SB .70–.84; sub-92 failed at .45); timing spread does not forecast K% or xwOBAcon; descriptive | §92 |
 | Two-strike adaptation (ΔBS 2K) | stable (YoY r .64); bigger adapters strike out less than their whiff rate says (1.1 pp K% per SD); descriptive | §93 |
+| Swing archetypes (k-means, k = 2 by BIC) | stable (bootstrap ARI .85, 83% keep their type 2024 → 25 vs 50% chance); the type adds nothing to next-season xwOBAcon beyond bat speed (ΔwR² −.000); descriptive | §94 |
+| Bat speed drift as an IL flag (CUSUM, Bayesian change point) | failed: lift 1.14–1.21 vs a shuffled-date null, not significant; not shown | §95 |
 | Decision+ | descriptive: stable, but does not beat chase rate as a forecast | §69 |
 | Tunnel+, platoon Whiff+ | descriptive | §73, §74 |
 | Park factors (2B, 3B, HR, SO by hand) | descriptive | §70, §72 |
