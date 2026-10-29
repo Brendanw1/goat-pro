@@ -3421,3 +3421,29 @@ and the single read go below as §98a.
 **Reported:** Δr vs §81 per group; YoY; split-half k; and the compression check that motivates this re-test — the SD of our runs vs Savant's OAA per group, and the top-10 CF of 2025 by Savant OAA (ours vs theirs). Sensitivity rows at C_L 0.15 / 0.30: r only, reported, never selected after the fact.
 
 **Expected:** OF r rises toward or past .721 — the fix moves p on precisely the plays that drive the compression. IF moves only through shared-tree interactions (|Δr| should be small). Risk: a fixed C_L misfits the real mix of spin rates and axes; **if OF does not improve, the compression is attributed to per-play positioning — a data limit — and the r-vs-Savant program is declared at its public-data ceiling**, with effort moving to the validation and decomposition surfaces (Jump components, star-band calibration transfer, `des` depth mining) rather than further re-tests of p.
+
+**Addendum (owner guidance, 2026-10-29, still before any outcome read): start wide, select inside the CV loop.**
+- *Per-swing in-play head, wide* (LightGBM, §91 settings): §91's features plus pitch quality faced (per-pitch Whiff+ and Pitching+,
+  `cache/pitch_models.parquet`), game state (outs, inning, score difference, runners on), handedness (LHB flag; same-hand already in),
+  age, park (venue as a categorical) and an explicit plane-match term (attack angle + VAA, §90). Families: swing, contact point, pitch,
+  pitch quality, count/state, platoon, age, park, plane. Narrow (§91) vs wide, and wide minus each family, all out of fold.
+- *Hitter-level window stage*: Marcel (base) plus families built from the window only: SQcon; swing-trait means; in-hitter trait
+  variability (SDs); pitch diet (mean Whiff+/Pitching+/speed of pitches swung at, zone share); count mix; raw contact point;
+  timing (§92 proxy: SD of the depth residual against a hitter-grouped cross-fit pitch/count depth model, FB minus offspeed bias);
+  two-strike adaptation (§93: bat speed and length at two strikes minus before); plane match (§90b proxy: mean |AA + VAA| on contact);
+  archetype (§94, nearest of the two published type means); age; park (S−1 venue xwOBAcon offset over his window BIP); platoon mix;
+  blast and bat speed as baselines. Window versions are recomputed so no swing after the window enters (the baked §92–94 rows use
+  full seasons and would leak the rest of the season).
+- *Selection*: nested hitter-grouped CV. Outer 5 hitter folds; inside each, standardise and fit LassoCV (inner 5 hitter-grouped folds,
+  weights = rest BIP). Out-of-fold outer predictions give the honest score of "wide + selection". Stability selection: share of
+  (outer fold × 10 hitter half-samples) fits that keep each feature. Ablation table: Marcel + each family alone, and the nested lasso
+  minus each family. Leakage rules unchanged: no outcome fields (launch_*, estimated_*, woba_*, events…), no batter id or full-season
+  hitter means; Pitching+/Whiff+ are pitch-characteristic predictions (a single pitch's own outcome is one row in millions of training rows).
+- The frozen holdout spec is chosen from this table on dev, kept low-dimensional for n ≈ 112, and read once as §98a.
+
+**AMENDED before any result was read (2026-10-29, implementation check):** the lift term as first written
+(`C_L·|v|·(−v_z, v_x)`) was dimensionally wrong — C_L is a force coefficient and the accel must be
+`(ρA/2m)·C_L·v²`. Implemented as an absolute acceleration with the standard-ball constant
+`(ρA/2m) = 5.45e-3 /ft` (ρ 1.21 kg/m³ sea level, r 1.459 in, m 5.125 oz), so C_L = 0.24 gives ≈ 1g of lift at
+launch speed. The pre-declared C_L values (0.24 primary; 0.15 / 0.30 sensitivity) and everything else in this
+prereg are unchanged; a sea-level constant at altitude parks is part of the known proxy error.

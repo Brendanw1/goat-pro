@@ -6,6 +6,7 @@
     python defense_mlb.py --v2     # §80 re-test (isotonic recalibration), writes defense_v2_SEALED.json
     python defense_mlb.py --v3     # §81 re-test (+ Savant start positions, hang time; range only), *_v3 outputs
     python defense_mlb.py --v4     # §96 re-test (+ the responsible fielder's own sprint speed; range only), *_v4 outputs
+    python defense_mlb.py --v5     # §97 re-test (lift-corrected hang time, --cl to override the pre-declared 0.24), *_v5 outputs
     python defense_mlb.py --artifacts  # same fits, writes only cache/defense_chances + framing_pitches parquets
 
 Every model is fit WITHIN a season (2026 changed Statcast's plate/zone conventions) and scored out of fold:
@@ -36,10 +37,16 @@ OUTS = ("field_out", "force_out", "grounded_into_double_play", "double_play", "t
 IF_POS, OF_POS = (3, 4, 5, 6), (7, 8, 9)
 SAVANT_IF, SAVANT_OF = {"1B", "2B", "3B", "SS"}, {"LF", "CF", "RF"}
 FRAMING_MIN = 2000
+V5 = "--v5" in sys.argv  # §97: lift-corrected hang time at a fixed C_L (implies V3; v4's f_sprint stays out of X)
+CL = 0.24
+for _i, _a in enumerate(sys.argv):
+    if _a == "--cl":
+        CL = float(sys.argv[_i + 1])
 V4 = "--v4" in sys.argv  # §96: + the responsible fielder's own sprint speed and the reach split (implies V3)
-V3 = "--v3" in sys.argv or V4  # §81: + Savant average start positions and physics hang time (implies V2)
+V3 = "--v3" in sys.argv or V4 or V5  # §81: + Savant average start positions and physics hang time (implies V2)
 V2 = "--v2" in sys.argv or V3  # §80: isotonic recalibration of the range model
-SFX = "_v4" if V4 else "_v3" if V3 else ""
+# a C_L sensitivity run must never touch the primary v5 artifacts
+SFX = "_v5_cl%s" % CL if (V5 and CL != 0.24) else "_v5" if V5 else "_v4" if V4 else "_v3" if V3 else ""
 POSITIONS = PIPE.parent / "cache" / "fielder_positions.parquet"  # fielder_positions.py
 RANGE_SQL = """
 SELECT game_pk, game_date, inning, inning_topbot AS half, batter, stand, events, launch_speed AS ev, launch_angle AS la, hit_distance_sc AS dist,
@@ -108,10 +115,13 @@ def sprint(con, s):
         return pd.Series(dtype=float)
 
 
-def hang_time(ev, la, dist, h0=3.0, dt=0.02, iters=20):
-    """§81: flight time of a drag-only trajectory whose drag constant is solved per ball (bisection) so the range
-    matches dist. ev mph, la deg, dist ft. Ignores lift, so it is a monotone proxy, not a measured hang time."""
+def hang_time(ev, la, dist, cl=0.0, h0=3.0, dt=0.02, iters=20):
+    """§81: flight time of a trajectory whose drag constant is solved per ball (bisection) so the range matches
+    dist. §97 adds a FIXED backspin lift: a_lift = (rho*A/2m)*C_L*v^2 perpendicular to velocity, rotated +90 deg
+    in the (x, z) plane — an absolute acceleration (the solved drag k is inflated by the missing lift, so the
+    lift may not scale with it). ev mph, la deg, dist ft. A monotone proxy, not a measured hang time."""
     v0, a = np.asarray(ev, float) * 1.4667, np.radians(np.asarray(la, float))
+    lift_k = 5.45e-3 * cl  # (rho*A/2m) = 5.45e-3 /ft: rho 1.21 kg/m^3, r 1.459 in, m 5.125 oz
     lo, hi = np.zeros(len(v0)), np.full(len(v0), 0.01)
 
     def fly(k):
@@ -121,7 +131,7 @@ def hang_time(ev, la, dist, h0=3.0, dt=0.02, iters=20):
             if not up.any():
                 break
             v = np.hypot(vx, vz)
-            vx, vz = vx - up * k * v * vx * dt, vz - up * (k * v * vz + 32.17) * dt
+            vx, vz = vx - up * (k * v * vx + lift_k * v * vz) * dt, vz - up * (k * v * vz - lift_k * v * vx + 32.17) * dt
             x, z, t = x + up * vx * dt, z + up * vz * dt, t + up * dt
         return x, t
 
@@ -167,7 +177,8 @@ def start_features(d, s):
     f["d_of"], f["d_if"] = f[["d7", "d8", "d9"]].min(axis=1), f[["d3", "d4", "d5", "d6"]].min(axis=1)
     air = d["la"].to_numpy() >= 10
     f["hang"] = np.nan
-    f.loc[air, "hang"] = hang_time(d.loc[air, "ev"], d.loc[air, "la"], d.loc[air, "dist"].fillna(0).clip(lower=1))
+    f.loc[air, "hang"] = hang_time(d.loc[air, "ev"], d.loc[air, "la"], d.loc[air, "dist"].fillna(0).clip(lower=1),
+                                   cl=CL if V5 else 0.0)
     f["req_speed"] = f["d_of"] / f["hang"]
     return f
 
@@ -183,9 +194,10 @@ def range_season(con, s):
     if V3:
         sf = start_features(d, s)
         X = pd.concat([X, sf], axis=1)
-        if V4:
+        if V4 or V5:  # §96 schema: f_sprint/reach emitted for the descriptive split; X takes it only under v4
             fs = f_sprint_feature(d, sf, sp)
-            X["f_sprint"] = fs
+            if V4:
+                X["f_sprint"] = fs
     y = d["events"].isin(OUTS).to_numpy().astype(int)
     p = oof(X, y, d["game_pk"])
     if V2:
@@ -204,7 +216,7 @@ def range_season(con, s):
     rv = d.assign(out=y).groupby(["air", "out"])["drun"].mean().unstack()
     rv_diff = d["air"].map(rv[0] - rv[1]).to_numpy()  # batter runs of a non-out minus an out
     extra = {}
-    if V4:
+    if V4 or V5:
         air = d["la"].to_numpy() >= 10
         # §96 schema (not model): per-play reach class of the responsible OFer; NaN where there is no flight time
         extra = {"hang": sf["hang"].to_numpy(), "req_speed": sf["req_speed"].to_numpy(), "f_sprint": fs,
@@ -345,7 +357,7 @@ def main(sealed=True):
             sv.append(t[t["primary_pos_formatted"].isin(SAVANT_IF if g == "IF" else SAVANT_OF)])
         sv = pd.concat(sv).rename(columns={"player_id": "mlbam"})
         if g == "OF":
-            sv_of = sv.copy()
+            sv_of, j_of = sv.copy(), pl.merge(sv, on=["mlbam", "season"])
         j = pl.merge(sv, on=["mlbam", "season"])
         ext = boot_r(j["oaa"], j["outs_above_average"], j["mlbam"])
         ext["verdict_ext"] = "PASS" if ext["ci"][0] > .50 else "FAIL"
@@ -362,6 +374,16 @@ def main(sealed=True):
         for name in ("within", "beyond"):
             cc = ofc[ofc["reach"] == (1.0 if name == "within" else 0.0)].groupby(["mlbam", "season"])["runs"].sum()
             pl[f"runs_{name}_reach"] = key.map(cc)
+    if V5:  # §97 reported: the compression check this re-test exists for
+        names = dict(con.sql("SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register "
+                             "WHERE TRY_CAST(key_mlbam AS BIGINT) IS NOT NULL").fetchall())
+        cf = j_of[(j_of["primary_pos_formatted"] == "CF") & (j_of["season"] == 2025)].nlargest(10, "outs_above_average")
+        res["range"]["OF"]["compression"] = {
+            "sd_runs_ours": round(float(j_of["runs"].std()), 2),
+            "sd_oaa_savant": round(float(j_of["outs_above_average"].std()), 2),
+            "top10_cf_2025": [{"name": names.get(int(r.mlbam), str(r.mlbam)),
+                               "savant": round(float(r.outs_above_average), 1), "ours": round(float(r.oaa), 1)}
+                              for r in cf.itertuples()]}
     pl["oaa_shrunk"] = pl["oaa"] * pl["chances"] / (pl["chances"] + pl["k"])
     pl["runs_shrunk"] = pl["runs"] * pl["chances"] / (pl["chances"] + pl["k"])
     pl.round(3).to_csv(RES / f"defense_players{SFX}.csv", index=False)
