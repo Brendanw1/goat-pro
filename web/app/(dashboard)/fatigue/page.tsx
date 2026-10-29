@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sortComparator } from "@/lib/table-sort";
 import { getPitchers, getLoadIndex, type Level } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { logoUrl } from "@/lib/team-pixel";
@@ -49,12 +50,7 @@ export default async function FatiguePage({ searchParams }: { searchParams?: Pro
     const b = byId.get(String(r.id));
     return { ...r, name: b?.name ?? r.id, team: b?.team ?? null };
   }).filter((r: any) => r.nPitches >= min);
-  rows.sort((a, b) => {
-    const x = a[sortCol.key], y = b[sortCol.key];
-    if (x == null) return 1;
-    if (y == null) return -1;
-    return desc ? y - x : x - y;
-  });
+  rows.sort(sortComparator(sortCol.key, desc ? "desc" : "asc"));
   const shown = rows.slice(0, 60);
   const lg = index?.league?.[String(season)] ?? {};
 
@@ -102,9 +98,9 @@ export default async function FatiguePage({ searchParams }: { searchParams?: Pro
                 <th className="px-4 py-2 text-left font-semibold">Player</th>
                 <th className="px-2 py-2 text-left font-semibold">Team</th>
                 {COLS.map((c) => (
-                  <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                    <Link href={link({ sort: c.key })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}
-                      title={c.tip}>{c.label}</Link>
+                  <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortCol.key ? (desc ? "descending" : "ascending") : undefined}>
+                    <Link href={link({ sort: c.key, order: c.key === sortCol.key && desc ? "asc" : "desc" })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}
+                      title={c.tip}>{c.label}{c.key === sortCol.key ? (desc ? " ▼" : " ▲") : ""}</Link>
                   </th>
                 ))}
               </tr>

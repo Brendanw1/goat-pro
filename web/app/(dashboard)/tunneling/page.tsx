@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sortComparator } from "@/lib/table-sort";
 import { getPitchers } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Tunneling" };
 
-type Q = { season?: string; min?: string; sort?: string };
+type Q = { season?: string; min?: string; sort?: string; dir?: string };
 
 /**
  * The tunneling board (T1, D-06): Tunnel+ — how well a pitcher's consecutive
@@ -36,18 +37,15 @@ export default async function TunnelingPage({ searchParams }: { searchParams?: P
   const season = seasons.includes(Number(q.season)) ? Number(q.season) : seasons[0];
   const min = Number.isFinite(Number(q.min)) && q.min !== undefined ? Number(q.min) : 30;
   const sortCol = COLS.find((c) => c.key === q.sort) ?? COLS[0];
+  const dir = q.dir === "asc" || q.dir === "desc" ? q.dir : sortCol.key === "tunnelPlus" ? "desc" : "asc";
   const rows = (pitchers ?? [])
     .filter((r: any) => r.tunnelRankable && r.season === season && (r.tunnelPairsN ?? 0) >= min)
-    .sort((a: any, b: any) => {
-      const x = a[sortCol.key], y = b[sortCol.key];
-      if (typeof x === "number" && typeof y === "number") return sortCol.key === "tunnelPlus" ? y - x : x - y;
-      return 0;
-    });
+    .sort(sortComparator(sortCol.key, dir));
   const chip = (on: boolean) =>
     `px-2.5 py-1 rounded-md text-[11px] border ${on ? "border-usf-gold/60 text-text-primary bg-white/[0.06]" : "border-border-subtle text-text-secondary hover:bg-white/[0.04]"}`;
   const link = (over: Partial<Q>) => {
     const p = new URLSearchParams();
-    const m = { season: String(season), min: String(min), sort: sortCol.key, ...over };
+    const m = { season: String(season), min: String(min), sort: sortCol.key, dir: q.dir, ...over };
     for (const [k, v] of Object.entries(m)) if (v) p.set(k, String(v));
     return `/tunneling?${p.toString()}`;
   };
@@ -82,9 +80,9 @@ export default async function TunnelingPage({ searchParams }: { searchParams?: P
               <th className="px-2 py-2 text-left font-semibold">Team</th>
               <th className="px-2 py-2 text-right font-semibold">Yr</th>
               {COLS.map((c) => (
-                <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                  <Link href={link({ sort: c.key })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}
-                    title={c.tip}>{c.label}</Link>
+                <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortCol.key ? (dir === "desc" ? "descending" : "ascending") : undefined}>
+                  <Link href={link({ sort: c.key, dir: c.key === sortCol.key ? (dir === "desc" ? "asc" : "desc") : undefined })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}
+                    title={c.tip}>{c.label}{c.key === sortCol.key ? (dir === "desc" ? " ▼" : " ▲") : ""}</Link>
                 </th>
               ))}
             </tr>

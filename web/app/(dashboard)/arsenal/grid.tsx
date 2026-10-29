@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { ArsenalCardData, PitchType } from "@/types";
 import { GyroTag } from "@/components/ui/shared-grade-note";
+import { sortComparator } from "@/lib/table-sort";
 
 const INITIAL_ROWS = 5;
 const EXPANDED_ROWS = 10;
@@ -14,6 +15,7 @@ type SortKey = "primaryMetric" | "name";
 export function ArsenalGrid({ cards }: { cards: ArsenalCardData[] }) {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [cardSort, setCardSort] = useState<Record<string, SortKey>>({});
+  const [cardAsc, setCardAsc] = useState<Record<string, boolean>>({});
 
   function toggleExpand(pitchType: string) {
     setExpandedCards((prev) => {
@@ -28,10 +30,11 @@ export function ArsenalGrid({ cards }: { cards: ArsenalCardData[] }) {
   }
 
   function toggleSort(pitchType: string) {
-    setCardSort((prev) => ({
-      ...prev,
-      [pitchType]: prev[pitchType] === "name" ? "primaryMetric" : "name",
-    }));
+    // whiff desc -> whiff asc -> name A-Z -> whiff desc
+    const onName = cardSort[pitchType] === "name";
+    const asc = !!cardAsc[pitchType];
+    setCardSort((prev) => ({ ...prev, [pitchType]: onName || asc ? (onName ? "primaryMetric" : "name") : "primaryMetric" }));
+    setCardAsc((prev) => ({ ...prev, [pitchType]: !onName && !asc }));
   }
 
   return (
@@ -45,10 +48,10 @@ export function ArsenalGrid({ cards }: { cards: ArsenalCardData[] }) {
         const sortKey = cardSort[card.pitchType] || "primaryMetric";
 
         // Sort pitchers within card
-        const sorted = [...card.topPitchers].sort((a, b) => {
-          if (sortKey === "name") return a.name.localeCompare(b.name);
-          return (b.primaryMetric || 0) - (a.primaryMetric || 0);
-        });
+        const asc = !!cardAsc[card.pitchType];
+        const sorted = [...card.topPitchers].sort(
+          sortComparator(sortKey, sortKey === "name" || asc ? "asc" : "desc"),
+        );
         const visiblePitchers = sorted.slice(0, rowsToShow);
 
         return (
@@ -79,7 +82,7 @@ export function ArsenalGrid({ cards }: { cards: ArsenalCardData[] }) {
                   }`}
                   title="Sort by Whiff%"
                 >
-                  {card.avgWhiff.toFixed(1)}% whiff
+                  {card.avgWhiff.toFixed(1)}% whiff{sortKey === "name" ? " · A-Z" : asc ? " ▲" : " ▼"}
                 </button>
                 <span className="text-text-dim">{card.avgVelo.toFixed(1)} mph</span>
                 {"season" in card && card.season ? <span className="text-text-dim">· {String(card.season)}</span> : null}

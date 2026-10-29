@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sortComparator } from "@/lib/table-sort";
 import { getMinorsIndex, getMinorsLines, getPitchers, getHitters } from "@/lib/data";
 
 export const metadata = { title: "Minors" };
@@ -64,7 +65,7 @@ const fmt = (v: unknown, c: Col): string => {
   return c.lead === false ? s.replace(/^0\./, ".") : s;
 };
 
-type Q = { kind?: string; season?: string; level?: string; min?: string; sort?: string; page?: string; src?: string; team?: string; age?: string };
+type Q = { kind?: string; season?: string; level?: string; min?: string; sort?: string; dir?: string; page?: string; src?: string; team?: string; age?: string };
 const AGE_CAPS = [22, 24, 26];
 
 export default async function MinorsPage({ searchParams }: { searchParams?: Promise<Q> }) {
@@ -114,17 +115,13 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
     var seasonShown = seasonSel;
   }
   const sortCol = cols.find((c) => c.key === q.sort) ?? cols.find((c) => c.key === sortDefault)!;
-  rows.sort((a: any, b: any) => {
-    const x = a[sortCol.key], y = b[sortCol.key];
-    if (x == null) return 1;
-    if (y == null) return -1;
-    return sortCol.asc ? x - y : y - x;
-  });
+  const dir = q.sort && (q.dir === "asc" || q.dir === "desc") ? q.dir : sortCol.asc ? "asc" : "desc";
+  rows.sort(sortComparator(sortCol.key, dir));
   const page = Math.max(0, Number(q.page) || 0);
   const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
   const link = (over: Partial<Q>) => {
     const p = new URLSearchParams();
-    const m = { kind, src, season: String(seasonShown ?? ""), level, min: String(min), sort: sortCol.key, page: "0", team: q.team ?? "", age: maxAge ? String(maxAge) : "", ...over };
+    const m = { kind, src, season: String(seasonShown ?? ""), level, min: String(min), sort: sortCol.key, dir: q.dir, page: "0", team: q.team ?? "", age: maxAge ? String(maxAge) : "", ...over };
     for (const [k, v] of Object.entries(m)) if (v !== undefined && v !== "") p.set(k, String(v));
     return `/minors?${p.toString()}`;
   };
@@ -175,8 +172,8 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
                 <th className="px-2 py-2 text-left font-semibold">Level</th>
                 <th className="px-2 py-2 text-left font-semibold">Team</th>
                 {cols.map((c) => (
-                  <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                    <Link href={link({ sort: c.key })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}</Link>
+                  <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortCol.key ? (dir === "desc" ? "descending" : "ascending") : undefined}>
+                    <Link href={link({ sort: c.key, dir: c.key === sortCol.key ? (dir === "desc" ? "asc" : "desc") : undefined })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}{c.key === sortCol.key ? (dir === "desc" ? " ▼" : " ▲") : ""}</Link>
                   </th>
                 ))}
               </tr>

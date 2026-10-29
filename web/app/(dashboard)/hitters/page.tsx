@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sortComparator } from "@/lib/table-sort";
 import { getHitters, getHitterPercentiles, getHitterSkillIndex, getSwingIndex } from "@/lib/data";
 import { hittersProps } from "@/lib/boards/hitters";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
@@ -53,7 +54,7 @@ const SWING_COLS: Col[] = [
 const fmtG = (v: unknown): string => (typeof v === "number" && Number.isFinite(v) ? String(v) : "—");
 
 export default async function HittersPage({ searchParams }: {
-  searchParams?: Promise<{ view?: string; season?: string; team?: string; sort?: string; page?: string }>;
+  searchParams?: Promise<{ view?: string; season?: string; team?: string; sort?: string; dir?: string; page?: string }>;
 }) {
   const q = (await searchParams) ?? {};
   const view = q.view === "skill" ? "skill" : q.view === "swing" ? "swing" : "rate";
@@ -83,12 +84,8 @@ export default async function HittersPage({ searchParams }: {
     const teams = [...new Set(rows.map((r) => r.team).filter(Boolean))].sort() as string[];
     const sortKey = SKILL_COLS.some((c) => c.key === q.sort) ? q.sort! : "power";
     const asc = sortKey === "eye";
-    rows.sort((a: any, b: any) => {
-      const x = a[sortKey], y = b[sortKey];
-      if (x == null) return 1;
-      if (y == null) return -1;
-      return asc ? x - y : y - x;
-    });
+    const dir = q.dir === "asc" || q.dir === "desc" ? q.dir : asc ? "asc" : "desc";
+    rows.sort(sortComparator(sortKey, dir));
     const PAGE = 50;
     const page = Math.max(0, Number(q.page) || 0);
     const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
@@ -121,8 +118,8 @@ export default async function HittersPage({ searchParams }: {
                   <th className="px-2 py-2 text-left font-semibold">Team</th>
                   <th className="px-2 py-2 text-left font-semibold">Bats</th>
                   {SKILL_COLS.map((c) => (
-                    <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                      <Link href={link({ sort: c.key })} className={c.key === sortKey ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}</Link>
+                    <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortKey ? (dir === "desc" ? "descending" : "ascending") : undefined}>
+                      <Link href={link({ sort: c.key, dir: c.key === sortKey ? (dir === "desc" ? "asc" : "desc") : undefined })} className={c.key === sortKey ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}{c.key === sortKey ? (dir === "desc" ? " ▼" : " ▲") : ""}</Link>
                     </th>
                   ))}
                   <th className="px-2 py-2 text-left font-semibold">Type</th>
@@ -172,12 +169,8 @@ export default async function HittersPage({ searchParams }: {
     const teams = [...new Set(rows.map((r0) => r0.team).filter(Boolean))].sort() as string[];
     const sortKey = SWING_COLS.some((c) => c.key === q.sort) ? q.sort! : "avgBatSpeed";
     const asc = sortKey === "swordRate" || sortKey === "swords" || sortKey === "whiffPerSwing" || sortKey === "swingLength";
-    rows.sort((a: any, b: any) => {
-      const x = a[sortKey], y = b[sortKey];
-      if (x == null) return 1;
-      if (y == null) return -1;
-      return asc ? x - y : y - x;
-    });
+    const dir = q.dir === "asc" || q.dir === "desc" ? q.dir : asc ? "asc" : "desc";
+    rows.sort(sortComparator(sortKey, dir));
     const PAGE = 50;
     const page = Math.max(0, Number(q.page) || 0);
     const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
@@ -214,8 +207,8 @@ export default async function HittersPage({ searchParams }: {
                   <th className="px-2 py-2 text-left font-semibold">Team</th>
                   <th className="px-2 py-2 text-left font-semibold">Bats</th>
                   {SWING_COLS.map((c) => (
-                    <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                      <Link href={link({ sort: c.key })} className={c.key === sortKey ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}</Link>
+                    <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortKey ? (dir === "desc" ? "descending" : "ascending") : undefined}>
+                      <Link href={link({ sort: c.key, dir: c.key === sortKey ? (dir === "desc" ? "asc" : "desc") : undefined })} className={c.key === sortKey ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}{c.key === sortKey ? (dir === "desc" ? " ▼" : " ▲") : ""}</Link>
                     </th>
                   ))}
                 </tr>

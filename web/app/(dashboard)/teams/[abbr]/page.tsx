@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sortComparator } from "@/lib/table-sort";
 import { notFound } from "next/navigation";
 import { getPitchers, getHitters, getParks , getRecentGames } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
@@ -26,7 +27,7 @@ const H_COLS = [
 const fmt = (v: unknown, nd?: number): string =>
   typeof v === "number" && Number.isFinite(v) ? (nd != null ? v.toFixed(nd) : String(v)) : "—";
 
-type Q = { season?: string; psort?: string; hsort?: string };
+type Q = { season?: string; psort?: string; hsort?: string; pdir?: string; hdir?: string };
 
 /** Team aggregates: each stat is the club's weighted mean over its board rows (weight = the stat's own
  * denominator), ranked against every club that season. A traded player counts for the team on his board
@@ -106,17 +107,14 @@ function TeamSummary({ title, aggs, team, rows }: { title: string; aggs: Agg[]; 
   );
 }
 
-function Board({ title, rows, cols, sort, sortBase, link }: {
+function Board({ title, rows, cols, sort, sortBase, dirQ, link }: {
   title: string; rows: any[]; cols: { key: string; label: string; nd?: number; asc?: boolean }[];
-  sort: string; sortBase: string; link: (over: Record<string, string | undefined>) => string;
+  sort: string; sortBase: string; dirQ?: string; link: (over: Record<string, string | undefined>) => string;
 }) {
   const sortCol = cols.find((c) => c.key === sort) ?? cols[0];
-  const sorted = [...rows].sort((a, b) => {
-    const x = a[sortCol.key], y = b[sortCol.key];
-    if (x == null) return 1;
-    if (y == null) return -1;
-    return sortCol.asc ? x - y : y - x;
-  }).slice(0, 40);
+  const dirBase = sortBase.replace("sort", "dir");
+  const dir = dirQ === "asc" || dirQ === "desc" ? dirQ : sortCol.asc ? "asc" : "desc";
+  const sorted = [...rows].sort(sortComparator(sortCol.key, dir)).slice(0, 40);
   return (
     <div className="glass-panel overflow-hidden">
       <div className="px-4 py-2.5 border-b border-border-subtle flex items-center justify-between gap-2">
@@ -130,8 +128,8 @@ function Board({ title, rows, cols, sort, sortBase, link }: {
               <th className="px-4 py-2 text-left font-semibold">Player</th>
               <th className="px-2 py-2 text-right font-semibold">Yr</th>
               {cols.map((c) => (
-                <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                  <Link href={link({ [sortBase]: c.key })} className={c.key === sort ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}</Link>
+                <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortCol.key ? (dir === "desc" ? "descending" : "ascending") : undefined}>
+                  <Link href={link({ [sortBase]: c.key, [dirBase]: c.key === sortCol.key ? (dir === "desc" ? "asc" : "desc") : undefined })} className={c.key === sort ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}{c.key === sortCol.key ? (dir === "desc" ? " ▼" : " ▲") : ""}</Link>
                 </th>
               ))}
             </tr>
@@ -217,7 +215,7 @@ export default async function TeamPage({ params, searchParams }: {
   const hFiltered = hrows.filter((r: any) => r.season === season);
   const link = (over: Partial<Q>) => {
     const p = new URLSearchParams();
-    const m = { season: String(season), psort: q.psort ?? "rvPer100", hsort: q.hsort ?? "woba", ...over };
+    const m = { season: String(season), psort: q.psort ?? "rvPer100", hsort: q.hsort ?? "woba", pdir: q.pdir, hdir: q.hdir, ...over };
     for (const [k, v] of Object.entries(m)) if (v) p.set(k, String(v));
     return `/teams/${abbr.toLowerCase()}?${p.toString()}`;
   };
@@ -304,8 +302,8 @@ export default async function TeamPage({ params, searchParams }: {
       </div>
       <ParkPanel parks={parks} team={abbr} />
       <div className="grid gap-5 xl:grid-cols-2">
-        <Board title="Pitchers" rows={pFiltered} cols={P_COLS} sort={q.psort ?? "rvPer100"} sortBase="psort" link={link} />
-        <Board title="Hitters" rows={hFiltered} cols={H_COLS} sort={q.hsort ?? "woba"} sortBase="hsort" link={link} />
+        <Board title="Pitchers" rows={pFiltered} cols={P_COLS} sort={q.psort ?? "rvPer100"} sortBase="psort" dirQ={q.pdir} link={link} />
+        <Board title="Hitters" rows={hFiltered} cols={H_COLS} sort={q.hsort ?? "woba"} sortBase="hsort" dirQ={q.hdir} link={link} />
       </div>
     </div>
   );

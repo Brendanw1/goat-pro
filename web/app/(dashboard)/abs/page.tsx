@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sortComparator } from "@/lib/table-sort";
 import { getSavantBoard } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
@@ -42,11 +43,7 @@ export default async function AbsPage({ searchParams }: { searchParams?: Promise
   const sortCol = COLS.find((c) => c.key === q.sort) ?? COLS.find((c) => c.key === "runs")!;
   const desc = q.order !== "asc";
   const players = all.filter((r) => Number(r.challenges ?? 0) >= min);
-  players.sort((a, b) => {
-    const x = a[sortCol.key], y = b[sortCol.key];
-    if (typeof x !== "number" || typeof y !== "number") return 0;
-    return desc ? y - x : x - y;
-  });
+  players.sort(sortComparator(sortCol.key, desc ? "desc" : "asc"));
   // club roll-up: sum the run columns, weight the win rate by challenges
   const teams = new Map<string, { team: string; chal: number; won: number; runs: number; skill: number }>();
   for (const r of all) {
@@ -104,9 +101,9 @@ export default async function AbsPage({ searchParams }: { searchParams?: Promise
                 <th className="px-4 py-2 text-left font-semibold">Player</th>
                 <th className="px-2 py-2 text-left font-semibold">Team</th>
                 {COLS.map((c) => (
-                  <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                    <Link href={link({ sort: c.key })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}
-                      title={c.tip}>{c.label}</Link>
+                  <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortCol.key ? (desc ? "descending" : "ascending") : undefined}>
+                    <Link href={link({ sort: c.key, order: c.key === sortCol.key && desc ? "asc" : "desc" })} className={c.key === sortCol.key ? "text-text-primary" : "hover:text-text-secondary"}
+                      title={c.tip}>{c.label}{c.key === sortCol.key ? (desc ? " ▼" : " ▲") : ""}</Link>
                   </th>
                 ))}
               </tr>
