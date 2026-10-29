@@ -24,7 +24,8 @@ function fmt(v: unknown, kind: Kind = "num"): string {
 }
 
 export function SavantTable({ board }: { board: SavantBoard }) {
-  const [sortBy, setSortBy] = useState<string>(board.columns.find((c) => c.key !== "name" && c.key !== "player" && c.key !== "team")?.key ?? board.columns[0]?.key);
+  // default sort: the first real stat column — season/id columns are labels, not rankings
+  const [sortBy, setSortBy] = useState<string>(board.columns.find((c) => !/^(player|name|team|team_name|season|year|(_)?id)$/i.test(c.key))?.key ?? board.columns[0]?.key);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
@@ -54,7 +55,9 @@ export function SavantTable({ board }: { board: SavantBoard }) {
       const vals = board.rows.map((r) => r[c.key]).filter((v): v is number => typeof v === "number");
       if (!vals.length) { kinds[c.key] = "text"; continue; }
       kinds[c.key] = vals.every((v) => Math.abs(v) < 1) ? "frac" : "num";
-      if (vals.length >= 30) ranks[c.key] = [...vals].sort((a, b) => a - b);
+      // ids and seasons are not stats — percentiles on them are noise
+      const isKey = /(^|_)(id|season|year)$/i.test(c.key);
+      if (!isKey && vals.length >= 30) ranks[c.key] = [...vals].sort((a, b) => a - b);
     }
     return { kinds, ranks };
   }, [board]);
