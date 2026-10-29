@@ -2376,3 +2376,55 @@ Steepness-controlled slope on sealed FF: +0.016 [−0.075, +0.103]. ≥ 97 by se
 - Modeling: the FF-wide offset (four-seamers slightly better than Pitching+ says, at every velocity) is the only thing worth a look. It moves FF against other pitch types, not hard against soft FF. Not acted on here; noted for the next Pitching+ calibration check.
 
 **Ships:** nothing. Pitching+ is unchanged.
+
+## §85 Our own WAR (owner queue: "own WAR"), pre-registered 2026-10-29 before any read
+
+**Owner ask.** A site WAR built from our own components, for 2020–26. The knowledge base holds no WAR method notes (searched twice, 2026-10-29), so the frame is the published FanGraphs/B-Ref accounting (Slowinski 2010, "Converting runs to wins"), with our models in the slots. Regular season, MLB only. `pipeline/war.py`.
+
+**Position players.** WAR = (Batting + Baserunning + Fielding + Positional + League + Replacement) / RPW.
+- **Batting:** per season, each PA-ending event's run value = the mean of `delta_run_exp` on PA-ending pitches with that event (our own linear weights). Batting runs = Σ (event value − league mean per PA), league mean taken over non-pitcher PAs. Pitchers' own PAs (a batter who pitched in that game, under 100 PA that season) are dropped. Ohtani's batting counts here and his pitching below.
+- **Park:** per PA, subtract (PF_venue − 1) × league runs per PA. PF_venue = home/road runs-per-game ratio over seasons S−2..S, regressed 50% toward 1 (ponytail: a fixed regression, not EB). §72's component factors failed a stickiness test. WAR needs a level factor instead (Coors offense), so this is the standard runs factor, and the gates are reported with and without it.
+- **Baserunning:** Savant baserunning run value (2021+, attributed). 2020 has no Savant board, so it is 0 and flagged.
+- **Fielding:** our range runs (§75–§81), all positions summed, plus framing runs (§76). Savant catcher throwing and blocking runs are added where published. Pitchers' fielding is excluded.
+- **Positional:** FanGraphs per-162 values: C +12.5, SS +7.5, 2B/3B/CF +2.5, LF/RF −7.5, 1B −12.5, DH −17.5. Time at a position = defensive PAs there (`fielder_2..9`) over the league's mean team defensive PAs, scaled to 162 games. DH time = games batted with no fielding slot.
+- **League:** a per-PA constant per season, so Batting + BsR + Fielding + Positional sums to 0 over position players.
+- **Replacement and RPW:** total WAR = 1,000 × games / 2,430 per season, 57% to position players, distributed by PA. RPW = 9 × (league R/IP) × 1.5 + 3.
+
+**Pitchers (FIP-based, like fWAR).** FIP with that season's constant, park-adjusted by the same runs PF over his batters faced. FIPR9 = FIP + (lgRA9 − lgFIP). Pitcher-specific RPW is FanGraphs': ((18 − IP/G) × lgRA9 + (IP/G) × FIPR9) / 18 + 2) × 1.5. Wins per 9 above average = (lgRA9 − FIPR9) / dRPW. Replacement = 0.03 × (1 − GS/G) + 0.12 × GS/G. Relievers' wins are multiplied by (1 + gmLI) / 2. gmLI is our leverage index at his entry: the mean |Σ ΔWE| per PA in that base/out/inning/score state over the season mean, from `delta_home_win_exp`. A season constant per IP scales pitcher WAR to 43% of the total.
+
+**Gates (read once; B-Ref's public `war_daily_bat/pitch.txt` is the outside reference, used for validation only, never shown):**
+- **G1 accounting:** per season, Σ WAR = 1,000 × G/2,430 within ±1%, split 57/43.
+- **G2 position players** (≥ 300 PA; 2020 ≥ 100): pooled Pearson r with bWAR ≥ .85. Reported, not judged: per season; our Batting vs B-Ref batting runs (expect ≥ .95); Fielding + Positional vs theirs.
+- **G3 pitchers** (≥ 50 IP; 2020 ≥ 20): pooled r with bWAR ≥ .75. The bar is lower because bWAR is RA9-based and ours is FIP-based.
+- **G4 team wins:** team-season Σ WAR + replacement wins (0.294 × G) vs actual wins (Stats API standings), r ≥ .80 over 2021–25 (150 team-seasons). Control printed beside: the same fit for bWAR's team sums.
+- **Reported, not judged:** year-to-year r of WAR/600 PA (hitters) and WAR/180 IP (pitchers), each beside bWAR's same r; the park-off variant on G2–G4; leaders per season (sanity: Judge, Ohtani, Skubal near the top).
+
+**What it means.** All of G1–G4 pass: WAR ships as a column on both boards and as a line on profiles, with a component breakdown and a glossary entry. A failed gate gets the data vs handling vs modeling diagnosis, and WAR does not ship until a re-test registered here passes. 2026 is scored the same way; it is not held out, because nothing is fit to the gates.
+
+### §85 result (read once, 2026-10-29)
+
+`war.py` (`results/war_85.json`). **All four gates PASS. WAR ships.**
+
+| gate | result | bar |
+|---|---|---|
+| G1 accounting | Σ WAR = target every season (2020: 210.6 + 158.9 = 369.5; 2022: 570.0 + 430.0); max error 0.04% | ±1% |
+| G2 position players vs bWAR | r **.920**, n 1,972 (by season .898–.925) | .85 |
+| G3 pitchers vs bWAR | r **.814**, n 2,381 (by season .750–.840) | .75 |
+| G4 team Σ WAR + 0.294 × G vs actual wins, 2021–25 | r **.913**, n 150; control: bWAR's team sums r .931 | .80 |
+
+Reported, not judged:
+- **Components vs B-Ref:** our batting vs their batting runs r .982. Fielding + positional vs theirs r .764: our range under-rates elite range (§81), so B-Ref has Crow-Armstrong 2026 at +18 fielding runs to our +9, though both WARs are about 9.6–9.8.
+- **Park factor off:** G2 r .915 against .920 with it on, so the runs factor helps slightly and stays.
+- **Year to year (rate per 600 PA or 180 IP):** hitters .458 (bWAR .454). Pitchers .419 (bWAR .194), as expected: FIP-based value is stickier than runs allowed.
+- **Leaders, a sanity check that passes:**
+  - 2024: Judge 11.1, Witt 9.2, Ohtani 9.2; Sale 6.8, Skubal 6.4.
+  - 2025: Judge 9.6, Raleigh 9.0; Skubal 6.8, C. Sánchez 6.7, Skenes 6.7.
+  - 2026: Crow-Armstrong 9.6; Misiorowski 6.6.
+  - Top 2025 relievers: Cade Smith 2.9 (gmLI 1.68), Chapman 2.6.
+
+**Known limits, shown in the glossary:**
+- 2020 baserunning is 0, because Savant has no 2020 board.
+- Elite range is under-credited.
+- Pitchers are FIP-based, so balls in play and sequencing are not theirs; the gap to RA9-based bWAR is the reason G3 is lower than G2.
+
+**Ships:** `war` on both boards, and a profile WAR line with the components (`war_index.json`).

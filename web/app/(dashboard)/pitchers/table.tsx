@@ -6,6 +6,7 @@ import { BorderBeam } from "border-beam";
 import { FilterPanel } from "@/components/filter-panel";
 import { useUrlRecord } from "@/lib/use-url-record";
 import { GradePct, gradedN } from "@/components/ui/grade-pct";
+import { Signed } from "@/components/ui/shared-ui";
 import {
   DISCIPLINE_COLUMNS, MODEL_COLUMNS, PITCHER_DEFAULTS, PITCHER_FILTER_COLUMNS, PITCHER_FILTER_DEFAULTS,
   TRAD_COLUMNS, shrunkSortKey, type PitchersMeta, type PitchersPage,
@@ -36,6 +37,7 @@ function fmt(value: any, key: string): string {
   if (typeof value !== "number" || isNaN(value)) return "—";
   if (key === "age") return String(Math.floor(value)); // season age (June 30), shown as whole years
   if (key === "rvPer100") return (value > 0 ? "+" : "") + value.toFixed(2);
+  if (key === "war") return value.toFixed(1);
   if (key === "era" || key === "fip") return value.toFixed(2);
   if (key.endsWith("Pct")) return value.toFixed(1);
   if (PLUS_KEYS.has(key)) return Math.round(value).toString();
@@ -332,7 +334,7 @@ export function PitchersTable({ meta, initial, percentiles, pctBySeason }: { met
                       </PlayerLink>
                     ) : col.key === "team" && multiTeam(row) ? (
                       <TeamCountButton row={row} open={openTeams.has(`${row.id}-${row.season}`)} onToggle={() => toggleTeams(`${row.id}-${row.season}`)} />
-                    ) : value}
+                    ) : col.key === "war" && typeof raw === "number" ? <Signed v={raw} dp={1} /> : value}
                     {GRADE_PCT_KEYS.has(col.key) && <GradePct metric={col.key} value={raw} n={gradedN(row)} season={row.season} />}
                     {isName && (row as any).confidence && (() => {
                       const tier = (row as any).confidence;

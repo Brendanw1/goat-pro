@@ -42,6 +42,7 @@ export const HITTER_QUALITY_COLUMNS = [
 /** The site's models and value columns (Decision+ from the decision model; range runs and Framing+ joined from
  * their own families in getHitters; Savant's fielding and baserunning run values, labelled theirs). */
 export const HITTER_MODEL_COLUMNS = [
+  { key: "war", label: "WAR", w: "w-[52px]", align: "right", tip: "Wins above replacement, the site's own (RESULTS-MLB §85): our batting run values (park-adjusted), Savant baserunning, our range and framing runs, the standard position adjustment and replacement level. Matches Baseball-Reference WAR at r .92. Glossary: WAR." },
   { key: "decisionPlus", label: "Decision+", w: "w-[76px]", align: "right", tip: "Swing decisions: run value of his swing/take choices vs an average hitter given each pitch's location and count. 100 = average, 10 = one SD (hitters with 100+ PA)." },
   { key: "rangeRuns", label: "Range", w: "w-[58px]", align: "right", tip: "Site range model: runs saved vs an average fielder at the position on the balls he had a chance at (all positions summed; 30+ chances). See the Defense board." },
   { key: "framingPlus", label: "Framing+", w: "w-[70px]", align: "right", tip: "Catchers: strikes stolen above a called-strike model, 100 = average, 10 = one SD (2,500+ taken pitches)." },

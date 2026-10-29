@@ -31,6 +31,7 @@ export const TRAD_COLUMNS = [
 ] as const;
 
 export const MODEL_COLUMNS = [
+  { key: "war", label: "WAR", w: "w-[52px]", align: "right", tip: "Wins above replacement, the site's own (RESULTS-MLB §85): FIP-based like FanGraphs: park-adjusted FIP against the league run environment, replacement set by role, relievers credited for the leverage they pitch in. Matches Baseball-Reference WAR at r .81 (theirs is runs-allowed based). Glossary: WAR." },
   { key: "stuffPlus", label: "Whiff+", w: "w-[76px]", align: "right", tip: STUFF_TIP },
   { key: "kPlus", label: "K+", w: "w-[56px]", align: "right", tip: K_TIP },
   { key: "preventionPlus", label: "Prevention+", w: "w-[96px]", align: "right", tip: PREVENTION_TIP },

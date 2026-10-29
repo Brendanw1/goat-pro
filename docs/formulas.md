@@ -40,3 +40,11 @@ When a formula changes, update this table and the glossary in the same commit.
 - Player value = Σ delta_run_exp with the acquiring club on/after the trade date (hitters: as batter; pitchers: negated, as pitcher). `rvSeason` = same, trade year only.
 - Club: In = Σ value of players received; Out = Σ value of players sent (with their new club); Net = In − Out.
 - Deadline = modal July–August trade date. Prospect rank = Pipeline top 100, else org list, in the trade year.
+
+## WAR (pipeline/war.py → war_index.json, RESULTS-MLB §85)
+
+- Position: WAR = (Bat + BsR + Fld + Pos + Lg + Rep) / RPW. Bat = Σ(lw_event − lg mean lw) − (PF_venue − 1)·lgR/PA per PA; lw_event = season mean `delta_run_exp` on PA-ending pitches of that event. PF_venue = 1 + ½(home R/G ÷ road R/G − 1), seasons S−2..S.
+- Pos = Σ_slot adj162 · (def PA at slot ÷ league team def PA) · (team games ÷ 162); DH = −17.5/162 per game batted without a field slot.
+- Lg = −Σ(Bat+BsR+Fld+Pos)/ΣPA per PA; Rep = 0.57 · 1000 · G/2430 · RPW / ΣPA per PA; RPW = 9·(R/IP)·1.5 + 3.
+- Pitchers: FIPR9 = (FIP_raw + lgRA9 − lgFIP_raw) / PF; dRPW = (((18 − IP/G)·lgRA9 + (IP/G)·FIPR9)/18 + 2)·1.5; WAR = [(lgRA9 − FIPR9)/dRPW + 0.03(1 − GS/G) + 0.12·GS/G]·IP/9·lev, lev = 1 + (1 − GS/G)((1 + gmLI)/2 − 1); + season constant per IP to 43% of 1000·G/2430.
+- gmLI: LI of his first PA in each relief appearance; LI = mean |ΣΔWE| per PA in its (inning ≤ 9, half, outs, bases, diff ±4) state ÷ overall mean.

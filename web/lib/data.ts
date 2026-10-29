@@ -18,10 +18,11 @@ export type Level = "mlb" | "aaa";
 const lv = (level: Level, path: string) => (level === "aaa" ? `aaa/${path}` : path);
 
 /** (id, season) -> value from a {seasons: {season: rows[]}} index file, for joining onto board rows. */
-async function seasonIndex(path: string, pick: (rows: any[]) => Record<string, any>): Promise<Map<string, any>> {
+async function seasonIndex(path: string, pick: (rows: any[]) => Record<string, any>, sub?: string): Promise<Map<string, any>> {
   const doc = await fetchFromR2<any>(path, { shared: true }).catch(() => null);
   const out = new Map<string, any>();
-  for (const [s, rows] of Object.entries<any[]>(doc?.seasons ?? {})) {
+  for (const [s, v] of Object.entries<any>(doc?.seasons ?? {})) {
+    const rows: any[] = sub ? v?.[sub] : v;
     const byId = new Map<string, any[]>();
     for (const r of rows ?? []) byId.set(String(r.id), [...(byId.get(String(r.id)) ?? []), r]);
     for (const [id, rs] of byId) out.set(`${id}|${s}`, pick(rs));
@@ -34,8 +35,12 @@ export async function getPitchers(level: Level = "mlb"): Promise<PitcherRowAny[]
     const data = (await fetchFromR2<PitcherRowAny[]>(lv(level, "pitchers.json"))) || [];
     if (level !== "mlb") return data;
     // Deception+ (bat-tracking seasons) lives in its own family; joined here so every board and page sees it
-    const dec = await seasonIndex("deception_index.json", (rs) => ({ deceptionPlus: rs[0].plus ?? null }));
-    return data.map((r) => ({ ...r, ...(dec.get(`${r.id}|${r.season}`) ?? { deceptionPlus: null }) }));
+    const [dec, war] = await Promise.all([
+      seasonIndex("deception_index.json", (rs) => ({ deceptionPlus: rs[0].plus ?? null })),
+      seasonIndex("war_index.json", (rs) => ({ war: rs[0].war ?? null }), "pitchers"),
+    ]);
+    const k = (r: any) => `${r.id}|${r.season}`;
+    return data.map((r) => ({ ...r, deceptionPlus: null, war: null, ...dec.get(k(r)), ...war.get(k(r)) }));
   } catch {
     return [];
   }
@@ -112,14 +117,16 @@ export async function getHitters(level: Level = "mlb"): Promise<HitterRowAny[]> 
     if (level !== "mlb") return data;
     // the site's own fielding models, from their own families: range runs (all positions summed, the
     // position with the most chances) and Framing+ for catchers
-    const [range, framing] = await Promise.all([
+    const [range, framing, war] = await Promise.all([
       seasonIndex("defense_index.json", (rs) => ({
         rangeRuns: Math.round(rs.reduce((a, r) => a + (r.runs ?? 0), 0) * 10) / 10,
         rangePos: [...rs].sort((a, b) => (b.chances ?? 0) - (a.chances ?? 0))[0]?.pos ?? null,
       })),
       seasonIndex("framing_plus.json", (rs) => ({ framingPlus: rs[0].plus ?? null })),
+      seasonIndex("war_index.json", (rs) => ({ war: rs[0].war ?? null }), "hitters"),
     ]);
-    return data.map((r) => ({ ...r, ...range.get(`${r.id}|${r.season}`), ...framing.get(`${r.id}|${r.season}`) }));
+    const k = (r: any) => `${r.id}|${r.season}`;
+    return data.map((r) => ({ ...r, ...range.get(k(r)), ...framing.get(k(r)), ...war.get(k(r)) }));
   } catch {
     return [];
   }
@@ -248,6 +255,11 @@ export async function getMechanismTables(): Promise<any | null> {
 /** Farm-system output table + tier time-to-MLB curves + risers (item 8). */
 export async function getFarmOutput(): Promise<any | null> {
   return fetchFromR2<any>("prospects/farm.json", { shared: true }).catch(() => null);
+}
+
+/** Site WAR (pipeline/war.py, RESULTS-MLB §85): {seasons: {season: {rpw, hitters[], pitchers[]}}}, MLB only. */
+export async function getWarIndex(): Promise<any | null> {
+  return fetchFromR2<any>("war_index.json", { shared: true }).catch(() => null);
 }
 
 /** Trade tracker season (pipeline/trades.py): deals, what each club got back, team net run value. */

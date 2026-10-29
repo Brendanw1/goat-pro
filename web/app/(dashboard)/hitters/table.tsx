@@ -21,7 +21,7 @@ import { useBoardPage } from "@/lib/boards/use-board-page";
 const CHIP_KEYS = new Set(["woba", "obp", "slg", "ev90", "hardHitPct", "barrelPct", "whiffPct", "oSwingPct", "xwoba", "batSpeed", "squaredUpPct", "sprintSpeed"]);
 
 /** Run-value columns: green when good for him, red when bad (the shared Signed rule). */
-const SIGNED_KEYS = new Set(["rangeRuns", "frvRuns", "bsrRuns"]);
+const SIGNED_KEYS = new Set(["war", "rangeRuns", "frvRuns", "bsrRuns"]);
 
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
