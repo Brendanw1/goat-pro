@@ -488,7 +488,7 @@ def overlay_p7(grades: pd.DataFrame) -> pd.DataFrame:
     m = m.rename(columns={"whiff_plus": "grade", "whiff_by_class": "stuff_by_class"})
     keep = ["mlbam", "season", "grade", "stuff_by_class", "stuff_by_type", "pitching_plus", "pitching_by_class",
             *P7_FIELDS]
-    g = grades.drop(columns=["grade", "stuff_by_class", "stuff_by_type", "pitching_plus", "pitching_by_class"])
+    g = grades.drop(columns=[c for c in keep if c not in ("mlbam", "season")], errors="ignore")  # population rows carry None P7 columns
     g = g.merge(m[keep], on=["mlbam", "season"], how="left")
     for c in ("stuff_by_class", "stuff_by_type", "pitching_by_class"):
         g[c] = [x if isinstance(x, list) else [] for x in g[c]]
@@ -894,20 +894,24 @@ def overlay_aaa_p7(grades: pd.DataFrame) -> pd.DataFrame:
     return g
 
 
-def aaa_population(seasons: list[int]) -> pd.DataFrame:
-    """The AAA stand-in for the MLB grades artifact: every pitcher-season with 5+ pitches through the
-    scoring gate, named from the MiLB lines, confidence by the same pitch bands. No grades yet:
-    MLB-model scores on AAA pitches are Phase 2 (COLLABORATION.md, minors row)."""
-    df = mart.connect().sql(f"""
+def aaa_population(seasons: list[int], table: str = "pitches_aaa") -> pd.DataFrame:
+    """The stand-in for the MLB grades artifact: every pitcher-season with 5+ pitches through the
+    scoring gate, confidence by the same pitch bands, no v2 grades (overlay_p7 / overlay_aaa_p7 add the
+    P7 family). AAA is named from the MiLB lines; MLB seasons the v2 artifact never graded (2020-22)
+    from the Chadwick register, and reproduce the artifact's rows exactly where both exist (2024)."""
+    con = mart.connect()
+    df = con.sql(f"""
         SELECT pitcher AS mlbam, season, mode(p_throws) AS p_throws, COUNT(*) AS pitches_graded
-        FROM pitches_aaa
+        FROM {table}
         WHERE game_type = 'R' AND season IN ({",".join(str(x) for x in seasons)})
           AND pitch_type IN ('FF','SI','FC','SL','CU','KC','SW','SV','ST','CH','FS','FO','EP')
           AND release_speed BETWEEN 55 AND 105 AND release_extension > 3
           AND pfx_z IS NOT NULL AND pfx_x IS NOT NULL AND release_spin_rate IS NOT NULL
           AND p_throws IN ('L','R') AND stand IN ('L','R') AND pitcher IS NOT NULL
         GROUP BY 1, 2 HAVING COUNT(*) >= 5 ORDER BY 1, 2""").df()
-    names = milb_names("pitchers")
+    names = milb_names("pitchers") if table == "pitches_aaa" else dict(con.sql(
+        "SELECT CAST(key_mlbam AS BIGINT), name_first || ' ' || name_last FROM register "
+        "WHERE TRY_CAST(key_mlbam AS BIGINT) IS NOT NULL").fetchall())
     df["name"] = [names.get(int(m)) for m in df["mlbam"]]
     n = df["pitches_graded"]
     df["confidence"] = np.select([n >= 400, n >= 150, n >= 50], ["HIGH", "MODERATE", "LOW"], "MINIMAL")
@@ -1097,6 +1101,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     else:
         grades = pd.DataFrame(grades_doc["grades"])
         grades = grades[grades["season"].isin(seasons)].copy()
+        older = [x for x in seasons if x not in set(grades["season"])]  # 2020-22: v2 never graded them
+        if older:
+            grades = pd.concat([grades, aaa_population(older, "pitches_all")], ignore_index=True)
         grades = grades.sort_values(["mlbam", "season"])
         grades = overlay_p7(grades)
     class_key = model_card["class_key"]
@@ -5443,7 +5450,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         # per batter-season wOBA (Savant scale, from the per-pitch values)
         ag_wo = con.sql(f"""
             SELECT b.batter, b.season, max(b.age_bat) AS age,
-                   sum(b.wv) / NULLIF(sum(b.wd), 0) AS v, count(*) AS pa
+                   sum(b.wv) / NULLIF(sum(b.wd), 0) AS v, sum(b.wv) AS wv, sum(b.wd) AS wd, count(*) AS pa
             FROM (
                 SELECT batter, season, age_bat, game_pk, at_bat_number,
                        max(woba_value) AS wv, max(woba_denom) AS wd

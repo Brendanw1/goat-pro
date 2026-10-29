@@ -21,7 +21,7 @@ type Q = { season?: string; type?: string; axis?: string; bin?: string; side?: s
  */
 const TYPES = ["FF", "SI", "CT", "SL", "SW", "CB", "CH", "FS"];
 const AXES = [["v", "Velocity", " mph"], ["iv", "IVB", " in"], ["hb", "Arm-side HB", " in"]] as const;
-const SEASONS = [2026, 2025, 2024, 2023];
+const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020];
 const COLS = [
   { key: "age", label: "Age", nd: 0 },
   { key: "n", label: "Pitches", nd: 0 },
