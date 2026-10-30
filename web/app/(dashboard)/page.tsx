@@ -365,6 +365,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
           {[
             { href: `/pitchers?season=${season}`, label: "Pitcher board", read: "Whiff+, K+, Prevention+, Control+, Tunnel+ and the measured lines for every pitcher-season." },
             { href: `/hitters?season=${season}`, label: "Hitter board", read: "Contact quality, swing decisions, bat tracking and the projections." },
+            { href: "/reports/projections", label: "Projections", read: "Next-season skill forecasts with their measured bands: Prevention+, K/PA and RV/100 for arms, Marcel wOBA for bats." },
             { href: "/arsenal", label: "Arsenal", read: "Every pitch type graded, with shape, usage and the mix board." },
             { href: "/tunneling", label: "Tunneling", read: "Tunnel+: which pitch pairs look alike long enough to win swings." },
             { href: "/minors?src=sc", label: "Minors", read: "AAA from 2023 on the same models, labelled MLB model on AAA data." },

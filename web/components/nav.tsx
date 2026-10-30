@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/research", label: "Research" },
   { href: "/glossary", label: "Glossary" },
   // past the fade: scroll the strip to reach these
+  { href: "/reports/projections", label: "Projections" },
   { href: "/dong", label: "Would it dong" },
   { href: "/roles", label: "Roles" },
   { href: "/framing", label: "Framing" },
