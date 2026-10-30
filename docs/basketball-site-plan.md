@@ -34,21 +34,32 @@ Savant-style percentile cards. The phases below are reordered around it:
 the statistics foundation and the on/off/lineup pipeline come first because
 most of the spec builds on them; projections stay last.
 
-## Phase 1 — the data spine + first surfaces (current)
+## Phase 1 — the data spine + first surfaces (DONE locally 2026-10-29)
 
-1. **ESPN backfill**: the 2025-26 season, day by day (running). ~1,300 games of
-   PBP + box scores. Current season continues daily.
-2. **hoops mart tables**: `games` (from summaries: teams, scores, PBP counts),
-   `players` (box-score lines per game), `possessions` (from plays: start type,
-   events, score state), `shots` (the x/y coordinate rows).
-3. **First surfaces** (descriptive, from box scores only):
-   - `/hoops` landing (scores ticker, yesterday's games)
-   - `/hoops/games/[id]` — the game report: box scores, PBP, shot chart from
-     the x/y coordinates
-   - `/hoops/teams/[abbr]` — team game list and stat aggregation
-   - `/hoops/players/[id]` — game log and per-season averages
-4. **Validation**: every box-score total cross-checked against LUMA's
-   `box_game` for the same games (the two-source rule); LUMA credited.
+1. **ESPN backfill**: 830+ summaries (2024-25 in progress via the schedule
+   sweep + 2026-27 to date), resumable receipts; continues daily.
+2. **hoops mart tables** (vt_baseball/hoops_mart `build_mart.py`): `games`,
+   `team_game`, `player_game`, `pbp` (the possession spine; possessions are
+   DERIVED later with the pre-registered RAPM build), `shots` (x/y normalized
+   to the attacking half, FTs flagged). Internal audits close player points to
+   team points everywhere; ESPN noise floors recorded (running-score drift
+   8/831, PBP-vs-box FGA ±1-2 on ~6% of team-games — boxes canonical for
+   aggregates, plays/shots for locations).
+3. **Validation gate PASSED** (hoops_mart `luma_check.py`): 688/688 exact game
+   scores 2024-25, 52/52 to date 2026-27, 324 player-game boxes with every stat
+   100% exact except assists (scorer judgment); LUMA credited in the bake's
+   meta.json. LUMA home-flag defect recorded (5 games, both rows false).
+4. **First surfaces** (descriptive, baked by `pipeline/hoops_export.py` to
+   `hoops/...` keys, `--check` no-op verified, `next build` gated, verified in
+   the browser against the local bake):
+   - `/hoops` landing (validation note + recent games + season links)
+   - `/hoops/games` finder (season/type/paged, query-string state)
+   - `/hoops/games/[id]` — game report: boxes, team lines, x/y shot chart
+     (filters + hover), full play feed
+   - `/hoops/teams` + `/hoops/teams/[abbr]` — standings and club pages
+   - `/hoops/players` + `/hoops/players/[id]` — leaderboard and game logs
+   Ship step when the owner wants it live: `r2_sync.py --path hoops` (data
+   files stay local until then, per the local-first call).
 
 ## Phase 2 — derived models (each pre-registered before the first fit)
 

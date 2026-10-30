@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/matchup", label: "Matchup" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/defense", label: "Defense" },
+  { href: "/hoops", label: "Hoops" },
   { href: "/research", label: "Research" },
   { href: "/glossary", label: "Glossary" },
   // past the fade: scroll the strip to reach these
