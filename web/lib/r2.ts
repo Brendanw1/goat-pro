@@ -185,6 +185,15 @@ function settle(path: string, text: string, mtime: number | null, shared: boolea
   return { data };
 }
 
+/**
+ * Object keys come from request input (player ids, seasons, levels). URL parsing resolves `..` and drops `#`, and the
+ * signature covers the normalised path, so an unchecked key could climb out of the prefix and the bucket (security
+ * audit C1, 2026-10-30). Every baked key is [A-Za-z0-9_.-] segments; anything else is refused as not found.
+ */
+export function safeKey(path: string): boolean {
+  return /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*$/.test(path) && !path.split("/").some((seg) => seg === "." || seg === "..");
+}
+
 async function localFile(path: string): Promise<string> {
   const { join } = await import("path");
   // goat-pro's web bakes live in data/export/web/ (pipeline/web_export.py), one
@@ -256,6 +265,7 @@ async function cachedHit(path: string): Promise<Parsed | null> {
  * itself); the caller must not mutate it.
  */
 export async function fetchFromR2<T>(path: string, opts: { shared?: boolean } = {}): Promise<T | null> {
+  if (!safeKey(path)) return null;
   const hit = await cachedHit(path);
   if (hit) return hit.data as T;
 
@@ -314,6 +324,7 @@ export interface R2Stream {
 }
 
 export async function streamFromR2(path: string): Promise<R2Stream | null> {
+  if (!safeKey(path)) return null;
   // ONE candidate, and the caller names it — including the `.gz` suffix when it
   // wants the compressed copy.
   //
