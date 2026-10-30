@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getHitters, getMinorsIndex, getMinorsLines, getPitchers } from "@/lib/data";
 import { fmtIp } from "@/lib/ip";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 /**
  * Every season x level a player has a line at: MLB rows from the site's boards (2023+), Rookie
@@ -41,14 +42,14 @@ function Table({ id, title, rows, cols }: {
         {title}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-max text-xs font-data">
+        <SortableTable className="w-full min-w-max text-xs font-data">
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-text-dim">
-              <th className="px-4 py-2 text-left font-semibold">Season</th>
-              <th className="px-2 py-2 text-left font-semibold">Level</th>
-              <th className="px-2 py-2 text-left font-semibold">Team</th>
-              <th className="px-2 py-2 text-right font-semibold">Age</th>
-              {cols.map((c) => <th key={c.key} className="px-2 py-2 text-right font-semibold">{c.label}</th>)}
+              <SortTh className="px-4 py-2 text-left font-semibold">Season</SortTh>
+              <SortTh className="px-2 py-2 text-left font-semibold">Level</SortTh>
+              <SortTh className="px-2 py-2 text-left font-semibold">Team</SortTh>
+              <SortTh className="px-2 py-2 text-right font-semibold">Age</SortTh>
+              {cols.map((c) => <SortTh key={c.key} className="px-2 py-2 text-right font-semibold">{c.label}</SortTh>)}
             </tr>
           </thead>
           <tbody>
@@ -68,7 +69,7 @@ function Table({ id, title, rows, cols }: {
               );
             })}
           </tbody>
-        </table>
+        </SortableTable>
       </div>
     </div>
   );

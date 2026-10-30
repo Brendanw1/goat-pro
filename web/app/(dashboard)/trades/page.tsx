@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTrades } from "@/lib/data";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { Signed } from "@/components/ui/shared-ui";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -78,14 +79,14 @@ export default async function TradesPage({ searchParams }: { searchParams?: Prom
       <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_1fr]">
         <div className="glass-panel p-4 self-start">
           <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">Net run value from {season} trades</h2>
-          <table className="w-full text-xs font-data">
+          <SortableTable className="w-full text-xs font-data">
             <thead>
               <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-                <th className="py-1 text-left font-semibold">Club</th>
-                <th className="py-1 text-right font-semibold">Deals</th>
-                <th className="py-1 text-right font-semibold">In</th>
-                <th className="py-1 text-right font-semibold">Out</th>
-                <th className="py-1 text-right font-semibold">Net</th>
+                <SortTh first="asc" className="py-1 text-left font-semibold">Club</SortTh>
+                <SortTh className="py-1 text-right font-semibold">Deals</SortTh>
+                <SortTh className="py-1 text-right font-semibold">In</SortTh>
+                <SortTh first="asc" className="py-1 text-right font-semibold">Out</SortTh>
+                <SortTh className="py-1 text-right font-semibold">Net</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -99,7 +100,7 @@ export default async function TradesPage({ searchParams }: { searchParams?: Prom
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
           <p className="mt-2 text-[10px] text-text-dim">In = what arrived did for this club; Out = what left did for its new club.</p>
         </div>
 

@@ -1,5 +1,6 @@
 import { getMechanismTables } from "@/lib/data";
 import { DescriptiveChip } from "@/lib/grades";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -37,13 +38,13 @@ export default async function MechanismPage() {
           orthodoxy wrote off — delays the break, and gyro sliders whiff MORE. Verified within stratum: holding
           Magnus-implied movement fixed, low-active-spin sliders out-whiff high-active-spin ones in every tercile.
         </p>
-        <table className="w-full text-xs font-data">
+        <SortableTable className="w-full text-xs font-data">
           <thead>
             <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-              <th className="py-1 text-left font-semibold">Type</th>
-              <th className="py-1 text-right font-semibold">Q1 whiff%</th>
-              <th className="py-1 text-right font-semibold">Q4 whiff%</th>
-              <th className="py-1 text-left font-semibold pl-4">Effect</th>
+              <SortTh className="py-1 text-left font-semibold">Type</SortTh>
+              <SortTh className="py-1 text-right font-semibold">Q1 whiff%</SortTh>
+              <SortTh className="py-1 text-right font-semibold">Q4 whiff%</SortTh>
+              <SortTh className="py-1 text-left font-semibold pl-4">Effect</SortTh>
             </tr>
           </thead>
           <tbody>
@@ -56,7 +57,7 @@ export default async function MechanismPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </SortableTable>
       </div>
 
       <div className="glass-panel p-4">

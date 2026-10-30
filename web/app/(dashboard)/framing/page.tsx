@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getFramingPlus } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { FramingZoneRow } from "@/components/ui/framing-zone";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -51,21 +52,21 @@ export default async function FramingPage({ searchParams }: { searchParams?: Pro
       </div>
       <div className="glass-panel overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-max text-xs font-data">
+          <SortableTable className="w-full min-w-max text-xs font-data">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider text-text-dim">
-                <th className="px-4 py-2 text-left font-semibold">Catcher</th>
-                <th className="px-2 py-2 text-right font-semibold">Taken</th>
-                <th className="px-2 py-2 text-right font-semibold">Framing+</th>
-                <th className="px-2 py-2 text-right font-semibold">Runs</th>
-                <th className="px-2 py-2 text-right font-semibold">Strikes +</th>
-                <th className="px-2 py-2 text-right font-semibold">Savant</th>
+                <SortTh className="px-4 py-2 text-left font-semibold">Catcher</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Taken</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Framing+</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Runs</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Strikes +</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Savant</SortTh>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => <FramingZoneRow key={r.id} row={{ ...r, season }} />)}
             </tbody>
-          </table>
+          </SortableTable>
         </div>
         <div className="px-4 py-2 text-[11px] text-text-dim border-t border-border-subtle">
           {rows.length} catchers with 2,500+ taken pitches · rows expand to the zone visual · both boards positive-good

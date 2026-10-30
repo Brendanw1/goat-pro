@@ -13,6 +13,7 @@ import { PITCH_CONFIG } from "@/lib/constants";
 import type { PitchType } from "@/types";
 import { PitchSplits, type SplitFile } from "@/components/ui/pitch-splits";
 import { PitchTrends, type TrendFile } from "@/components/ui/pitch-trends";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 type Num = number | null;
 type File = {
@@ -344,18 +345,18 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
       <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
       <div className="space-y-3 min-w-0 max-w-full lg:max-w-[820px]">
       <div className="overflow-x-auto">
-        <table className="text-[11px] font-data">
+        <SortableTable className="text-[11px] font-data">
           <thead className="text-text-dim"><tr>
-            <th className="pr-3 text-left font-normal">Type</th>
-            {cols.map(([h]) => <th key={h} className="pr-3 text-right font-normal">{h}</th>)}
+            <SortTh className="pr-3 text-left font-normal">Type</SortTh>
+            {cols.map(([h]) => <SortTh key={h} className="pr-3 text-right font-normal">{h}</SortTh>)}
           </tr></thead>
           <tbody>{rows.map((r) => (
-            <tr key={r.label} className={r.label === "All" ? "text-text-primary border-b border-border-subtle" : "text-text-secondary"}>
+            <tr key={r.label} data-sort-pin={r.label === "All" ? "" : undefined} className={r.label === "All" ? "text-text-primary border-b border-border-subtle" : "text-text-secondary"}>
               <td className="pr-3" style={{ color: r.color }}>{r.label}</td>
               {cols.map(([h, g]) => <td key={h} className="pr-3 text-right">{g(r)}</td>)}
             </tr>
           ))}</tbody>
-        </table>
+        </SortableTable>
       </div>
       <div>
         <p className="text-[10px] uppercase tracking-wider text-text-dim">Run value through the season, by pitch type ({pitcher ? "pitcher" : "hitter"}-positive runs)</p>

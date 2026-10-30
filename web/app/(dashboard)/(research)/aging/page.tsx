@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getAgingCurves, getDeclineIndex, getProspectAging } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -114,16 +115,16 @@ export default async function AgingPage({ searchParams }: { searchParams?: Promi
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-max text-xs font-data">
+          <SortableTable className="w-full min-w-max text-xs font-data">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider text-text-dim">
-                <th className="px-4 py-2 text-left font-semibold">Pitcher</th>
-                <th className="px-2 py-2 text-right font-semibold">Season</th>
-                <th className="px-2 py-2 text-right font-semibold">Age</th>
-                <th className="px-2 py-2 text-right font-semibold">FF velo</th>
-                <th className="px-2 py-2 text-right font-semibold">Prev</th>
-                <th className="px-2 py-2 text-right font-semibold">Δ</th>
-                <th className="px-2 py-2 text-right font-semibold">IL moves</th>
+                <SortTh className="px-4 py-2 text-left font-semibold">Pitcher</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Season</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Age</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">FF velo</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Prev</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">Δ</SortTh>
+                <SortTh className="px-2 py-2 text-right font-semibold">IL moves</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -135,7 +136,7 @@ export default async function AgingPage({ searchParams }: { searchParams?: Promi
                   <td className="px-2 py-1.5 text-right text-text-dim">{r.season}</td>
                   <td className="px-2 py-1.5 text-right text-text-dim">{r.age}</td>
                   <td className="px-2 py-1.5 text-right text-text-secondary">{fmt(r.ffVelo)}</td>
-                  <td className="px-2 py-1.5 text-right text-text-dim">{fmt(r.prevFfVelo)} ({r.prevSeason})</td>
+                  <td className="px-2 py-1.5 text-right text-text-dim" data-sort={r.prevFfVelo ?? ""}>{fmt(r.prevFfVelo)} ({r.prevSeason})</td>
                   <td className="px-2 py-1.5 text-right" style={{ color: (r.delta ?? 0) < 0 ? "#e0654f" : "#5ba88f" }}>
                     {(r.delta ?? 0) > 0 ? "+" : ""}{fmt(r.delta)}
                   </td>
@@ -143,7 +144,7 @@ export default async function AgingPage({ searchParams }: { searchParams?: Promi
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         </div>
         <div className="px-4 py-2 text-[11px] text-text-dim border-t border-border-subtle">
           Both seasons at 100+ fastballs. A drop with IL moves beside it is a different story than one without —

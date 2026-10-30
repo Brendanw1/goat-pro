@@ -4,6 +4,7 @@ import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { logoUrl } from "@/lib/team-pixel";
 import { sortComparator } from "@/lib/table-sort";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,17 @@ const TEAM_ABBR: Record<string, string> = { angels: "LAA", astros: "HOU", athlet
 
 function RowList({ rows, season }: { rows: any[]; season: number }) {
   return (
-    <div className="overflow-x-auto"><table className="w-full min-w-max text-xs font-data">
+    <div className="overflow-x-auto"><SortableTable className="w-full min-w-max text-xs font-data">
+      <thead>
+        <tr className="text-[9px] uppercase tracking-wider text-text-dim border-b border-border-subtle">
+          <SortTh first="asc" className="px-4 py-1.5 text-right font-semibold">Rank</SortTh>
+          <SortTh className="px-2 py-1.5 text-left font-semibold">Player</SortTh>
+          <SortTh className="px-2 py-1.5 text-left font-semibold">Pos</SortTh>
+          <SortTh className="px-2 py-1.5 text-left font-semibold">Org</SortTh>
+          <SortTh first="asc" className="px-2 py-1.5 text-right font-semibold">ETA</SortTh>
+          <SortTh first="asc" className="px-2 py-1.5 text-right font-semibold">Age</SortTh>
+        </tr>
+      </thead>
       <tbody>
         {rows.map((r) => {
           const crest = logoUrl(r.org);
@@ -52,13 +63,13 @@ function RowList({ rows, season }: { rows: any[]; season: number }) {
                   {r.org ?? "—"}
                 </span>
               </td>
-              <td className="px-2 py-1.5 text-right text-text-dim">ETA {r.eta ?? "—"}</td>
-              <td className="px-2 py-1.5 text-right text-text-dim">age {r.age ?? "—"}</td>
+              <td className="px-2 py-1.5 text-right text-text-dim" data-sort={r.eta ?? ""}>ETA {r.eta ?? "—"}</td>
+              <td className="px-2 py-1.5 text-right text-text-dim" data-sort={r.age ?? ""}>age {r.age ?? "—"}</td>
             </tr>
           );
         })}
       </tbody>
-    </table></div>
+    </SortableTable></div>
   );
 }
 

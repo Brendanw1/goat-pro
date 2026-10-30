@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Signed } from "@/components/ui/shared-ui";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 /**
  * Would-it-dong panel for hitter profiles (RESULTS-MLB §86): the season's park counts and the balls that
@@ -42,27 +43,27 @@ export function DongPanel({ playerId, season }: { playerId: string | number; sea
         <strong>{parks[s.worst[0]]}</strong> ({s.worst[1]}), 30-park average {s.avg}.
       </p>
       {balls.length > 0 && (
-        <table className="mt-2 w-full text-[11px] font-data">
+        <SortableTable className="mt-2 w-full text-[11px] font-data">
           <thead>
             <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-              <th className="py-0.5 text-left font-semibold">Date</th>
-              <th className="py-0.5 text-left font-semibold">Park</th>
-              <th className="py-0.5 text-right font-semibold">EV</th>
-              <th className="py-0.5 text-right font-semibold">LA</th>
-              <th className="py-0.5 text-right font-semibold">Ft</th>
-              <th className="py-0.5 pl-2 text-left font-semibold">Parks</th>
-              <th className="py-0.5 text-right font-semibold">Result</th>
+              <SortTh className="py-0.5 text-left font-semibold">Date</SortTh>
+              <SortTh className="py-0.5 text-left font-semibold">Park</SortTh>
+              <SortTh className="py-0.5 text-right font-semibold">EV</SortTh>
+              <SortTh className="py-0.5 text-right font-semibold">LA</SortTh>
+              <SortTh className="py-0.5 text-right font-semibold">Ft</SortTh>
+              <SortTh className="py-0.5 pl-2 text-left font-semibold">Parks</SortTh>
+              <SortTh className="py-0.5 text-right font-semibold">Result</SortTh>
             </tr>
           </thead>
           <tbody>
             {shown.map((b: any[], i: number) => (
               <tr key={`${b[1]}-${i}`} className="border-t border-white/[0.04]">
-                <td className="py-0.5 text-text-dim">{b[0].slice(5)}{b[9] ? " (P)" : ""}</td>
+                <td className="py-0.5 text-text-dim" data-sort={b[0]}>{b[0].slice(5)}{b[9] ? " (P)" : ""}</td>
                 <td className="py-0.5 font-sans text-text-secondary">{b[2] ?? "other"}</td>
                 <td className="py-0.5 text-right">{b[3] ?? "—"}</td>
-                <td className="py-0.5 text-right">{b[4] ?? "—"}°</td>
+                <td className="py-0.5 text-right" data-sort={b[4] ?? ""}>{b[4] ?? "—"}°</td>
                 <td className="py-0.5 text-right">{b[5] ?? "—"}</td>
-                <td className="py-0.5 pl-2" title={parks.filter((_, p) => (Number(BigInt(b[10]) >> BigInt(p)) & 1) === 1).join(", ") || "none"}>
+                <td className="py-0.5 pl-2" data-sort={b[7]} title={parks.filter((_, p) => (Number(BigInt(b[10]) >> BigInt(p)) & 1) === 1).join(", ") || "none"}>
                   <span className="inline-block h-1.5 w-[60px] rounded bg-white/[0.06] align-middle">
                     <span className="block h-full rounded bg-usf-gold/70" style={{ width: `${(b[7] / 30) * 100}%` }} />
                   </span>
@@ -72,7 +73,7 @@ export function DongPanel({ playerId, season }: { playerId: string | number; sea
               </tr>
             ))}
           </tbody>
-        </table>
+        </SortableTable>
       )}
       {balls.length > 12 && (
         <button onClick={() => setAll(!all)} className="mt-1 text-[10px] text-text-dim underline">{all ? "Show fewer" : `Show all ${balls.length}`}</button>

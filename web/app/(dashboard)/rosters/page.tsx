@@ -4,6 +4,7 @@ import { TeamCrest } from "@/components/ui/pixel-team-logo";
 import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 import { Signed } from "@/components/ui/shared-ui";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "40-man rosters" };
@@ -141,14 +142,14 @@ export default async function RostersPage({ searchParams }: {
           <span className="text-[10px] text-text-dim">the % is the §105 removal score — the modelled chance he is off a 40-man by spring if this were the tender deadline (descriptive)</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <SortableTable className="w-full text-xs">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-wider text-text-dim">
-                <th className="px-3 py-1.5 font-semibold">Pos</th>
-                <th className="px-3 py-1.5 font-semibold">Player</th>
-                <th className="px-3 py-1.5 font-semibold" title={EST_TIP}>Service (est.) ⓘ</th>
-                <th className="px-3 py-1.5 font-semibold" title={EST_TIP}>Control thru (est.) ⓘ</th>
-                <th className="px-3 py-1.5 font-semibold text-right">Removal</th>
+                <SortTh className="px-3 py-1.5 font-semibold">Pos</SortTh>
+                <SortTh className="px-3 py-1.5 font-semibold">Player</SortTh>
+                <SortTh className="px-3 py-1.5 font-semibold" title={EST_TIP}>Service (est.) ⓘ</SortTh>
+                <SortTh className="px-3 py-1.5 font-semibold" title={EST_TIP}>Control thru (est.) ⓘ</SortTh>
+                <SortTh className="px-3 py-1.5 font-semibold text-right">Removal</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -156,20 +157,20 @@ export default async function RostersPage({ searchParams }: {
                 <tr key={p.id} className="border-t border-border-subtle/50">
                   <td className="px-3 py-1 text-[10px] font-data text-text-dim">{p.p}</td>
                   <td className="px-3 py-1">{playerLink(p)}{p.s ? statusChip(p.s) : null}</td>
-                  <td className="px-3 py-1 font-data text-text-secondary" title={EST_TIP}>
+                  <td className="px-3 py-1 font-data text-text-secondary" title={EST_TIP} data-sort={p.svc ?? ""}>
                     {p.svc ? <>{p.unc ? "~" : ""}{p.svc} <span className="text-[10px] text-text-dim">{p.st}{p.s2 ? " · S2" : ""}</span></> : <span className="text-text-dim">pre-MLB</span>}
                   </td>
-                  <td className="px-3 py-1 font-data text-text-secondary" title={EST_TIP}>
+                  <td className="px-3 py-1 font-data text-text-secondary" title={EST_TIP} data-sort={p.ctl ?? ""}>
                     {p.ctl ? <>{p.unc ? "~" : ""}{p.ctl}</> : p.st === "6+" ? <span className="text-[10px] text-text-dim">contract</span> : <span className="text-text-dim">—</span>}
                   </td>
-                  <td className="px-3 py-1 text-right font-data text-[10px] text-text-dim"
+                  <td className="px-3 py-1 text-right font-data text-[10px] text-text-dim" data-sort={p.rem ?? ""}
                     title="Removal score (§105, descriptive): the modelled probability this player is off a 40-man by spring if this were the tender deadline — a cross-fit model over five cycles (held-out AUC .805), which sees age, tenure, workload, K% and run value. It cannot see options or service class.">
                     {p.rem != null ? `${Math.round(100 * p.rem)}%` : ""}
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { getTranslation, getTranslationFactors } from "@/lib/data";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 /**
  * MLB-equivalent lines (RESULTS-MLB §88, milb_translation.py) for every AAA/AA season a player has.
@@ -38,12 +39,12 @@ export async function MlePanel({ id }: { id: string }) {
             MLB equivalent · {kind === "hitters" ? "batting" : "pitching"}
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-xs font-data">
+            <SortableTable className="w-full min-w-max text-xs font-data">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider text-text-dim">
-                  <th className="px-4 py-2 text-left font-semibold">Season</th>
-                  <th className="px-2 py-2 text-left font-semibold">From</th>
-                  {COLS[kind].map((c) => <th key={c.key} className="px-2 py-2 text-right font-semibold">{c.label}</th>)}
+                  <SortTh className="px-4 py-2 text-left font-semibold">Season</SortTh>
+                  <SortTh className="px-2 py-2 text-left font-semibold">From</SortTh>
+                  {COLS[kind].map((c) => <SortTh key={c.key} className="px-2 py-2 text-right font-semibold">{c.label}</SortTh>)}
                 </tr>
               </thead>
               <tbody>
@@ -63,7 +64,7 @@ export async function MlePanel({ id }: { id: string }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
           <p className="px-4 py-2 border-t border-white/[0.04] text-[10px] text-text-dim leading-[1.5]">
             His minor-league line translated to the MLB scale: park- and league-adjusted (AAA parks), multiplied by

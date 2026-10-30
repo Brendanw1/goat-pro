@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { getDefenseIndex } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
+import { compareValues } from "@/lib/table-sort";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Defense — range runs" };
 
-type Q = { season?: string; group?: string; sort?: string };
+type Q = { season?: string; group?: string; sort?: string; order?: string };
 
 /**
  * The league range board (D-14): §81's chance model turned into fielder
@@ -39,17 +40,14 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
   const group = q.group === "OF" ? "OF" : q.group === "IF" ? "IF" : "ALL";
   const sortKey = COLS.find((c) => c.key === q.sort)?.key ?? "runs";
   let rows: any[] = (index?.seasons?.[String(season)] ?? []).filter((r: any) => group === "ALL" || r.group === group);
-  rows = [...rows].sort((a, b) => {
-    const x = a[sortKey], y = b[sortKey];
-    if (typeof x !== "number" || typeof y !== "number") return 0;
-    return y - x;
-  });
+  const desc = q.order !== "asc";
+  rows = [...rows].sort((a, b) => compareValues(a[sortKey], b[sortKey], desc ? "desc" : "asc"));
 
   const chip = (on: boolean) =>
     `px-2.5 py-1 rounded-md text-[11px] border ${on ? "border-usf-gold/60 text-text-primary bg-white/[0.06]" : "border-border-subtle text-text-secondary hover:bg-white/[0.04]"}`;
   const link = (over: Partial<Q>) => {
     const p = new URLSearchParams();
-    const m = { season: String(season), group, sort: sortKey, ...over };
+    const m = { season: String(season), group, sort: sortKey, order: desc ? "" : "asc", ...over };
     for (const [k, v] of Object.entries(m)) if (v && v !== "ALL") p.set(k, String(v));
     return `/defense?${p.toString()}`;
   };
@@ -96,8 +94,8 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
                 <th className="px-4 py-2 text-left font-semibold">Fielder</th>
                 <th className="px-2 py-2 text-left font-semibold">Pos</th>
                 {COLS.map((c) => (
-                  <th key={c.key} className="px-2 py-2 text-right font-semibold">
-                    <Link href={link({ sort: c.key })} className={c.key === sortKey ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}</Link>
+                  <th key={c.key} className="px-2 py-2 text-right font-semibold" aria-sort={c.key === sortKey ? (desc ? "descending" : "ascending") : undefined}>
+                    <Link href={link({ sort: c.key, order: c.key === sortKey && desc ? "asc" : "" })} className={c.key === sortKey ? "text-text-primary" : "hover:text-text-secondary"}>{c.label}{c.key === sortKey ? (desc ? " ▼" : " ▲") : ""}</Link>
                   </th>
                 ))}
               </tr>

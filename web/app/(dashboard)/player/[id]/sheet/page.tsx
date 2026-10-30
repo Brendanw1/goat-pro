@@ -9,6 +9,7 @@ import { GradePctProvider } from "@/components/ui/grade-pct";
 import { PrintButton } from "@/components/ui/print-button";
 import { BackLink } from "@/components/ui/back-link";
 import { fmtIp } from "@/lib/ip";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -142,18 +143,18 @@ export default async function PlayerSheetPage({ params, searchParams }: {
         {!isHitter && Array.isArray(profile.pitches) && profile.pitches.length > 0 && (
           <div className="glass-panel overflow-hidden">
             <div className="px-4 py-2 border-b border-border-subtle text-[10px] font-semibold uppercase tracking-wider text-text-dim">Arsenal</div>
-            <div className="overflow-x-auto"><table className="w-full min-w-max text-xs font-data">
+            <div className="overflow-x-auto"><SortableTable className="w-full min-w-max text-xs font-data">
               <thead>
                 <tr className="text-[9px] uppercase tracking-wider text-text-dim border-b border-border-subtle">
-                  <th className="px-3 py-1.5 text-left font-semibold">Type</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">N</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">Usage</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">Velo</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">IVB</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">HB</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">Whiff%</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">CSW%</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">RV/100</th>
+                  <SortTh className="px-3 py-1.5 text-left font-semibold">Type</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">N</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">Usage</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">Velo</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">IVB</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">HB</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">Whiff%</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">CSW%</SortTh>
+                  <SortTh className="px-2 py-1.5 text-right font-semibold">RV/100</SortTh>
                 </tr>
               </thead>
               <tbody>
@@ -171,7 +172,7 @@ export default async function PlayerSheetPage({ params, searchParams }: {
                   </tr>
                 ))}
               </tbody>
-            </table></div>
+            </SortableTable></div>
           </div>
         )}
 

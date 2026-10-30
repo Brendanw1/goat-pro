@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getHitters, getPitchers } from "@/lib/data";
 import { gradeColor } from "@/lib/grades";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Projections" };
@@ -76,15 +77,15 @@ export default async function ProjectionsPage({ searchParams }: {
         <div className="glass-panel p-6 text-sm text-text-dim">No projection rows for this filter.</div>
       ) : side === "pitchers" ? (
         <div className="glass-panel overflow-x-auto">
-          <table className="w-full min-w-[720px] text-xs font-data">
+          <SortableTable key="p" className="w-full min-w-[720px] text-xs font-data">
             <thead>
               <tr className="text-[9px] uppercase tracking-wider text-text-dim border-b border-border-subtle">
-                <th className="px-3 py-2 text-left font-semibold">Pitcher</th>
-                <th className="py-2 text-right font-semibold">BF</th>
-                <th className="py-2 text-right font-semibold" title="Prevention+ (§52): runs the arm should save next season, 100 = average, 10 = one SD. A forecast, tested on held-out pitchers.">Prev+</th>
-                <th className="py-2 text-right font-semibold" title="K+ (§50): projected strikeout grade. A forecast.">K+</th>
-                <th className="py-2 text-right font-semibold" title="Projected K per PA with the D-36 80% band.">K/PA proj</th>
-                <th className="py-2 text-right font-semibold" title="Projected runs saved per 100 pitches with the D-36 80% band.">RV/100 proj</th>
+                <SortTh className="px-3 py-2 text-left font-semibold">Pitcher</SortTh>
+                <SortTh className="py-2 text-right font-semibold">BF</SortTh>
+                <SortTh className="py-2 text-right font-semibold" title="Prevention+ (§52): runs the arm should save next season, 100 = average, 10 = one SD. A forecast, tested on held-out pitchers.">Prev+</SortTh>
+                <SortTh className="py-2 text-right font-semibold" title="K+ (§50): projected strikeout grade. A forecast.">K+</SortTh>
+                <SortTh className="py-2 text-right font-semibold" title="Projected K per PA with the D-36 80% band.">K/PA proj</SortTh>
+                <SortTh className="py-2 text-right font-semibold" title="Projected runs saved per 100 pitches with the D-36 80% band.">RV/100 proj</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -101,27 +102,27 @@ export default async function ProjectionsPage({ searchParams }: {
                   <td className="py-1.5 text-right" style={{ color: gradeColor(r.kPlus) }}>
                     {r.kPlus != null ? int0(r.kPlus) : "—"}
                   </td>
-                  <td className="py-1.5 text-right text-text-secondary">
+                  <td className="py-1.5 text-right text-text-secondary" data-sort={r.kProj ?? ""}>
                     {r.kProj != null ? r3(r.kProj) : "—"} {band(r.kProjLo, r.kProjHi, r3)}
                   </td>
-                  <td className="py-1.5 text-right text-text-secondary">
+                  <td className="py-1.5 text-right text-text-secondary" data-sort={r.rvProj ?? ""}>
                     {r.rvProj != null ? s2(r.rvProj) : "—"} {band(r.rvProjLo, r.rvProjHi, s2)}
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         </div>
       ) : (
         <div className="glass-panel overflow-x-auto">
-          <table className="w-full min-w-[720px] text-xs font-data">
+          <SortableTable key="h" className="w-full min-w-[720px] text-xs font-data">
             <thead>
               <tr className="text-[9px] uppercase tracking-wider text-text-dim border-b border-border-subtle">
-                <th className="px-3 py-2 text-left font-semibold">Hitter</th>
-                <th className="py-2 text-right font-semibold">PA</th>
-                <th className="py-2 text-right font-semibold" title="Marcel wOBA (§67) with the 80% band, on Savant's wOBA scale.">wOBA proj</th>
-                <th className="py-2 text-right font-semibold" title="Marcel K% with the 80% band. Leans almost entirely on his own prior K%.">K% proj</th>
-                <th className="py-2 text-right font-semibold" title="Marcel BB% with the 80% band.">BB% proj</th>
+                <SortTh className="px-3 py-2 text-left font-semibold">Hitter</SortTh>
+                <SortTh className="py-2 text-right font-semibold">PA</SortTh>
+                <SortTh className="py-2 text-right font-semibold" title="Marcel wOBA (§67) with the 80% band, on Savant's wOBA scale.">wOBA proj</SortTh>
+                <SortTh className="py-2 text-right font-semibold" title="Marcel K% with the 80% band. Leans almost entirely on his own prior K%.">K% proj</SortTh>
+                <SortTh className="py-2 text-right font-semibold" title="Marcel BB% with the 80% band.">BB% proj</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -132,19 +133,19 @@ export default async function ProjectionsPage({ searchParams }: {
                     <span className="ml-1.5 text-[10px] text-text-dim">{r.team}</span>
                   </td>
                   <td className="py-1.5 text-right text-text-dim">{(r.pa ?? 0).toLocaleString("en-US")}</td>
-                  <td className="py-1.5 text-right text-text-secondary">
+                  <td className="py-1.5 text-right text-text-secondary" data-sort={r.wobaProj ?? ""}>
                     {r.wobaProj != null ? r3(r.wobaProj) : "—"} {band(r.wobaProjLo, r.wobaProjHi, r3)}
                   </td>
-                  <td className="py-1.5 text-right text-text-secondary">
+                  <td className="py-1.5 text-right text-text-secondary" data-sort={r.kPctProj ?? ""}>
                     {r.kPctProj != null ? p1(r.kPctProj) : "—"} {band(r.kPctProjLo, r.kPctProjHi, p1)}
                   </td>
-                  <td className="py-1.5 text-right text-text-secondary">
+                  <td className="py-1.5 text-right text-text-secondary" data-sort={r.bbPctProj ?? ""}>
                     {r.bbPctProj != null ? p1(r.bbPctProj) : "—"} {band(r.bbPctProjLo, r.bbPctProjHi, p1)}
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         </div>
       )}
       <p className="text-[10px] leading-relaxed text-text-dim max-w-[100ch]">

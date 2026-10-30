@@ -20,6 +20,7 @@ import { TimingPanel } from "@/components/ui/timing-panel";
 import { TwoStrikePanel } from "@/components/ui/two-strike-panel";
 import { ArchetypeChip } from "@/components/ui/archetype-chip";
 import { SwingQPanel } from "@/components/ui/swingq-panel";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 const REGION_LABEL: Record<string, string> = {
   heart: "Heart of the zone",
@@ -106,14 +107,14 @@ function SplitTable({ rows, order, labels }: { rows: any; order?: string[]; labe
   const keys = order ? order.filter((k) => rows[k]) : Object.keys(rows);
   if (!keys.length) return null;
   return (
-    <table className="w-full text-xs font-data">
+    <SortableTable className="w-full text-xs font-data">
       <thead>
         <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-          <th className="py-1 text-left font-semibold">Split</th>
-          <th className="py-1 text-right font-semibold">Swings</th>
-          <th className="py-1 text-right font-semibold">Bat mph</th>
-          <th className="py-1 text-right font-semibold">Length ft</th>
-          <th className="py-1 text-right font-semibold">Whiff%</th>
+          <SortTh className="py-1 text-left font-semibold">Split</SortTh>
+          <SortTh className="py-1 text-right font-semibold">Swings</SortTh>
+          <SortTh className="py-1 text-right font-semibold">Bat mph</SortTh>
+          <SortTh className="py-1 text-right font-semibold">Length ft</SortTh>
+          <SortTh className="py-1 text-right font-semibold">Whiff%</SortTh>
         </tr>
       </thead>
       <tbody>
@@ -130,7 +131,7 @@ function SplitTable({ rows, order, labels }: { rows: any; order?: string[]; labe
           );
         })}
       </tbody>
-    </table>
+    </SortableTable>
   );
 }
 
@@ -228,15 +229,15 @@ export function SwingTab({ swing, name }: { swing: any | null; name?: string }) 
       {(swing.trend?.length ?? 0) > 1 && (
         <div className="glass-panel p-3">
           <div className="mb-2 text-[10px] uppercase tracking-wider text-text-dim">Swing by season (50+ tracked swings)</div>
-          <table className="w-full text-xs font-data">
+          <SortableTable className="w-full text-xs font-data">
             <thead>
               <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-                <th className="py-1 text-left font-semibold">Season</th>
-                <th className="py-1 text-right font-semibold">Swings</th>
-                <th className="py-1 text-right font-semibold">Bat mph</th>
-                <th className="py-1 text-right font-semibold">Length</th>
-                <th className="py-1 text-right font-semibold">Attack°</th>
-                <th className="py-1 text-right font-semibold">Whiff%</th>
+                <SortTh className="py-1 text-left font-semibold">Season</SortTh>
+                <SortTh className="py-1 text-right font-semibold">Swings</SortTh>
+                <SortTh className="py-1 text-right font-semibold">Bat mph</SortTh>
+                <SortTh className="py-1 text-right font-semibold">Length</SortTh>
+                <SortTh className="py-1 text-right font-semibold">Attack°</SortTh>
+                <SortTh className="py-1 text-right font-semibold">Whiff%</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -251,7 +252,7 @@ export function SwingTab({ swing, name }: { swing: any | null; name?: string }) 
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         </div>
       )}
 

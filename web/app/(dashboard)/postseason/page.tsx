@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPostseason } from "@/lib/data";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
 import { Signed } from "@/components/ui/shared-ui";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -60,16 +61,16 @@ function SeriesCard({ s }: { s: any }) {
 function Leaders({ rows, side, sort }: { rows: any[]; side: "H" | "P"; sort: string }) {
   const sorted = [...rows].sort((a, b) => (sort === "rv" ? (b.rv ?? 0) - (a.rv ?? 0) : (b.wpa ?? 0) - (a.wpa ?? 0))).slice(0, 15);
   return (
-    <table className="w-full text-xs font-data">
+    <SortableTable className="w-full text-xs font-data">
       <thead>
         <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-          <th className="py-1 text-left font-semibold">{side === "H" ? "Hitter" : "Pitcher"}</th>
-          <th className="py-1 text-right font-semibold">G</th>
-          <th className="py-1 text-right font-semibold">{side === "H" ? "PA" : "BF"}</th>
-          <th className="py-1 text-right font-semibold" title={side === "H" ? "wOBA" : "wOBA allowed"}>wOBA</th>
-          <th className="py-1 text-right font-semibold">K</th>
-          <th className="py-1 text-right font-semibold">WPA</th>
-          <th className="py-1 text-right font-semibold">RV</th>
+          <SortTh className="py-1 text-left font-semibold">{side === "H" ? "Hitter" : "Pitcher"}</SortTh>
+          <SortTh className="py-1 text-right font-semibold">G</SortTh>
+          <SortTh className="py-1 text-right font-semibold">{side === "H" ? "PA" : "BF"}</SortTh>
+          <SortTh first={side === "P" ? "asc" : undefined} className="py-1 text-right font-semibold" title={side === "H" ? "wOBA" : "wOBA allowed"}>wOBA</SortTh>
+          <SortTh className="py-1 text-right font-semibold">K</SortTh>
+          <SortTh className="py-1 text-right font-semibold">WPA</SortTh>
+          <SortTh className="py-1 text-right font-semibold">RV</SortTh>
         </tr>
       </thead>
       <tbody>
@@ -90,7 +91,7 @@ function Leaders({ rows, side, sort }: { rows: any[]; side: "H" | "P"; sort: str
           </tr>
         ))}
       </tbody>
-    </table>
+    </SortableTable>
   );
 }
 

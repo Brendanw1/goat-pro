@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDongBoard } from "@/lib/data";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { Signed } from "@/components/ui/shared-ui";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -57,19 +58,19 @@ export default async function DongPage({ searchParams }: { searchParams?: Promis
 
       <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,260px)]">
         <div className="glass-panel p-4 overflow-x-auto">
-          <table className="w-full text-xs font-data">
+          <SortableTable className="w-full text-xs font-data">
             <thead>
               <tr className="text-[9px] uppercase tracking-wider text-text-dim">
-                <th className="py-1 text-left font-semibold">Player</th>
-                <th className="py-1 text-right font-semibold">HR</th>
-                <th className="py-1 text-right font-semibold">xHR</th>
-                <th className="py-1 text-right font-semibold">HR − xHR</th>
-                <th className="py-1 text-right font-semibold" title="HRs out in all 30 parks">No-doubt</th>
-                <th className="py-1 text-right font-semibold" title="HRs out in 8-29 parks">Mostly</th>
-                <th className="py-1 text-right font-semibold" title="HRs out in 7 or fewer parks">Doubters</th>
-                <th className="py-1 text-right font-semibold" title="Non-HRs that clear at least one park">Elsewhere</th>
-                <th className="py-1 text-left font-semibold pl-3">Best park</th>
-                <th className="py-1 text-left font-semibold">Worst park</th>
+                <SortTh className="py-1 text-left font-semibold">Player</SortTh>
+                <SortTh className="py-1 text-right font-semibold">HR</SortTh>
+                <SortTh className="py-1 text-right font-semibold">xHR</SortTh>
+                <SortTh className="py-1 text-right font-semibold">HR − xHR</SortTh>
+                <SortTh className="py-1 text-right font-semibold" title="HRs out in all 30 parks">No-doubt</SortTh>
+                <SortTh className="py-1 text-right font-semibold" title="HRs out in 8-29 parks">Mostly</SortTh>
+                <SortTh className="py-1 text-right font-semibold" title="HRs out in 7 or fewer parks">Doubters</SortTh>
+                <SortTh className="py-1 text-right font-semibold" title="Non-HRs that clear at least one park">Elsewhere</SortTh>
+                <SortTh className="py-1 text-left font-semibold pl-3">Best park</SortTh>
+                <SortTh className="py-1 text-left font-semibold">Worst park</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -83,12 +84,12 @@ export default async function DongPage({ searchParams }: { searchParams?: Promis
                   <td className="py-1 text-right text-text-dim">{r.mg}</td>
                   <td className="py-1 text-right">{r.db}</td>
                   <td className="py-1 text-right">{r.else}</td>
-                  <td className="py-1 pl-3 font-sans text-[11px] text-text-secondary">{parks[r.best[0]]} <span className="font-data text-text-dim">{r.best[1]}</span></td>
-                  <td className="py-1 font-sans text-[11px] text-text-secondary">{parks[r.worst[0]]} <span className="font-data text-text-dim">{r.worst[1]}</span></td>
+                  <td className="py-1 pl-3 font-sans text-[11px] text-text-secondary" data-sort={r.best[1]}>{parks[r.best[0]]} <span className="font-data text-text-dim">{r.best[1]}</span></td>
+                  <td className="py-1 font-sans text-[11px] text-text-secondary" data-sort={r.worst[1]}>{parks[r.worst[0]]} <span className="font-data text-text-dim">{r.worst[1]}</span></td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
           <p className="mt-2 text-[10px] text-text-dim">Top 150 of {rows.length}. Best/worst park counts are HRs his batted balls would have hit there.</p>
         </div>
 

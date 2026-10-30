@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRoles } from "@/lib/data";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { Signed } from "@/components/ui/shared-ui";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,8 @@ const x3 = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(3).r
 const f1 = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(1));
 const ci = (g: any) => `${(g.diff * 1e4).toFixed(1)} (${(g.lo * 1e4).toFixed(1)} to ${(g.hi * 1e4).toFixed(1)})`;
 
-function Th({ children, left, title }: { children: React.ReactNode; left?: boolean; title?: string }) {
-  return <th title={title} className={`py-1 px-1.5 font-semibold ${left ? "text-left" : "text-right"}`}>{children}</th>;
+function Th({ children, left, title, first }: { children: React.ReactNode; left?: boolean; title?: string; first?: "asc" | "desc" }) {
+  return <SortTh first={first} title={title} className={`py-1 px-1.5 font-semibold ${left ? "text-left" : "text-right"}`}>{children}</SortTh>;
 }
 
 function Who({ r }: { r: any }) {
@@ -83,17 +84,17 @@ export default async function RolesPage({ searchParams }: { searchParams?: Promi
 
       <div className="glass-panel p-3 overflow-x-auto">
         {board === "rp" ? (
-          <table className="w-full text-xs font-data">
+          <SortableTable key="rp" className="w-full text-xs font-data">
             <thead>
               <tr className="text-[9px] uppercase tracking-wider text-text-dim">
                 <Th left>Reliever</Th>
                 <Th>BF</Th>
-                <Th title="xwOBA in relief, 2026">xwOBA</Th>
-                <Th title="relief xwOBA shrunk to the league RP mean (300 BF)">Shrunk</Th>
-                <Th title="naive projection as a starter: shrunk relief line + league SP penalty">Proj SP</Th>
+                <Th first="asc" title="xwOBA in relief, 2026">xwOBA</Th>
+                <Th first="asc" title="relief xwOBA shrunk to the league RP mean (300 BF)">Shrunk</Th>
+                <Th first="asc" title="naive projection as a starter: shrunk relief line + league SP penalty">Proj SP</Th>
                 <Th title="pitch types with 10%+ usage (graded: whiff per swing at or above the league median for the type)">Depth</Th>
                 <Th title="effective number of pitch types, exp(entropy of usage)">Eff</Th>
-                <Th title="xwOBA vs opposite-hand minus same-hand batters, shrunk">Platoon</Th>
+                <Th first="asc" title="xwOBA vs opposite-hand minus same-hand batters, shrunk">Platoon</Th>
                 <Th title="fastball mph per 10 pitches within outings of 15+ pitches">Fade/10</Th>
                 <Th title="fastball mph on 0-1 days rest minus 2+">Rest</Th>
                 <Th>Pitch+</Th>
@@ -111,7 +112,7 @@ export default async function RolesPage({ searchParams }: { searchParams?: Promi
                   <td className={td}>{x3(r.xwoba)}</td>
                   <td className={td}>{x3(r.xwobaShrunk)}</td>
                   <td className={`${td} font-semibold`}>{x3(r.projSp)}</td>
-                  <td className={td}>{r.gradedDepth}/{r.depth}</td>
+                  <td className={td} data-sort={r.gradedDepth}>{r.gradedDepth}/{r.depth}</td>
                   <td className={td}>{f1(r.effTypes)}</td>
                   <td className={td}><Signed v={r.platoonGap} dp={3} lowerIsGood /></td>
                   <td className={td}><Signed v={r.fadeInOuting} dp={1} /></td>
@@ -124,19 +125,19 @@ export default async function RolesPage({ searchParams }: { searchParams?: Promi
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         ) : (
-          <table className="w-full text-xs font-data">
+          <SortableTable key="sp" className="w-full text-xs font-data">
             <thead>
               <tr className="text-[9px] uppercase tracking-wider text-text-dim">
                 <Th left>Starter</Th>
                 <Th>BF</Th>
-                <Th title="xwOBA in starts, 2026">xwOBA</Th>
-                <Th title="xwOBA the first time through the order">TTO1</Th>
-                <Th title="third-plus time through minus first, shrunk">TTO pen</Th>
+                <Th first="asc" title="xwOBA in starts, 2026">xwOBA</Th>
+                <Th first="asc" title="xwOBA the first time through the order">TTO1</Th>
+                <Th first="asc" title="third-plus time through minus first, shrunk">TTO pen</Th>
                 <Th title="fastball mph, inning 1 minus innings 5+">Fade</Th>
                 <Th title="fastball mph in starts, then plus the converter bump">Velo SP→RP</Th>
-                <Th title="short-burst estimate: shrunk first-TTO line + converter change">Relief</Th>
+                <Th first="asc" title="short-burst estimate: shrunk first-TTO line + converter change">Relief</Th>
                 <Th title="full-outing (shrunk) minus short-burst xwOBA; positive = better per batter in relief">Gain</Th>
               </tr>
             </thead>
@@ -149,13 +150,13 @@ export default async function RolesPage({ searchParams }: { searchParams?: Promi
                   <td className={td}>{x3(r.tto1)}</td>
                   <td className={td}><Signed v={r.ttoPen} dp={3} lowerIsGood /></td>
                   <td className={td}><Signed v={r.fadeByInning} dp={1} lowerIsGood /></td>
-                  <td className={td}>{f1(r.veloSp)} → {f1(r.veloRelief)}</td>
+                  <td className={td} data-sort={r.veloRelief ?? ""}>{f1(r.veloSp)} → {f1(r.veloRelief)}</td>
                   <td className={td}>{x3(r.projRelief)}</td>
                   <td className={`${td} font-semibold`}><Signed v={r.gain} dp={3} /></td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         )}
       </div>
       <p className="text-[10px] text-text-dim">
