@@ -134,9 +134,10 @@ export function SavantTable({ board }: { board: SavantBoard }) {
                   const isName = c.key === nameKey;
                   const kind = kinds[c.key] ?? "num";
                   const p = typeof raw === "number" && kind !== "text" ? pctile(c.key, raw) : null;
-                  // tint by distance from the median — the tails are who a scout came to see
-                  const tint = p && Math.abs(p.pct - 50) >= 25
-                    ? { backgroundColor: `rgba(227,179,65,${(0.05 + (Math.abs(p.pct - 50) - 25) / 25 * 0.09).toFixed(3)})` }
+                  // Tint by distance from the median: violet = high, cyan = low. Direction-free on purpose (a board mixes
+                  // columns where high is good and where low is good), so it never borrows the site's good/bad red-blue.
+                  const tint = p && Math.abs(p.pct - 50) >= 10
+                    ? { backgroundColor: `rgba(${p.pct > 50 ? "167,139,250" : "34,211,238"},${(0.06 + (Math.abs(p.pct - 50) - 10) / 40 * 0.3).toFixed(3)})` }
                     : undefined;
                   const tip = p ? `${p.pct}th percentile of ${p.n} (board + season)` : undefined;
                   return (
@@ -169,6 +170,11 @@ export function SavantTable({ board }: { board: SavantBoard }) {
       </div>
       <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-subtle">
         <div className="flex items-center gap-3">
+          <span className="mr-auto flex items-center gap-1.5 text-[10px] text-text-dim">
+            <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(34,211,238,0.36)]" /> low
+            <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(167,139,250,0.36)]" /> high
+            <span>within board and season, not good/bad</span>
+          </span>
           <button onClick={exportCsv} className="px-2.5 py-1 text-[11px] rounded bg-white/[0.04] text-text-secondary hover:bg-white/[0.08] transition-all press-scale">
             Export CSV
           </button>
