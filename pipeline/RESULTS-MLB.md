@@ -3974,3 +3974,71 @@ change, so it needs a new pre-registration, not a silent edit.
 
 **Disposition.** D-40 XBT leg: NOT SHIPPED. The SB/CS leg stays D-40a (Stats API play-by-play ingest). The own-WAR
 baserunning leg continues to carry Savant's runs with attribution. `results/baserunning_SEALED.json` records the read.
+
+## §103 Prospect §99 fixed spec: unbiased splits and coverage, pre-registered 2026-10-29 before any dev or outcome read
+
+Owner go 2026-10-29 after the split audit. The audit (2026-10-29) found that §99's `value_split` and `inner_split` repeat
+the §99h arrival bias: they drop every training row of a player on the test list, so training keeps mostly players who
+already debuted or exited. Code: `pipeline/prospect_backtest.py` (`--dev103`, `--read103`), `pipeline/prospect_bayes.py`
+(NUTS path), `pipeline/GPU_RUN.md`. Results go to `results/prospect_103_*`. The §99 files are left as they were.
+
+**Training base rates, measured before this section (training labels only, no test label read).** Value folds, §99 split →
+§103 split. Debut rate (y_arr): 2015 .148 → .114, 2016 .142 → .105, 2017 .133 → .103, 2018 .128 → .104. Mean control-years
+FSE (y_val): .194 → .152, .172 → .135, .160 → .129, .148 → .125. The test lists sit at about .10. The §99 dev years
+2013–14 have no training rows under the fixed rule (no list or eos row has tyear ≤ 2010).
+
+**Fixed spec (frozen now; the same code serves dev and the read).**
+- *value_split:* `tr = S[(S.tyear <= Y-4) & (S.event != "debuted_before")]`. No player removal. Every debut label closes by
+  Y − 1. Stated deviation, as in §99d: control-season FSE for those rows still reads seasons after Y (to Y + 4).
+- *arrival_split:* train lists ≤ Y − 4 with no player removal (§99h).
+- *inner_split:* `it = tr[tr.tyear <= last - 4]`, `va` = the last training year, no player removal. When `it` has < 1,000 rows
+  (every value fold), the existing player-grouped 70/30 fallback applies. It is used only for LGB family selection, the grid
+  and early stopping.
+- *Calibration:* Platt on player-grouped 5-fold out-of-fold predictions of the same model class and spec that is applied to
+  the test (B1, v0u, LGB). It no longer fits on the inner model and applies to the full one.
+- *Coverage:*
+  - The draft family and B1/v0u/NPY draft inputs use the full 2000–26 June draft (`draft_full.parquet`: drafted, log pick,
+    round, draft age, years since draft), as H_fix did. Bonus is 2017+ only, so it is left out.
+  - Health (`il_*`) is NaN where `health_avail` = 0 (every list before 2021).
+  - Org rank enters only as `org_frac` = rank / list length. Raw `org_rank` and `org_list_len` are dropped, because the lists are
+    10 deep in 2011, 20 in 2012–14 and 30 from 2015. NPY's list buckets become org_frac ≤ 1/3, ≤ 2/3 and listed (the old
+    buckets were rank ≤ 10 / ≤ 20).
+- *NPY:* the §99e/§99f model, compact z_eta, with `mu0` from AAA lines available at the fold's as-of (season ≤ Y − 1).
+  Fitted by NUTS, not SVI, because §99 found that SVI collapses sd_eta. Settings: 4 chains, 1,000 warm-up and 1,000 draws,
+  thinning 5, target accept .9, max tree depth 10, at most 20k training entities per role (as §99f). EV is the mean over
+  draws of p × E[FSE]. It runs on a cloud GPU (`GPU_RUN.md`). Before any read, NUTS diagnostics are recorded per fit:
+  divergences and R̂/ESS of the globals.
+- *Arms:* B1, v0u, LGB (the §99f procedure with the fixes above) and NPY. M_val = NPY, as frozen in §99f.
+
+**Folds.**
+- Value dev: list 2015 only. It is the first year with any tyear ≤ Y − 4 training rows (lists 2011 + eos 2010).
+- Value post-hoc: lists 2016–17. They were read once in §99f and are spent, so every number on them is labelled post-hoc
+  and is not a gate.
+- **Value read (clean, once): list 2018**, trained on tyear ≤ 2014. It is the newest list whose value labels have matured:
+  for debuts in t = 0..3, all 6 control seasons are observed through 2026 (lists 2019+ are censored). The 2018 list's
+  value labels have never been read. Its arrival labels were scored as a §99f arrival dev year, so the read is not fully
+  untouched: y_val > 0 implies a debut.
+- Arrival: dev 2015–21 for B1/v0u/LGB under the fixed splits. This is dev only. The arrival read stays §99g/§99h on the 2024
+  list after 2027.
+
+**Gates on the 2018 read** (player-clustered bootstrap, 2,000 draws; §99d definitions).
+- (b) M_val = NPY vs B1: ΔNDCG@100 > 0 with the CI excluding 0. NPY must not lose to LGB: if LGB − NPY > 0 with its CI
+  excluding 0, the simpler winner rule applies.
+- (c) sleeper precision@50 is reported. It is gated as in §99d, but one list year (50 picks) cannot have the power to
+  clear +5 pp with a CI excluding 0. A fail there is expected and says nothing.
+- NUTS validity: if any global R̂ > 1.05 or divergences exceed 1% of draws, the read is still recorded but cannot pass.
+- Pass → the value rank may be shown after owner review, labelled "forecast, value gate passed (§103)". Fail → no value
+  rank. In either case the §99f pass is withdrawn as biased. Until the NPY read, the README/docs prospect row stays
+  "under review".
+- Power, stated now: one list year (~8.6k rows, NDCG over the top 100) gives a wide CI. The post-hoc 2016–17 numbers sit
+  beside it and are not a gate.
+
+**§99h amendment (recorded before the 2027 read).** `person_periods` counted one calendar season up to four times, once per
+list row that covers it, each with different features. That over-weights slow, long-listed players. From now on, each
+(player, calendar season) keeps only the latest list row covering it. The 2024-list read uses H_fix with this change and
+otherwise exactly as coded. H_fix's feature families are pinned to their §99h columns (the 2011+ draft family is not used;
+pipeline keeps org_rank/org_list_len), so the §103 family changes do not move it.
+
+**§97 v0.** Its leave-one-list-year-out split trained on future list years and removed test players
+(`prospect_model.py` l.222). Its lifts (ΔAUC +.026, ΔSpearman +.059, sleepers +32 pp) are **not forward-valid** and are not
+cited. No re-run.
