@@ -2,9 +2,9 @@
 export interface SlotRow {
   type: string; n: number;
   arm: number | null; armPct: number | null;            // arm angle, degrees (0 sidearm, 90 over the top)
-  ivb: number | null; hb: number | null;                 // hb is arm-side positive
+  ivb: number | null; hb: number | null;                 // hb, expHb: Statcast pfx_x·12 (catcher's view), see armSideHb
   expIvb: number | null; expHb: number | null;           // what his slot, release and extension predict for the type
-  dIvb: number | null; dHb: number | null; dIvbPct: number | null; dHbPct: number | null;
+  dIvb: number | null; dHb: number | null; dIvbPct: number | null; dHbPct: number | null;  // dHb arm-side positive
   tilt?: string; expTilt?: string; axisDevMin?: number | null; axisDevPct?: number | null;   // four-seam only
 }
 export interface ArmSlot {
@@ -39,3 +39,15 @@ export const slotLabel = (arm: number): string => slotBand(arm).label;
  * splitter against the changeup one. One map for the slot board and the movement plot; never used when the type
  * has its own expectation. */
 export const EXP_BORROW: Record<string, string> = { SW: "SL", FS: "CH" };
+
+/** THE horizontal-break convention for every movement plot and arm-side number on the site (docs/formulas.md):
+ * baked `hb` is Statcast pfx_x·12, the catcher's view, so a RHP's arm side is negative and a LHP's positive.
+ * Arm-side HB = −hb for RHP, hb for LHP: + is arm-side run, − glove-side sweep, for either hand, and a plot
+ * draws it with arm side to the right. Hand = the pitcher-season's p_throws (mode). Unknown hand → null,
+ * never a guess (a wrong guess draws the pitch on the wrong side). */
+export function armSideHb(hb: number | null | undefined, throws: string | null | undefined): number | null {
+  if (typeof hb !== "number" || !Number.isFinite(hb)) return null;
+  if (throws === "R" || throws === "Right") return -hb;
+  if (throws === "L" || throws === "Left") return hb;
+  return null;
+}

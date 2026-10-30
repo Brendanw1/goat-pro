@@ -2428,7 +2428,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
 
     # ---------------------------------- slot-conditional movement (A3 carry)
     # What pitchers from HIS slot throw for each type: pitch-weighted league
-    # means per (type x arm band), arm-side-normalized HB (LHP mirrored), plus
+    # means per (type x arm band), arm-side HB (+ = arm side for either hand: -pfx_x for RHP), plus
     # the season-mean deltas of every kept pitcher in that cell for the ranks.
     # Descriptive — the college expected-shapes study found the distance adds
     # nothing beyond Stuff+ — so the UI ranks it, never verdict-colours it.
@@ -2440,7 +2440,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         slot_league = con.sql(f"""
             SELECT {site_case_sql()} AS pitch_type, {BAND_SQL} AS band,  -- site codes (EP stays EP)
                    AVG(pfx_z) * 12 AS exp_ivb,
-                   AVG(pfx_x * 12 * CASE WHEN p_throws = 'L' THEN -1 ELSE 1 END) AS exp_hb_arm,
+                   AVG(pfx_x * 12 * CASE WHEN p_throws = 'R' THEN -1 ELSE 1 END) AS exp_hb_arm,
                    COUNT(DISTINCT pitcher) AS n_pitchers
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND arm_angle IS NOT NULL
@@ -2451,7 +2451,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         pm = con.sql(f"""
             SELECT pitcher AS id, season, {site_case_sql()} AS pitch_type,
                    AVG(pfx_z) * 12 AS my_ivb,
-                   AVG(pfx_x * 12 * CASE WHEN p_throws = 'L' THEN -1 ELSE 1 END) AS my_hb_arm,
+                   AVG(pfx_x * 12 * CASE WHEN p_throws = 'R' THEN -1 ELSE 1 END) AS my_hb_arm,
                    AVG(arm_angle) AS arm
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list})
@@ -2529,7 +2529,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 continue
             band = pid_band[(pid, season)]
             rows_out = []
-            throws_sign = -1 if tot_indexed.loc[(pid, season)]["throws"] == "L" else 1
+            # arm-side -> Statcast pfx_x frame (catcher's view) for the positions (expHb, like hb);
+            # the deltas (dHb, dHbPct) stay arm-side so + reads "more arm-side run" for both hands
+            throws_sign = -1 if tot_indexed.loc[(pid, season)]["throws"] == "R" else 1
             types = bytype[(bytype["id"] == pid) & (bytype["season"] == season) & (bytype["n"] >= 10)]
             for tr in types.itertuples():
                 pt = tr.site if isinstance(tr.site, str) else tr.pitch_type  # slot keys are site codes; EP stays EP
@@ -2550,7 +2552,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "velo": f(tr.velo, 1), "ivb": f(tr.ivb, 1), "hb": f(tr.hb, 1), "spin": r(tr.spin),
                     "expIvb": f(cell["exp_ivb"], 1) if cell is not None else None,
                     "expHb": f(cell["exp_hb_arm"] * throws_sign, 1) if cell is not None else None,
-                    "dIvb": f(d_ivb, 1), "dHb": f(d_hb_arm * throws_sign, 1),
+                    "dIvb": f(d_ivb, 1), "dHb": f(d_hb_arm, 1),
                     "dIvbPct": delta_rank([x[0] for x in pool], d_ivb) if pool and d_ivb is not None else None,
                     "dHbPct": delta_rank([x[1] for x in pool], d_hb_arm) if pool and d_hb_arm is not None else None,
                     # uncertainty of the slot expectation: the spread of that cell's
@@ -6457,7 +6459,7 @@ def main() -> None:
 
     real = args.out or (EXPORT / "aaa" if level == "aaa" else EXPORT)
     if args.check:
-        skip = ("aaa",) if real == EXPORT else ()  # the MLB export dir holds the AAA one; an MLB bake never touches it
+        skip = ("aaa", "hoops") if real == EXPORT else ()  # the MLB export dir holds the AAA and hoops (hoops_export.py) ones; an MLB bake never touches them
         base = Path(tempfile.mkdtemp(prefix="goat-web-check-"))
         try:
             with bake_lock(real) if args.write else contextlib.nullcontext():

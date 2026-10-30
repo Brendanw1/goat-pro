@@ -17,6 +17,7 @@ import { LocationSurfaces } from "@/components/charts/location-surfaces";
 import { CountLattice } from "@/components/charts/count-lattice";
 import { PitchExplorer } from "@/components/ui/pitch-explorer";
 import { MovementExplorer } from "@/components/ui/movement-explorer";
+import { armSideHb } from "@/lib/arm-slot";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { PitchType } from "@/types";
 
@@ -167,13 +168,16 @@ function TransitionMatrix({ seq }: { seq: [string, number][] | null }) {
   );
 }
 
-/** D-10: how his shapes moved across the seasons he has at this level. Career mix carries break in feet; the plot is inches. */
-function MovementBySeason({ career }: { career: any | null }) {
+/** D-10: how his shapes moved across the seasons he has at this level. Career mix carries break in feet (pfx_x, the
+ * catcher's view); the plot is inches, HB arm-side + for either hand (armSideHb). */
+function MovementBySeason({ career, throws }: { career: any | null; throws?: string | null }) {
+  if (armSideHb(0, throws) === null) return null;
+  const hbOf = (m: any) => armSideHb(m[4] * 12, throws)!;
   const seasons = (career?.seasons ?? []).filter((s: any) => (s.mix ?? []).some((m: any) => m[2] != null));
   if (seasons.length < 1) return null;
   const types: string[] = [...new Set<string>(seasons.flatMap((s: any) => s.mix.filter((m: any) => m[2] != null).map((m: any) => m[0] as string)))];
   const W = 420, H = 340, PAD = 34;
-  const pts: any[] = seasons.flatMap((s: any, si: number) => s.mix.filter((m: any) => m[2] != null).map((m: any) => ({ s: s.s, si, t: m[0], v: m[2], ivb: m[3] * 12, hb: m[4] * 12 })));
+  const pts: any[] = seasons.flatMap((s: any, si: number) => s.mix.filter((m: any) => m[2] != null).map((m: any) => ({ s: s.s, si, t: m[0], v: m[2], ivb: m[3] * 12, hb: hbOf(m) })));
   const ivbLo = Math.min(-25, ...pts.map((p) => p.ivb)) - 2, ivbHi = Math.max(25, ...pts.map((p) => p.ivb)) + 2;
   const hbLo = Math.min(-25, ...pts.map((p) => p.hb)) - 2, hbHi = Math.max(25, ...pts.map((p) => p.hb)) + 2;
   const sx = (v: number) => PAD + ((v - hbLo) / (hbHi - hbLo)) * (W - 2 * PAD);
@@ -187,7 +191,7 @@ function MovementBySeason({ career }: { career: any | null }) {
         {types.map((t) => {
           const path = seasons.map((s: any) => {
             const m = (s.mix ?? []).find((x: any) => x[0] === t && x[2] != null);
-            return m ? { s: s.s, x: sx(m[4] * 12), y: sy(m[3] * 12), v: m[2], ivb: +(m[3] * 12).toFixed(1), hb: +(m[4] * 12).toFixed(1) } : null;
+            return m ? { s: s.s, x: sx(hbOf(m)), y: sy(m[3] * 12), v: m[2], ivb: +(m[3] * 12).toFixed(1), hb: +hbOf(m).toFixed(1) } : null;
           }).filter(Boolean) as any[];
           if (path.length < 1) return null;
           return (
@@ -228,7 +232,7 @@ function ExplorerPanel({ ex, side }: { ex?: Explorer; side: "P" | "H" }) {
   );
 }
 
-export function PitcherVisualsTab({ visuals, career, explorer }: { visuals: any | null; career: any | null; explorer?: Explorer }) {
+export function PitcherVisualsTab({ visuals, career, explorer, throws }: { visuals: any | null; career: any | null; explorer?: Explorer; throws?: string | null }) {
   if (!visuals) {
     if (explorer) return <div className="space-y-5"><ExplorerPanel ex={explorer} side="P" /></div>;
     return (
@@ -267,7 +271,7 @@ export function PitcherVisualsTab({ visuals, career, explorer }: { visuals: any 
         </Panel>
       </div>
       <Panel title="Shapes across seasons" note="average break per type, season by season">
-        <MovementBySeason career={career} />
+        <MovementBySeason career={career} throws={throws} />
       </Panel>
       {explorer && (career?.seasons?.length ?? 0) > 0 && (
         <Panel title="Movement explorer" note="every pitch, league behind it (D-10)">

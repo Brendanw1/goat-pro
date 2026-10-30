@@ -8,12 +8,15 @@
  *     type (slot-conditional league mean, the slot file's expIvb/expHb), with
  *     a dashed connector — the gap is his shape vs his slot's shape. A
  *     description, not a grade: no verdict colour on the delta.
- *   - x is mirrored for lefties, so "arm side" is always to the right;
+ *   - x is arm-side HB (lib/arm-slot armSideHb: −pfx_x for RHP, pfx_x for LHP),
+ *     so "arm side" is always to the right for either hand. Every layer (cloud,
+ *     means, slot rings) goes through the same transform; dHb is baked arm-side;
  *   - axes, quadrants and labels are drawn here, not inherited from a chart
  *     library's defaults.
  *
  * PP7, with the A3 slot-expected shapes carried over.
  */
+import { armSideHb } from "@/lib/arm-slot";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { MovementPoint, PitchType } from "@/types";
 
@@ -46,15 +49,15 @@ export function MovementPlot({ data, cloud, slot, throws, height = 340 }: {
   throws?: string | null;
   height?: number;
 }) {
-  if (!data.length) {
+  // unknown hand: no side to draw on, so no plot rather than a guessed mirror
+  if (!data.length || armSideHb(0, throws) === null) {
     return (
       <div className="relative w-full aspect-square bg-white/[0.02] rounded-lg border border-border-subtle flex items-center justify-center">
         <span className="text-[11px] text-text-dim">No movement data</span>
       </div>
     );
   }
-  const mirror = throws === "L" || throws === "Left";
-  const mx = (hb: number) => (mirror ? -hb : hb);
+  const mx = (hb: number) => armSideHb(hb, throws)!;
 
   const slotByType = new Map((slot?.types ?? []).map((r) => [r.type, r]));
   const points = data.map((p) => {
@@ -65,7 +68,7 @@ export function MovementPlot({ data, cloud, slot, throws, height = 340 }: {
       usage: s?.n ?? 0,
       expHb: s?.expHb != null ? mx(s.expHb) : null,
       expIvb: s?.expIvb ?? null,
-      dIvb: s?.dIvb ?? null, dHb: s?.dHb != null ? mx(s.dHb) : null,
+      dIvb: s?.dIvb ?? null, dHb: s?.dHb ?? null,
       dIvbPct: s?.dIvbPct ?? null, dHbPct: s?.dHbPct ?? null,
       sdIvb: s?.sdIvb ?? null, sdHb: s?.sdHb ?? null,
     };
@@ -115,7 +118,7 @@ export function MovementPlot({ data, cloud, slot, throws, height = 340 }: {
           const sdX = (p.sdHb ?? 0) * xPerIn, sdY = (p.sdIvb ?? 0) * yPerIn;
           const r = 4.5 + Math.min(5, Math.sqrt(Math.max(p.usage ?? 0, 0)) * 0.9);
           const tip = [
-            `${cfg.label} — IVB ${p.ivb?.toFixed(1)}″, HB ${p.hb?.toFixed(1)}″`,
+            `${cfg.label} — IVB ${p.ivb?.toFixed(1)}″, arm-side HB ${p.hb?.toFixed(1)}″`,
             hasExp && `slot expects ${p.expIvb?.toFixed(1)}/${p.expHb?.toFixed(1)} (${signed(p.dIvb!)}″ ride, ${signed(p.dHb!)}″ arm-side)`,
             hasExp && p.dIvbPct != null && `delta rank: ride ${p.dIvbPct}th, arm-side ${p.dHbPct}th in his slot band`,
           ].filter(Boolean).join(" · ");
@@ -159,7 +162,7 @@ export function MovementPlot({ data, cloud, slot, throws, height = 340 }: {
           );
         })}
         <span className="text-[10px] text-text-dim ml-auto">
-          ring = slot expectation ±1σ/2σ · HB mirrored for LHP · descriptive
+          ring = slot expectation ±1σ/2σ · HB arm-side + for both hands · descriptive
         </span>
       </div>
     </div>
