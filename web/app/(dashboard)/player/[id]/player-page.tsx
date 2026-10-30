@@ -15,8 +15,10 @@ import { WpaAbsStrip } from "@/components/ui/wpa-abs-strip";
 export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   id: string; season?: string; tab?: string; level?: Level; extra?: React.ReactNode;
 }) {
-  // Other level's career, for the MLB/AAA toggle; started now so it rides wave 1.
-  const otherCareerP = getCareer(id, level === "aaa" ? "mlb" : "aaa");
+  // Other level's career, for the MLB/AAA toggle; started now so it rides wave 1
+  // (both roles: which one this page shows is known only after wave 1).
+  const otherLevel = level === "aaa" ? "mlb" : "aaa";
+  const otherCareerP = { p: getCareer(id, otherLevel, "p"), h: getCareer(id, otherLevel, "h") };
   // Wave 1: the pitcher and hitter docs in parallel (a 404 is cheap; the hitter
   // doc is used only when there is no pitcher doc, as before).
   let [profile, hitterDoc] = await Promise.all([
@@ -34,6 +36,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   const pctSeason = String(profile?.season ?? hitter?.season ?? season ?? "");
   const pid = profile?.season ?? season;
   const rs = hitter ? String(hitter.season) : "";
+  const role = hitter ? "h" : "p";
   // Baserunning detail (Savant reference): slice this hitter's rows from the
   // league board files server-side, like zoneMix — the client gets 4 rows.
   // Savant boards are MLB; an AAA page must not show his MLB rows.
@@ -51,13 +54,13 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
     hitter ? null : getSituational(id, pid, level),
     hitter ? null : getPitchPlan(id, pid, level),
     hitter ? null : getPitchPlanLeague(level),
-    detSeason ? getGameLog(id, detSeason, level) : null,
+    detSeason ? getGameLog(id, detSeason, level, role) : null,
     hitter && detSeason ? getSpray(id, detSeason, level) : null,
     hitter ? getSprayRefs(level) : null,
     hitter && detSeason ? getHitterScouting(id, detSeason, level) : null,
     hitter ? getScoutingLeague(level) : null,
-    detSeason ? getVisuals(id, detSeason, level) : null,
-    getCareer(id, level),
+    detSeason ? getVisuals(id, detSeason, level, role) : null,
+    getCareer(id, level, role),
     hitter ? getHitterSplitBenchmarks(level) : null,
     getProspectRank(id),
     hitter && detSeason ? getSwingProfile(id, detSeason, level) : null,
@@ -131,7 +134,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           </span>
         </div>
       )}
-      <SeasonSelector id={id} seasons={career?.seasons ?? null} current={detSeason} level={level} otherSeasons={(await otherCareerP)?.seasons ?? null} />
+      <SeasonSelector id={id} seasons={career?.seasons ?? null} current={detSeason} level={level} otherSeasons={(await otherCareerP[role])?.seasons ?? null} />
       {detSeason ? <WpaAbsStrip id={id} season={detSeason} level={level} name={(hitter ?? profile)?.name} team={(hitter ?? profile)?.team} /> : null}
       <div className="no-print flex flex-wrap items-center gap-4">
         <Link prefetch={false} href={`/player/${id}/sheet?season=${detSeason}${level === "aaa" ? "&level=aaa" : ""}`}

@@ -16,6 +16,8 @@ type PitcherRowAny = Record<string, any>;
 
 /** "aaa" reads the same bake run over AAA Statcast (web_export.py --level aaa) under aaa/. */
 export type Level = "mlb" | "aaa";
+/** Pitcher or hitter side of a family both roles bake (career, gamelog, pa_log, visuals): a two-way player has both. */
+export type Role = "p" | "h";
 const lv = (level: Level, path: string) => (level === "aaa" ? `aaa/${path}` : path);
 
 /** (id, season) -> value from a {seasons: {season: rows[]}} index file, for joining onto board rows. */
@@ -156,8 +158,8 @@ export async function getHitterProfile(id: string, season?: string, level: Level
 }
 
 /** Per-player game log (wave 2c, gzipped): per-game lines for either side. */
-export async function getGameLog(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
-  return fetchGzippedJson<any>(lv(level, `gamelog/${id}-${season}.json.gz`)).catch(() => null);
+export async function getGameLog(id: string, season: string | number, level: Level = "mlb", role: Role = "p"): Promise<any | null> {
+  return fetchGzippedJson<any>(lv(level, `gamelog/${role}/${id}-${season}.json.gz`)).catch(() => null);
 }
 
 /** D-12/D-13 site defense file (pipeline/defense_export.py): position cards with chance lists, catcher framing. MLB only. */
@@ -176,8 +178,8 @@ export async function getPitchFile(side: "P" | "H", id: string, season: string |
   return fetchGzippedJson<any>(lv(level, `pitches/${side}${id}-${season}.json.gz`)).catch(() => null);
 }
 
-export async function getPaLog(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
-  return fetchGzippedJson<any>(lv(level, `pa_log/${id}-${season}.json.gz`)).catch(() => null);
+export async function getPaLog(id: string, season: string | number, level: Level = "mlb", role: Role = "p"): Promise<any | null> {
+  return fetchGzippedJson<any>(lv(level, `pa_log/${role}/${id}-${season}.json.gz`)).catch(() => null);
 }
 
 /** One season's Pipeline prospect rankings (Top 100 + teams + positions). */
@@ -204,13 +206,13 @@ export async function getGameReport(gid: string, level: Level = "mlb"): Promise<
 }
 
 /** Per-player career file: this level's seasons (headline + pitcher mix per season). */
-export async function getCareer(id: string, level: Level = "mlb"): Promise<any | null> {
-  return fetchFromR2<any>(lv(level, `career/${id}.json`)).catch(() => null);
+export async function getCareer(id: string, level: Level = "mlb", role: Role = "p"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, `career/${role}/${id}.json`)).catch(() => null);
 }
 
 /** Per-player chart datasets (wave 7): velo KDE, spin clock, release cloud, location grids, count lattice. */
-export async function getVisuals(id: string, season: string | number, level: Level = "mlb"): Promise<any | null> {
-  return fetchGzippedJson<any>(lv(level, `visuals/${id}-${season}.json.gz`)).catch(() => null);
+export async function getVisuals(id: string, season: string | number, level: Level = "mlb", role: Role = "p"): Promise<any | null> {
+  return fetchGzippedJson<any>(lv(level, `visuals/${role}/${id}-${season}.json.gz`)).catch(() => null);
 }
 
 /** Hitter swing profile from Statcast bat tracking (depth item 1): distributions, splits, swords. */

@@ -152,17 +152,35 @@ def _clean(o):
     return o
 
 
-def jwrite(path: Path, obj, sort_keys: bool = False) -> int:
+# path -> the call site (file:line) that wrote it this bake. A second call site
+# writing the same key is a collision (the 2026-10-30 bug: the hitter career/
+# gamelog/pa_log/visuals writers overwrote the pitcher's file for two-way
+# players); the same site rewriting a key (a "latest" alias) or a declared
+# read-merge-write (merge=True) is fine. run_bake clears it.
+_WRITERS: dict[str, str] = {}
+
+
+def _claim(path: Path, merge: bool) -> None:
+    fr = sys._getframe(2)
+    site = f"{fr.f_code.co_filename}:{fr.f_lineno}"
+    prev = _WRITERS.setdefault(str(path), site)
+    if prev != site and not merge:
+        raise RuntimeError(f"bake key collision: {path} written by {prev} and {site}")
+
+
+def jwrite(path: Path, obj, sort_keys: bool = False, merge: bool = False) -> int:
+    _claim(path, merge)
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(_clean(obj), allow_nan=False, sort_keys=sort_keys)
     path.write_text(text)
     return path.stat().st_size
 
 
-def jwrite_gz(path: Path, obj, sort_keys: bool = False) -> int:
+def jwrite_gz(path: Path, obj, sort_keys: bool = False, merge: bool = False) -> int:
     """Gzipped JSON for the per-player detail files. mtime=0 keeps the archive
     byte-identical across bakes — the --check no-op guarantee extends to .gz."""
     import gzip
+    _claim(path, merge)
     path.parent.mkdir(parents=True, exist_ok=True)
     data = json.dumps(_clean(obj), allow_nan=False, sort_keys=sort_keys).encode()
     path.write_bytes(gzip.compress(data, mtime=0))
@@ -1175,6 +1193,7 @@ def run_bake(out: Path, seasons: list[int], only: set[str] | None, player: int |
     Guarded by a lock file in the output directory: two agents share this
     working tree, and overlapping bakes writing one export dir produced the
     intermittent --check diffs of 2026-10-28. A stale lock (dead pid) breaks."""
+    _WRITERS.clear()
     with bake_lock(out):
         return _bake_inner(out, seasons, only, player, level)
 
@@ -3523,7 +3542,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             pi_path = out / "player_index.json"
             pi = json.loads(pi_path.read_text()) if pi_path.exists() else {}
             pi.update(h_index)
-            jwrite(pi_path, pi, sort_keys=True)
+            jwrite(pi_path, pi, sort_keys=True, merge=True)  # players family wrote it first
             pruned = 0
             for p2 in (out / "hitters").glob("*.json"):
                 stem = p2.stem
@@ -3624,7 +3643,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             })
         n_gl = 0
         for (pid, season), games in gl_by_player.items():
-            jwrite_gz(out / "gamelog" / f"{pid}-{season}.json.gz", {
+            jwrite_gz(out / "gamelog" / "p" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "side": "P", "season": season,
                 "games": sorted(games, key=lambda x: (x["d"],)),
             }, sort_keys=True)
@@ -3676,7 +3695,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             })
         n_hgl = 0
         for (pid, season), games in hgl.items():
-            jwrite_gz(out / "gamelog" / f"{pid}-{season}.json.gz", {
+            jwrite_gz(out / "gamelog" / "h" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "side": "H", "season": season,
                 "games": sorted(games, key=lambda x: (x["d"],)),
             }, sort_keys=True)
@@ -3824,7 +3843,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         for (pid, season), games in pal_p.items():
             if (pid, season) not in pitcher_pop:
                 continue
-            jwrite_gz(out / "pa_log" / f"{pid}-{season}.json.gz", {
+            jwrite_gz(out / "pa_log" / "p" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "side": "P", "season": season,
                 "games": [{"k": int(k), **g} for k, g in
                           sorted(games.items(), key=lambda kv: (kv[1]["d"], kv[0]))],
@@ -3834,7 +3853,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         for (pid, season), games in pal_h.items():
             if (pid, season) not in h_pop:
                 continue
-            jwrite_gz(out / "pa_log" / f"{pid}-{season}.json.gz", {
+            jwrite_gz(out / "pa_log" / "h" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "side": "H", "season": season,
                 "games": [{"k": int(k), **g} for k, g in
                           sorted(games.items(), key=lambda kv: (kv[1]["d"], kv[0]))],
@@ -4277,8 +4296,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         for t in mix_p.itertuples():
             mixes.setdefault((int(t.id), int(t.season)), {})[t.site] = [
                 int(t.n), round(float(t.v), 1) if t.v is not None else None,
-                round(float(t.ivb), 1) if t.ivb is not None else None,
-                round(float(t.hb), 1) if t.hb is not None else None]
+                round(float(t.ivb), 2) if t.ivb is not None else None,  # feet; 0.01 ft = 0.12 in
+                round(float(t.hb), 2) if t.hb is not None else None]
         del mix_p
         car_by: dict = {}
         for t in car_p.itertuples():
@@ -4297,7 +4316,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         del car_p, mixes
         n_car = 0
         for pid, seasons_rows in sorted(car_by.items()):
-            jwrite(out / "career" / f"{pid}.json", {
+            jwrite(out / "career" / "p" / f"{pid}.json", {
                 "id": str(pid), "kind": "P",
                 "seasons": sorted(seasons_rows, key=lambda x: x["s"]),
             }, sort_keys=True)
@@ -4344,7 +4363,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         del car_h
         n_hcar = 0
         for pid, seasons_rows in sorted(hcar_by.items()):
-            jwrite(out / "career" / f"{pid}.json", {
+            jwrite(out / "career" / "h" / f"{pid}.json", {
                 "id": str(pid), "kind": "H",
                 "seasons": sorted(seasons_rows, key=lambda x: x["s"]),
             }, sort_keys=True)
@@ -4576,7 +4595,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             payload["seq"] = seq
             payload["counts"] = lat
             payload["hand"] = hand_rows
-            jwrite_gz(out / "visuals" / f"{pid}-{season}.json.gz", payload, sort_keys=True)
+            jwrite_gz(out / "visuals" / "p" / f"{pid}-{season}.json.gz", payload, sort_keys=True)
             n_vis += 1
         del buckets, tasks
         counts["pitcher_visuals"] = n_vis
@@ -4619,7 +4638,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     loc[site] = g
             if not loc:
                 continue
-            jwrite_gz(out / "visuals" / f"{pid}-{season}.json.gz", {
+            jwrite_gz(out / "visuals" / "h" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "side": "H", "season": season, "stand": h["stand"],
                 "zone": zone_by.get(season),
                 "loc": {"x": VIS_LOC_X, "z": VIS_LOC_Z, "n": VIS_GRID_N, "types": loc},

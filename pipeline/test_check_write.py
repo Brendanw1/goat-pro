@@ -6,6 +6,7 @@ import json
 import tempfile
 from pathlib import Path
 
+import web_export as we
 from web_export import apply_dir, diff_dirs, seed_dir
 
 
@@ -28,6 +29,23 @@ def test_seed_diff_apply():
     assert json.loads((real / "meta.json").read_text())["exportedAt"] == "t1"
 
 
+def test_no_two_writers_one_key():
+    """The career/gamelog/pa_log/visuals bug: a hitter writer overwrote the pitcher's file for the same id."""
+    out = Path(tempfile.mkdtemp())
+    we._WRITERS.clear()
+    for s in (2024, 2025):                                   # one site rewriting a key (a latest alias): fine
+        we.jwrite(out / "x" / "1.json", {"s": s})
+    we.jwrite(out / "x" / "1.json", {"m": 1}, merge=True)    # a declared read-merge-write: fine
+    try:
+        we.jwrite_gz(out / "x" / "1.json", {"h": 1})        # a second writer, same key
+    except RuntimeError as e:
+        assert "collision" in str(e)
+    else:
+        raise AssertionError("collision not caught")
+    we._WRITERS.clear()
+
+
 if __name__ == "__main__":
     test_seed_diff_apply()
+    test_no_two_writers_one_key()
     print("ok")

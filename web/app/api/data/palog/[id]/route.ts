@@ -15,7 +15,8 @@ export async function GET(
   const bad = badInput(id, season);
   if (bad) return bad;
   const level: Level = request.nextUrl.searchParams.get("level") === "aaa" ? "aaa" : "mlb";
-  const log = await getPaLog(id, season, level);
+  const role = request.nextUrl.searchParams.get("side") === "H" ? "h" : "p";
+  const log = await getPaLog(id, season, level, role);
   if (!log) {
     return NextResponse.json({ error: `No PA log: ${id} (${season})`, code: "NOT_FOUND" }, { status: 404 });
   }

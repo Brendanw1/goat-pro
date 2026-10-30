@@ -14,7 +14,8 @@ export async function GET(
   }
   const bad = badInput(id, season);
   if (bad) return bad;
-  const log = await getGameLog(id, season);
+  const role = request.nextUrl.searchParams.get("side") === "H" ? "h" : "p";
+  const log = await getGameLog(id, season, "mlb", role);
   if (!log) {
     return NextResponse.json({ error: `No game log: ${id} (${season})`, code: "NOT_FOUND" }, { status: 404 });
   }

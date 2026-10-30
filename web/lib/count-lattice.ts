@@ -1,6 +1,6 @@
 /**
  * The count lattice, ported from the college site (BaseballGOAT web/lib/count-lattice.ts) and fed from the
- * bake instead of raw pitches: visuals/{id}-{season}.json.gz `counts` = { all | R | L: { pa, c: { "b-s": node } } }.
+ * bake instead of raw pitches: visuals/p/{id}-{season}.json.gz `counts` = { all | R | L: { pa, c: { "b-s": node } } }.
  *
  * Twelve legal counts, seventeen edges, every interior count once (the count graph is not a tree). The PAs that
  * took (b,s) -> (b+1,s) are exactly the balls thrown at (b,s), and (b,s) -> (b,s+1) the strikes and sub-two-strike

@@ -118,6 +118,7 @@ export function GameLogPanel({ data, playerId, season, level }: {
       try {
         const qs = new URLSearchParams({ season: String(season) });
         if (level && level !== "mlb") qs.set("level", level);
+        if (!pitcher) qs.set("side", "H");
         const res = await fetch(`/api/data/palog/${playerId}?${qs}`);
         if (res.ok) setPaLog(await res.json());
         else setFailed(true);
