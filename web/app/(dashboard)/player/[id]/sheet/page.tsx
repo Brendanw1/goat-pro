@@ -5,6 +5,7 @@ import { getPitcherPercentileRank, getStatPercentileRank, ordinal } from "@/lib/
 import { GradeScopeToggle } from "@/components/ui/grade-pct";
 import { GradePctProvider } from "@/components/ui/grade-pct";
 import { PrintButton } from "@/components/ui/print-button";
+import { BackLink } from "@/components/ui/back-link";
 import { fmtIp } from "@/lib/ip";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +67,7 @@ export default async function PlayerSheetPage({ params, searchParams }: {
     <GradePctProvider data={null}>
       <div className="max-w-[860px] mx-auto space-y-4 sheet-page">
         <div className="flex flex-wrap items-center justify-between gap-3 no-print">
-          <Link href={`/player/${id}?season=${season}`} className="text-[11px] text-text-dim hover:text-text-secondary">← Full profile</Link>
+          <BackLink fallback={`/player/${id}?season=${season}`} label="← Full profile" className="text-[11px] text-text-dim hover:text-text-secondary" />
           <div className="flex items-center gap-2">
             <GradeScopeToggle />
             <PrintButton />

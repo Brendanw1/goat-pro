@@ -1,4 +1,5 @@
 import { Nav } from "@/components/nav";
+import { RouteTracker } from "@/components/ui/back-link";
 import { LaunchIntro } from "@/components/ui/launch-intro";
 import { PlayerTransitionOverlay } from "@/components/ui/player-transition";
 import { SnapshotTool } from "@/components/ui/snapshot";
@@ -25,6 +26,8 @@ export default async function DashboardLayout({
     <div className="min-h-screen flex flex-col">
       <LaunchIntro />
       <Nav />
+      {/* filter-faithful back links: every pathname+search lands in a session stack */}
+      <RouteTracker />
       {/*
         `min-w-0` is load-bearing, not tidiness. As a flex item this defaults to
         `min-width: auto`, which sizes it to max-content — so a table inside its

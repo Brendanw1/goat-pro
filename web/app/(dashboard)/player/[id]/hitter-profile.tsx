@@ -25,6 +25,7 @@ import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { SeasonArc } from "@/components/ui/season-arc";
 import { YoYDelta } from "@/components/ui/yoy-delta";
 import { SprayPanel } from "@/components/ui/spray-panel";
+import { BackLink } from "@/components/ui/back-link";
 import { BattedBallTable } from "@/components/ui/batted-ball-table";
 import { DongPanel } from "@/components/ui/dong-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
@@ -189,7 +190,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
         <div>
           <div className="flex items-center gap-2.5">
             <div className="flex flex-col items-center gap-1.5">
-            <Link href={level === "aaa" ? "/minors" : "/hitters"} className="rounded px-1.5 py-0.5 text-[10px] leading-none bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] transition-colors">← Back</Link>
+            <BackLink fallback={level === "aaa" ? "/minors" : "/hitters"} className="rounded px-1.5 py-0.5 text-[10px] leading-none bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] transition-colors" />
             {crest ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={crest} alt="" width={36} height={36} className="rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />

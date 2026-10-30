@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackLink } from "@/components/ui/back-link";
 import { getGameReport, getGameWpa } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
@@ -104,7 +105,7 @@ export default async function GameReportPage({ params, searchParams }: {
           <Link href={`/games/${gid}/report${level === "aaa" ? "?level=aaa" : ""}`} className="text-[11px] text-text-dim underline-offset-2 hover:text-text-secondary hover:underline">
             Per-player report ↗
           </Link>
-          <Link href={g.postseason ? `/postseason?season=${season}` : level === "aaa" ? "/minors" : "/pitchers"} className="text-[11px] text-text-dim hover:text-text-secondary">← Back</Link>
+          <BackLink fallback={g.postseason ? `/postseason?season=${season}` : level === "aaa" ? "/minors" : "/pitchers"} className="text-[11px] text-text-dim hover:text-text-secondary" />
         </div>
       </div>
 

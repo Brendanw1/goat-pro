@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackLink } from "@/components/ui/back-link";
 import { getGameReport } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { PrintButton } from "@/components/ui/print-button";
@@ -155,7 +156,7 @@ export default async function GamePlayerReportPage({ params, searchParams }: {
   return (
     <div className="max-w-[900px] mx-auto space-y-4 sheet-page">
       <div className="flex flex-wrap items-center justify-between gap-3 no-print">
-        <Link href={`/games/${gid}${level === "aaa" ? "?level=aaa" : ""}`} className="text-[11px] text-text-dim hover:text-text-secondary">← Game report</Link>
+        <BackLink fallback={`/games/${gid}${level === "aaa" ? "?level=aaa" : ""}`} label="← Game report" className="text-[11px] text-text-dim hover:text-text-secondary" />
         <PrintButton />
       </div>
       <div className="glass-panel px-5 py-4">

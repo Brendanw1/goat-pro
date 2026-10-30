@@ -35,6 +35,7 @@ import { PitchRvCard } from "@/components/ui/pitch-rv-card";
 import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { FatigueTab } from "@/components/ui/fatigue-tab";
 import { SituationalRunsPanel } from "@/components/ui/situational-runs-panel";
+import { BackLink } from "@/components/ui/back-link";
 import { LocationMixPanel } from "@/components/ui/location-mix-panel";
 import { ArsenalOverview } from "@/components/ui/arsenal-overview";
 import { RV100_TIP } from "@/lib/rv-cells";
@@ -586,7 +587,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
       >
         <div className="flex items-start gap-4">
           <div className="flex flex-col items-center gap-1.5">
-          <Link href={backHref} className="rounded px-1.5 py-0.5 text-[10px] leading-none bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] transition-colors">← Back</Link>
+          <BackLink fallback={backHref} className="rounded px-1.5 py-0.5 text-[10px] leading-none bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] hover:border-white/[0.15] transition-colors" />
           {(() => {
             const url = logoUrl(profile.team);
             return url ? (

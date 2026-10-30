@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { BackLink } from "@/components/ui/back-link";
 import { FilterPanel } from "@/components/filter-panel";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { GradePct, gradedN } from "@/components/ui/grade-pct";
@@ -95,12 +96,10 @@ export function ArsenalExpanded({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <Link
-          href="/arsenal"
+        <BackLink
+          fallback="/arsenal"
           className="px-3 py-1 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] transition-all"
-        >
-          ← Back
-        </Link>
+        />
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: config.color }} />
           <h1 className="text-lg font-bold text-text-primary">{config.label}</h1>

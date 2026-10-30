@@ -1,3 +1,4 @@
+import { BackLink } from "@/components/ui/back-link";
 import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getPitchPlan, getPitchPlanLeague, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard, getLoadProfile, getLoadIndex, getAgingTrack, getAgingCurves, getDeception } from "@/lib/data";
 import { vaaZoneRows } from "@/lib/vaa-zone";
 import { profilePercentiles } from "@/lib/percentiles";
@@ -100,12 +101,10 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   if (!profile && !hitter) {
     return (
       <div className="space-y-4">
-        <Link
-          href={level === "aaa" ? "/minors" : "/pitchers"}
+        <BackLink
+          fallback={level === "aaa" ? "/minors" : "/pitchers"}
           className="px-3 py-1 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] transition-all"
-        >
-          ← Back
-        </Link>
+        />
         <div className="glass-panel p-8 text-center">
           <PlayerReady />
           <p className="text-sm text-text-dim">Player not found</p>
