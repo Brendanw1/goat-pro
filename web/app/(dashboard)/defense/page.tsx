@@ -63,7 +63,7 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
         Runs above an average fielder at the position, from the range model: every ball in play is priced by
         difficulty — exit velocity, launch, direction, park, alignment, the fielder&apos;s own start position and the
         ball&apos;s hang time — and credit is the play made minus its probability, valued in runs. Fit within each
-        season on game-grouped folds (AUC .94–.95); catchers have their own page (Framing+). Savant&apos;s OAA and
+        season on game-grouped folds (AUC .94–.95); catchers have their own board (<Link href="/defense/catchers" className="text-text-secondary underline">framing, blocking, throwing</Link>). Savant&apos;s OAA and
         fielding run value sit beside ours as reference columns — ours labelled, theirs labelled. 30+ chances;
         the profile Defense tab shows each fielder&apos;s cards and the chances themselves.
         <span className="text-text-secondary">

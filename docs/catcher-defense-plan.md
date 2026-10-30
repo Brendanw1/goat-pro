@@ -14,8 +14,8 @@ Savant's public leaderboards and their drill-down rows. No TrackMan, no college 
 | Framing+ board + 5x5 grids | `framing_plus.py` → `framing_plus.json` (PREREG, gates passed) | live at /framing |
 | Season pop time, exchange, arm, CS above average, Savant xCS | `lb_catcher_throwing_{2019-26}` | in hand |
 | Season blocks above average, xPBWP | `lb_catcher_blocking_{2021-26}` | in hand |
-| **Every SB attempt** (SB, CS, held throw) with runner, pitcher, sprint speed, lead, pop time, exchange, arm, flight, accuracy, Savant exp_cs, **play_id** | Savant `leaderboard/services/catcher-throwing/{id}` (the leaderboard's own drill-down JSON) | **fetched** by `pipeline/catcher_fetch.py` → `cache/catcher/throwing.parquet` (2020-26) |
-| **Every pitch with a runner on** (the blocking opportunity set): location, pitch type, ground flag, Savant xPBWP, WP/PB outcome, play_id | Savant `leaderboard/services/catcher-blocking/{id}` | **fetched** → `cache/catcher/blocking.parquet` (2021-26) |
+| **Every SB attempt** (SB, CS, held throw) with runner, pitcher, sprint speed, lead, pop time, exchange, arm, flight, accuracy, Savant exp_cs, **play_id** | Savant `leaderboard/services/catcher-throwing/{id}` (the leaderboard's own drill-down JSON) | **fetched** by `pipeline/catcher_fetch.py` → `cache/catcher/throwing_{season}.parquet` (2020-26) |
+| **Every pitch with a runner on** (the blocking opportunity set): location, pitch type, ground flag, Savant xPBWP, WP/PB outcome, play_id | Savant `leaderboard/services/catcher-blocking/{id}` | **fetched** → `cache/catcher/blocking_{season}.parquet` (2021-26) |
 | Pitcher leads allowed, pitcher CS above average, pickoffs | `leaderboard/pitcher-running-game` CSV (probed live; not yet in the mart) | available; per-attempt lead is already on each throw row |
 | Runner sprint speed | `lb_sprint_speed` + `seasonal_sprint_speed` on each throw row | in hand |
 | Video | Savant `sporty-videos?playId=` on each row's play_id | link only, never embedded or re-hosted |
@@ -64,6 +64,11 @@ season's catchers where a rank is honest, and signed colours (green = good for t
 - **Expected WP+PB (blocking)** — P(WP/PB | pitch, runner on) from location, pitch type, ground flag, pitcher hand,
   batter side, season. Same validation design; reference Savant's xPBWP and blocks above average.
 - If a model fails, the views stay descriptive and say so.
+
+**Read 2026-10-30 (RESULTS-MLB §108):** expected WP+PB passed every gate and now prices blocking on the site (Savant's
+beside it). xCS% passed agreement, stickiness and the pop-time sanity check but failed calibration (G2, top decile
+overconfident), so throwing stays descriptive with Savant's expected CS until a pre-registered re-test (§108a-v2:
+isotonic recalibration or shallower trees).
 
 ## Out of scope here
 

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { BallField } from "@/components/ui/ball-field";
 import { percentileColor, signTone } from "@/lib/percentiles";
 import { signedFixed } from "@/components/ui/shared-ui";
+import { CatcherPanel } from "@/components/ui/catcher-panel";
 
 type Chance = { x: number | null; y: number | null; dir: number | null; ev: number | null; la: number | null; p: number; made: boolean;
   share: number; credit: number; runs: number; date: string; inning: number; half: string; outs: number; bats: string; event: string;
@@ -317,6 +318,7 @@ export function DefensePanel({ playerId, season }: { playerId: string; season: n
           </div>
         </div>
       )}
+      {c && <CatcherPanel playerId={playerId} season={season} />}
       {(d.cards as Card[]).map((k) => (
         <div key={k.pos} className="glass-panel p-4 space-y-3">
           <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">

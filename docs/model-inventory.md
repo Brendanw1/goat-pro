@@ -111,7 +111,7 @@ Queued for later, in order (after the swing program, `docs/swing-program.md`):
 | **ABS zone modeling** (§1.1) | 2026 robot-umpire park trials | new rule regime; the coordinate-shift work is scoped in the blueprint |
 | **Baserunning** (sprint speed, leads, burst) | Savant leaderboards | ingest-validate first |
 | **Defense / OAA family** | Savant public fielding data | ingest-validate; college build blocked on fielder tracking — MLB unblocks it via public data |
-| **Catcher throwing / SB models** | pop-time, SB/CS data | |
+| **Catcher throwing / SB models** | Savant per-play catcher rows (`catcher_fetch.py`) | §108: expected WP+PB **shipped** (blocks above expected on the Defense tab + /defense/catchers); xCS% failed G2 calibration (top decile .52 vs .48) — descriptive with Savant's exp CS until a §108a-v2 re-test |
 | **Umpire context** | public scorecard data | framing covariate, not a standalone model initially |
 | **Injury/IL risk** | daily roster snapshots + transactions (our feed) | accumulates IL history the longer it runs |
 | **Market-vs-model** | The Odds API (bake-time) | only after grades pass gates; a market benchmark, not a feature |

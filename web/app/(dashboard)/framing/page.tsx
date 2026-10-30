@@ -49,6 +49,8 @@ export default async function FramingPage({ searchParams }: { searchParams?: Pro
         {seasons.map((s) => (
           <Link key={s} href={`/framing?season=${s}`} className={chip(s === season)}>{s}</Link>
         ))}
+        <span className="w-px h-4 bg-border-subtle mx-1" />
+        <Link href="/defense/catchers" className={chip(false)}>Catcher board: blocking + throwing</Link>
       </div>
       <div className="glass-panel overflow-hidden">
         <div className="overflow-x-auto">

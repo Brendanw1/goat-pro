@@ -1,0 +1,85 @@
+{
+ "prereg": "RESULTS-MLB \u00a7108 (committed 35a7114 before any read)",
+ "xcs": {
+  "n_train": 15627,
+  "n_holdout": 3229,
+  "pitch_join_match": 0.8812,
+  "features": [
+   "seasonal_sprint_speed",
+   "r_primary_lead",
+   "base3",
+   "lhp",
+   "is_sba_delayed",
+   "N_prior_pickoffs_with_reset",
+   "season"
+  ],
+  "oof_auc": 0.7409,
+  "holdout_auc": 0.7449,
+  "holdout_logloss": {
+   "model": 0.44907,
+   "league": 0.5108,
+   "catcher_only": 0.51382
+  },
+  "g1_pass": true,
+  "oof_decile_gap": 0.0434,
+  "g2_pass": false,
+  "n_catcher_seasons": 266,
+  "pooled_r": 0.97,
+  "per_season_r": {
+   "2021": 0.958,
+   "2022": 0.969,
+   "2023": 0.984,
+   "2024": 0.976,
+   "2025": 0.976,
+   "2026": 0.967
+  },
+  "g3_pass": true,
+  "yty_pairs": 148,
+  "yty_ours": 0.454,
+  "yty_savant": 0.455,
+  "g4_pass": true,
+  "pop_r": -0.599,
+  "g5_pass": true,
+  "verdict": "DESCRIPTIVE"
+ },
+ "xpbwp": {
+  "n_train": 961558,
+  "n_holdout": 195243,
+  "features": [
+   "location_x",
+   "location_z",
+   "is_pitch_ground",
+   "typ",
+   "lhp",
+   "lhb",
+   "api_plate_time",
+   "season"
+  ],
+  "oof_auc": 0.9135,
+  "holdout_auc": 0.9233,
+  "holdout_logloss": {
+   "model": 0.03333,
+   "league": 0.04802,
+   "catcher_only": 0.04796
+  },
+  "g1_pass": true,
+  "oof_decile_gap": 0.00052,
+  "g2_pass": true,
+  "n_catcher_seasons": 331,
+  "pooled_r": 0.915,
+  "per_season_r": {
+   "2021": 0.931,
+   "2022": 0.934,
+   "2023": 0.876,
+   "2024": 0.92,
+   "2025": 0.928,
+   "2026": 0.898
+  },
+  "g3_pass": true,
+  "yty_pairs": 203,
+  "yty_ours": 0.477,
+  "yty_savant": 0.508,
+  "g4_pass": true,
+  "verdict": "SHIP"
+ }
+}

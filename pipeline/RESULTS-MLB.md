@@ -4319,3 +4319,25 @@ Plan and data inventory: `docs/catcher-defense-plan.md`. Rows: Savant's public p
   catcher-season blocks above expected (expected − actual, ≥ 1,500 opportunities) vs Savant's `blocks_above_average`:
   pooled r ≥ .80, every season ≥ .70; **G4** year-to-year r ≥ .75 x Savant's on the same pairs.
 - *Verdict:* as §108a.
+
+### §108 result (read once, 2026-10-30): expected WP+PB SHIPS; xCS% stays descriptive (G2 calibration fails)
+
+Rows (fetched 2026-10-30 by `catcher_fetch.py`, one polite request per catcher-season, every `fielder_2` with 300+
+pitches): 18,856 SB attempts 2020-26 (15,627 train, 3,229 held-out 2026), 1.16M runner-on pitches 2021-26. Sealed:
+`results/catcher_models_SEALED.json`. The aggregates reproduce Savant's own board exactly where checked (Realmuto 2021:
+CS above expected +1.5, pop 1.79, same as `lb_catcher_throwing`), so the fetch is the board's own data.
+
+**§108b expected WP+PB — SHIP.** G1 2026 log loss .0333 vs league .0480 (−31%) and catcher-only .0480: PASS (AUC .923).
+G2 OOF max decile gap .0005: PASS. G3 blocks above expected vs Savant `blocks_above_average`, 331 catcher-seasons:
+pooled r .915, per season .876-.934: PASS. G4 year-to-year .477 vs Savant's .508 on the same 203 pairs (ratio .94):
+PASS. The site now shows **our** expected WP+PB and blocks above expected, Savant's beside it, labelled.
+
+**§108a xCS% — DESCRIPTIVE (G2 fails).** G1 PASS (2026 log loss .449 vs league .511, catcher-only .514; AUC .745).
+G3 PASS (CS above xCS vs Savant's, 266 catcher-seasons, pooled r .970, every season ≥ .958). G4 PASS (YTY .454 vs
+Savant .455, 148 pairs). G5 PASS (CS above xCS per attempt vs pop time r −.599). **G2 FAIL: OOF max decile gap .043 >
+.03.** Diagnosis (the house rule: data, handling or modeling?): *modeling.* Season means are calibrated to ±.005
+(2020-25), so it is not a data or era-handling error; the miss is the top decile only (mean p .523 vs observed .480 —
+slow runners on short leads, where the boosted trees grow overconfident on 15.6k rows; Savant's own exp_cs there
+is .476). The bottom decile is mostly held throws (61%) and is fine. Pitch type / location / count stayed out: the
+pitch join matched 88.1% < 95% (decided before the read). Not fixed in place: a recalibrated or shallower re-test is a
+new pre-registration (queued as §108a-v2). Until then the running-game views use Savant's expected CS, labelled theirs.

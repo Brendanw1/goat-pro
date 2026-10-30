@@ -1,6 +1,6 @@
 """Savant's per-play catcher rows (public leaderboard drill-down services), one GET per catcher-season.
 
-    python pipeline/catcher_fetch.py            # -> cache/catcher/{throws,blocking}.parquet (fetches only missing)
+    python pipeline/catcher_fetch.py            # -> cache/catcher/{throwing,blocking}_{season}.parquet (fetches only missing)
     python pipeline/catcher_fetch.py --demo     # self-check of the row slimming, no network
 
 throws:   every stolen-base attempt with this catcher behind the plate (SB, CS, held throws): runner, pitcher,
@@ -97,10 +97,6 @@ def main():
                         pd.concat(frames, ignore_index=True).drop_duplicates().to_parquet(part)
                         frames = [pd.read_parquet(part)]
                     done_p.write_text(json.dumps(sorted(done)))
-    for kind in ("throwing", "blocking"):
-        parts = sorted(OUT.glob(f"{kind}_*.parquet"))
-        if parts:
-            pd.concat([pd.read_parquet(p) for p in parts], ignore_index=True).to_parquet(OUT / f"{kind}.parquet")
     print("done", flush=True)
 
 

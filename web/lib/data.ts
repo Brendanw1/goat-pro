@@ -167,6 +167,16 @@ export async function getDefense(id: string, season: string | number): Promise<a
   return fetchGzippedJson<any>(`defense/${id}-${season}.json.gz`).catch(() => null);
 }
 
+/** Catcher defense depth (pipeline/catcher_export.py): framing splits (§76), blocking + throwing from Savant per-play rows. MLB only. */
+export async function getCatcher(id: string, season: string | number): Promise<any | null> {
+  return fetchGzippedJson<any>(`catcher/${id}-${season}.json.gz`).catch(() => null);
+}
+
+/** Catcher board per season: framing, blocking, throwing side by side. */
+export async function getCatcherBoard(): Promise<any | null> {
+  return fetchFromR2<any>("catcher/board.json", { shared: true }).catch(() => null);
+}
+
 /** Whiff+ explained (pipeline/whiff_shap.py): TreeSHAP of the cross-fit boosters in Whiff+ points, overall + per type. MLB only. */
 export async function getWhiffShap(id: string, season: string | number): Promise<any | null> {
   return fetchGzippedJson<any>(`whiff_shap/${id}-${season}.json.gz`).catch(() => null);
