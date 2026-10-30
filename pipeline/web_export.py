@@ -590,6 +590,59 @@ def role_of(g: int | None, gs: int | None) -> str | None:
     return None if not g else ("SP" if 2 * (gs or 0) >= g else "RP")
 
 
+_TC_POS = {2: "C", 3: "1B", 4: "2B", 5: "3B", 6: "SS", 7: "OF", 8: "OF", 9: "OF", 10: "DH"}
+_TC_SLOTS = {"C": 1, "1B": 1, "2B": 1, "3B": 1, "SS": 1, "OF": 3, "DH": 1, "SP": 5, "RP": 7}
+
+
+def trade_candidates(teams: list, war_seasons: dict, season: int, keep: int = 8) -> dict:
+    """D-47 "possible trade candidates": a transparent rule, not a model (§107 is descriptive, with no
+    held-out signal to fit weights on). A 40-man player qualifies when all three hold:
+      1. §105 removal score in the league's middle band (50th-90th pct): not core, not DFA fodder;
+      2. best §85 WAR of the last two seasons below his club's median (best-of-two keeps an injured star out);
+      3. buried: below the club's starter slots at his group (C/IF 1, OF 3, DH 1, SP 5, RP 7), depth by that WAR.
+    Needs MLB time in the two seasons. Ranked by best WAR (the most useful of the blocked fringe first)."""
+    lines: dict = {}
+    for s in (season - 1, season):
+        for k in ("hitters", "pitchers"):
+            for r in war_seasons.get(str(s), {}).get(k, []):
+                lines.setdefault(r["id"], {}).setdefault(s, {})[k[0]] = r
+    rems = sorted(p["rem"] for t in teams for p in t["players"] if p.get("rem") is not None)
+    if not rems:
+        return {}
+    lo, hi = rems[len(rems) // 2], rems[int(len(rems) * 0.9)]
+    out = {}
+    for t in teams:
+        ps = []
+        for p in t["players"]:
+            ln = lines.get(p["id"])
+            if not ln:
+                continue
+            war = {s: sum(x["war"] for x in ln.get(s, {}).values()) for s in (season - 1, season)}
+            last = ln.get(season) or ln[season - 1]
+            if p["p"] == "P" or "h" not in last:
+                pl = last.get("p") or {}
+                grp = role_of(pl.get("g"), pl.get("gs")) or "RP"
+            else:
+                mp = last["h"].get("main_pos")
+                grp = _TC_POS.get(int(mp)) if mp else {"LF": "OF", "CF": "OF", "RF": "OF"}.get(p["p"], p["p"])
+            ps.append({**p, "grp": grp, "w": round(war[season], 1), "w1": round(war[season - 1], 1),
+                       "best": max(war.values())})
+        if not ps:
+            continue
+        med = sorted(x["best"] for x in ps)[len(ps) // 2]
+        for g in _TC_SLOTS:
+            grp = sorted((x for x in ps if x["grp"] == g), key=lambda x: -x["best"])
+            for i, x in enumerate(grp):
+                x["rank"], x["of"], x["top"] = i + 1, len(grp), grp[0]
+        c = [x for x in ps if x.get("rem") is not None and lo <= x["rem"] <= hi and x["best"] < med
+             and x.get("rank", 1) > _TC_SLOTS.get(x["grp"], 1)]
+        c.sort(key=lambda x: -x["best"])
+        out[t["abbr"]] = [{"id": x["id"], "n": x["n"], "lnk": x["lnk"], "g": x["grp"], "rank": x["rank"],
+                           "of": x["of"], "by": x["top"]["n"], "byW": round(x["top"]["best"], 1),
+                           "w": x["w"], "w1": x["w1"], "rem": x["rem"]} for x in c[:keep]]
+    return out
+
+
 def era_of(pid: int, season: int, level: str, runs: float, ip: float) -> float | None:
     """Official ERA where the Stats API line exists, else RA9 from runs while he pitched."""
     er = official_er(level).get((int(pid), int(season)))
@@ -5576,6 +5629,11 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                            for r in gg.sort_values(["pos", "name"]).itertuples()]
                 teams_out.append({"id": int(tid), "abbr": abbr, "n": len(players), "players": players})
             teams_out.sort(key=lambda t: t["abbr"])
+            war_f = out / "war_index.json"
+            if war_f.exists() and rem_score:
+                cand = trade_candidates(teams_out, json.loads(war_f.read_text())["seasons"], int(cur_date[:4]))
+                for t_ in teams_out:
+                    t_["trade"] = cand.get(t_["abbr"], [])
             jwrite(out / "rosters40" / "teams.json", {
                 "updated": cur_date,
                 "comment": "Current 40-man rosters (Stats API, date-honored query; pipeline/roster40_fetch.py). "

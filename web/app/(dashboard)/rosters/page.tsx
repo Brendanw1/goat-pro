@@ -3,6 +3,7 @@ import { getRosters40, getRostersMoves } from "@/lib/data";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
 import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
+import { Signed } from "@/components/ui/shared-ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "40-man rosters" };
@@ -99,6 +100,30 @@ export default async function RostersPage({ searchParams }: {
               {!mv.removes.length && <li className="text-text-dim">none</li>}
             </ul>
           </div>
+        </div>
+      ) : null}
+
+      {sel.trade?.length ? (
+        <div className="glass-panel p-4">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <TeamCrest team={sel.abbr} size={16} />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim"
+              title="Possible trade candidates (descriptive, not a forecast) · A transparent rule, not a model: the study of trades already made (§107) describes who gets moved but has no held-out signal to fit weights on · A player is listed when all three hold: his §105 removal score sits in the league's middle band (not core, not DFA fodder), his best own WAR of the last two seasons is below his club's median, and he sits behind the club's starter slots at his position (C/IF 1, OF 3, DH 1, SP 5, RP 7, depth by that WAR) · It cannot see contracts, options, no-trade clauses or a club's intent (contract data is not built) — it says who looks movable, not who will move">
+              Possible trade candidates ({sel.trade.length}) ⓘ
+            </span>
+          </div>
+          <p className="mb-2 text-[10px] text-text-dim">Blocked at his spot, below the club&apos;s median WAR, mid removal score. A descriptive rule, not a forecast; contracts, options and no-trade clauses are not seen.</p>
+          <ul className="space-y-1 text-xs">
+            {sel.trade.map((p: any) => (
+              <li key={p.id} className="flex flex-wrap items-baseline gap-x-2">
+                <span className="w-7 text-[10px] font-data text-text-dim">{p.g}</span>
+                {playerLink(p)}
+                <span className="text-[11px] text-text-dim">
+                  #{p.rank} of {p.of} {p.g} behind {p.by} ({p.byW.toFixed(1)}) · WAR <Signed v={p.w} dp={1} /> &apos;26, <Signed v={p.w1} dp={1} /> &apos;25 · removal {Math.round(100 * p.rem)}%
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 

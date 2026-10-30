@@ -38,6 +38,7 @@ tables below are the original plan and are kept as written.
 | **Prevention+ (per pitch type)** | confirmed as a forecast (sealed ΔR² +.06 to +.07 vs last RV, Whiff+ and xRV per pitch); shipped 2026-10-29: Prev+ column on the profile arsenal table (vs LHH / RHH in the tooltip) | §101 |
 | Velocity/steepness under-credit checks | not confirmed; models unchanged | §83, §84 |
 | **WAR** | shipped (r .92 / .81 vs bWAR, team wins r .91) | §85 |
+| Possible trade candidates (/rosters panel, D-47) | shipped 2026-10-30 as a **transparent rule, not a model** (§107 has no held-out signal to fit weights): §105 removal score in the league 50th–90th pct band + best-of-two-seasons own WAR below club median + behind the starter slots at his position; ≤8 per club; descriptive, no contracts/options/no-trade (D-44 not built) | §85, §105, §107 |
 | Pitch decay / buyback, usage optimizer, count policy, predictability | research only: decay confirmed, the rest no edge | §59–§63 |
 
 In progress (owner, 2026-10-29): MiLB → MLB translation (§88), role conversion
