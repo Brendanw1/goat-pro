@@ -21,7 +21,7 @@ import mart  # noqa: E402
 RES = Path(__file__).resolve().parent / "results"
 SEASONS = "2020, 2021, 2022, 2023, 2024, 2025, 2026"
 MIN_PAIR = 8
-SITE = {"FF": "FF", "SI": "SI", "FC": "CT", "SL": "SL", "SW": "SW", "ST": "SW", "SV": "SW",
+SITE = {"FF": "FF", "SI": "SI", "FC": "CT", "SL": "SL", "SW": "SW", "ST": "SW", "SV": "SL",  # web_export.SC_TO_SITE; EP -> OS (other)
         "CU": "CB", "KC": "CB", "CH": "CH", "FS": "FS", "FO": "FS", "EP": "OS"}
 
 

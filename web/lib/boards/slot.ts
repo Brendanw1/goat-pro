@@ -34,7 +34,7 @@ export const DIVB_SLOT_TIP =
 export const DHB_SLOT_TIP =
   "This pitch's horizontal break minus the same-band peer mean, inches, ARM-SIDE POSITIVE for both hands (+ = more arm-side run, − = more glove-side sweep). Same peers as ΔIVB. A style, not good or bad.";
 
-export const SLOT_PITCH_TYPES = ["FF", "SI", "FC", "SL", "SW", "CU", "KC", "CH", "FS"] as const;
+export const SLOT_PITCH_TYPES = ["FF", "SI", "CT", "SL", "SW", "CB", "CH", "FS"] as const; // site codes (arsenal/{code}.json)
 export const ARM_MIN = -90, ARM_MAX = 101;
 
 export const SLOT_COLS = [
