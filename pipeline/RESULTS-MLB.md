@@ -4046,6 +4046,18 @@ pipeline keeps org_rank/org_list_len), so the §104 family changes do not move i
 (`prospect_model.py` l.222). Its lifts (ΔAUC +.026, ΔSpearman +.059, sleepers +32 pp) are **not forward-valid** and are not
 cited. No re-run.
 
+**§104 amendment A (2026-10-30, recorded before any NPY dev, post-hoc or read score).** The first NUTS pitcher fit (val 2015, as
+specified) failed the validity bar: R̂ 6.45 on w_rank, ESS 2. *Diagnosis (modeling, our parameterisation, not data):* the rank,
+arrival and value terms read the uncentred θ_last, so w·θ_last also acts as an intercept. Pitcher HR skill sits near logit −3.7
+with little spread, so w_rank[HR] trades against the ordered-logit cut-points and the chains split into two modes (cut-points
+≈ +5…+7 vs −2…0). Dropping the GB skill does not fix it. Reading the skill as θ_last − μ fixes it on a 3,000-pitcher val-2015
+subsample (every global R̂ ≤ 1.008, 0 divergences; dropping GB alone: R̂ 5.0). *Change:* pitchers use θ_last − μ
+(`--center`). Hitters keep the frozen uncentred spec, because their fits pass (val 2015 R̂ 1.014, 2016 1.015, 0 divergences).
+If a 2017 or 2018 hitter fit fails the bar, hitters move to the centred spec too. Everything else is unchanged, including the
+validity bar and gates. The failed uncentred pitcher fit is kept as `prospect_104_npy_val2015_p_uncentred_failed.parquet` and is
+not scored. Runtime: the GPU fits use jax 0.4.38 / numpyro 0.16.1 (Thunder's virtual GPU breaks jax 0.12; see `GPU_RUN.md`), and
+the laptop fits used jax 0.12 / numpyro 0.22.
+
 ### §104 dev results (2026-10-29; `results/prospect_104_dev.json`; NPY pending the GPU run)
 Player-clustered bootstrap, 1,000 draws. Fixed splits, OOF Platt, full draft, health and org coverage fixes.
 

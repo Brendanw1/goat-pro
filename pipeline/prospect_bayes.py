@@ -168,7 +168,10 @@ def model(d, task="arr", sd_org_scale=0.02):
     ok = den > 0
     numpyro.factor("lines", jnp.sum(jnp.where(ok, dist.Binomial(jnp.where(ok, den, 1.0), logits=eta)
                                               .log_prob(jnp.where(ok, cnt, 0.0)), 0.0)))
-    th_last = theta[jnp.arange(P), jnp.asarray(d["last_t"])] * jnp.asarray(d["has"])[:, None]
+    th_last = theta[jnp.arange(P), jnp.asarray(d["last_t"])]
+    if d.get("center"):    # §104 amendment A: read skill as distance from mu, else w.theta doubles as an intercept (pitchers)
+        th_last = th_last - mu
+    th_last = th_last * jnp.asarray(d["has"])[:, None]
     w = jnp.asarray(d["w"])
     lvl, ar, st = jnp.asarray(d["lvl"]), jnp.asarray(d["age_rel"]), jnp.asarray(d["state"])
     wr = numpyro.sample("w_rank", dist.Normal(0, 1).expand([S]))
@@ -245,7 +248,7 @@ FIT_SECS = []                                  # wall seconds of each fit done i
 
 
 def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin=5, tree=10, subsample=0,
-             max_minutes=0, est_minutes=60, roles="hp"):
+             max_minutes=0, est_minutes=60, roles="hp", center=False):
     """One fold = a hitter fit and a pitcher fit. Each fit is saved as soon as it ends and skipped if its file exists
     (resumable after a kill or preemption). With max_minutes, a fit that would not finish in the budget is not started.
     Returns False when the budget stops the run."""
@@ -269,10 +272,11 @@ def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin
             E0 = pd.concat([E0[E0.train].sample(subsample, random_state=7),
                             E0[~E0.train].sample(min(subsample // 4, int((~E0.train).sum())), random_state=7)])
         d, E = prep(E0, lines(pit))
+        d["center"] = center
         te = ~d["train"]
         o = E.loc[te, ["id", "as_of", "tyear", "pitcher"]].copy()
         dg = {"pitcher": pit, "method": method, "entities": int(len(E)), "lines": int(len(d["e"])),
-              "T": int(d["dims"][1]), "mu0": np.round(d["mu0"], 3).tolist()}
+              "T": int(d["dims"][1]), "center": center, "mu0": np.round(d["mu0"], 3).tolist()}
         if method == "nuts":
             pr, nd = fit_nuts(d, task, warmup, samples, chains, thin, tree)
             dg.update(nd, warmup=warmup, samples=samples, chains=chains, thin=thin, tree=tree)
@@ -361,6 +365,7 @@ if __name__ == "__main__":
     ap.add_argument("--subsample", type=int, default=0)
     ap.add_argument("--max-minutes", type=float, default=0, help="stop before a fit that would not finish in time")
     ap.add_argument("--roles", default="hp", choices=["hp", "h", "p"], help="h hitters, p pitchers")
+    ap.add_argument("--center", action="store_true", help="§104 amendment A (pitchers): centred theta_last")
     ap.add_argument("--est-minutes", type=float, default=60, help="first-fit estimate until one fit has been timed")
     a = ap.parse_args()
     if a.prior_check:
@@ -370,7 +375,7 @@ if __name__ == "__main__":
         for f in a.folds or []:
             task, y = f.split(":")
             if not run_fold(S, task, int(y), a.method, a.warmup, a.samples, a.chains, a.thin, a.tree, a.subsample,
-                            a.max_minutes, a.est_minutes, a.roles):
+                            a.max_minutes, a.est_minutes, a.roles, a.center):
                 break
         if a.nuts:
             nuts_check(S)
