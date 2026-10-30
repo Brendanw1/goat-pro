@@ -19,6 +19,8 @@ until these constants are wired.
 import argparse
 import json
 import math
+
+import pandas as pd
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import NormalDist
@@ -164,6 +166,62 @@ def measure_side(con, metrics: dict, group_col: str) -> tuple[dict, dict]:
     return results, report
 
 
+def measure_decisions(con) -> tuple[dict, dict]:
+    """D-02 remainder: the decision half-signal, same method on the cached §69
+    per-pitch decision values (cache/decision_pitches.parquet: batter, season,
+    d MM-DD, drv batter-positive). The metric is a mean, not a rate, so each
+    half's value is the mean drv; everything else (median-date split, min 25
+    events per half, Fisher-z over 2023-25, Spearman-Brown, k on the mean
+    full-season count) matches measure_side exactly. No model refit: the values
+    are the cross-fit ones §69 sealed."""
+    dp = pd.read_parquet(ROOT / "cache" / "decision_pitches.parquet")
+    results, report = {}, {}
+    rs, ns, rs_hold = [], [], []
+    dens = []
+    for season in MEASURE_SEASONS + [HOLDOUT]:
+        cutoff = con.sql(
+            f"SELECT median(game_date) FROM pitches_all WHERE game_type = 'R' AND season = {season}"
+        ).fetchone()[0]
+        cut = str(cutoff)[5:10] if cutoff is not None else None  # MM-DD
+        sub = dp[dp["season"] == season]
+        halves = {}
+        for h in (1, 2):
+            g = sub if cut is None else (sub[sub["d"] <= cut] if h == 1 else sub[sub["d"] > cut])
+            halves[h] = g.groupby("batter")["drv"].agg(["mean", "count"])
+        j = halves[1].join(halves[2], how="inner", lsuffix="_1", rsuffix="_2")
+        j = j[(j["count_1"] >= MIN_HALF_DEN) & (j["count_2"] >= MIN_HALF_DEN)]
+        if len(j) < 60:
+            print(f"  decisions {season}: insufficient data ({len(j)})")
+            continue
+        r = pearson(j["mean_1"].tolist(), j["mean_2"].tolist())
+        if season in MEASURE_SEASONS:
+            rs.append(r)
+            ns.append(len(j))
+            full = sub.groupby("batter")["drv"].agg(["mean", "count"])
+            dens.extend(full[full["count"] >= 2 * MIN_HALF_DEN]["count"].tolist())
+        else:
+            rs_hold.append(r)
+        print(f"  decisions {season}: r {r:.3f} (n {len(j)})")
+    if not rs:
+        print("  decisions: insufficient data")
+        return results, report
+    z = [0.5 * math.log((1 + r) / (1 - r)) for r in rs]
+    w = list(ns)
+    zbar = sum(zi * wi for zi, wi in zip(z, w)) / sum(w)
+    r_half = (math.exp(2 * zbar) - 1) / (math.exp(2 * zbar) + 1)
+    r_full = 2 * r_half / (1 + r_half)
+    D = sum(dens) / len(dens)
+    k = round(D * (1 - r_full) / r_full) if r_full > 0 else None
+    results["drvPer100"] = k
+    r_hold = rs_hold[0] if rs_hold else None
+    r_full_hold = (2 * r_hold / (1 + r_hold)) if r_hold is not None and r_hold > 0 else None
+    report["drvPer100"] = {"r_half": round(r_half, 3), "r_full": round(r_full, 3), "D": round(D),
+                           "n_per_season": ns, "k": k,
+                           "holdout_2026_r_full": round(r_full_hold, 3) if r_full_hold else None}
+    print(f"  {'drvPer100':<22} r_half {r_half:.3f} -> r_full {r_full:.3f}  D {D:>6.0f}  k {k}")
+    return results, report
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "web" / "lib" / "measured-mlb.json"))
@@ -175,6 +233,8 @@ def main() -> None:
     p_results, p_report = measure_side(con, METRICS, "pitcher")
     print("batters:")
     h_results, h_report = measure_side(con, BATTER_METRICS, "batter")
+    print("decision values (D-02, from the §69 cache):")
+    d_results, d_report = measure_decisions(con)
 
     doc = {
         "measured": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -186,8 +246,10 @@ def main() -> None:
         "min_half_den": MIN_HALF_DEN,
         "DISCIPLINE_HALF_PITCHER_MLB": p_results,
         "DISCIPLINE_HALF_HITTER_MLB": h_results,
+        "DECISION_HALF_HITTER_MLB": d_results,
         "report_pitcher": p_report,
         "report_hitter": h_report,
+        "report_decision": d_report,
     }
     out = Path(args.out)
     out.write_text(json.dumps(doc, indent=2, sort_keys=True))

@@ -1,4 +1,7 @@
 {
+  "DECISION_HALF_HITTER_MLB": {
+    "drvPer100": 632
+  },
   "DISCIPLINE_HALF_HITTER_MLB": {
     "contactPct": 111,
     "firstPitchSwingPct": 66,
@@ -27,9 +30,23 @@
     "zWhiffPct": 207,
     "zonePct": 655
   },
-  "measured": "2026-10-27",
+  "measured": "2026-10-30",
   "method": "split-half at the season's median game_date, min 25 events per half per player; Pearson r across players, Fisher-z pooled over 2023-2025; Spearman-Brown to the full season; k = D(1-r_full)/r_full on the mean full-season denominator. 2026 held out as a stability check, not pooled.",
   "min_half_den": 25,
+  "report_decision": {
+    "drvPer100": {
+      "D": 1156,
+      "holdout_2026_r_full": 0.679,
+      "k": 632,
+      "n_per_season": [
+        476,
+        464,
+        464
+      ],
+      "r_full": 0.646,
+      "r_half": 0.478
+    }
+  },
   "report_hitter": {
     "contactPct": {
       "D": 581,

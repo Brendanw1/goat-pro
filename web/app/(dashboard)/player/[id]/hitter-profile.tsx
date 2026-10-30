@@ -81,17 +81,17 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
    * population (both baked), print the raw rate. Raw-vs-raw fallback.
    */
   const shrunkBp = (percentiles as any)?.shrunk_by_season?.[String(profile.season)] ?? null;
-  const hDiscRow = (key: string, label: string) => {
+  const hDiscRow = (key: string, label: string, fmt?: (v: number) => string) => {
     const twin = profile?.[`${key}Shrunk`];
     const useShrunk = typeof twin === "number" && shrunkBp?.[key];
     return statRow(
       "hitter", key, label,
       useShrunk ? twin : profile?.[key],
-      pct1,
+      fmt ?? pct1,
       useShrunk ? shrunkBp[key] : seasonBp?.[key],
       thinPa,
       useShrunk ? `${key}Shrunk` : key,
-      useShrunk ? (typeof profile?.[key] === "number" ? `${(profile[key] as number).toFixed(1)}%` : undefined) : undefined,
+      useShrunk ? (typeof profile?.[key] === "number" ? `${fmt ? fmt(profile[key]) : `${(profile[key] as number).toFixed(1)}%`}` : undefined) : undefined,
     );
   };
 
@@ -419,8 +419,8 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                   statRow("hitter", "attackAngle", "Attack angle", profile.attackAngle, pct1, seasonBp?.attackAngle),
                 ]} />
                 <PercentileGroup title={<>Swing decisions <span className="font-normal text-text-dim">· descriptive</span></>} rows={[
-                  statRow("hitter", "decisionPlus", "Decision+", profile.decisionPlus, (v) => v.toFixed(0), seasonBp?.decisionPlus, thinPa),
-                  statRow("hitter", "drvPer100", "Decision runs/100", profile.drvPer100, (v) => signedFixed(v, 2), seasonBp?.drvPer100, thinPa),
+                  hDiscRow("decisionPlus", "Decision+", (v) => v.toFixed(0)),
+                  hDiscRow("drvPer100", "Decision runs/100", (v) => signedFixed(v, 2)),
                   statRow("hitter", "izaPer100", "In-zone", profile.izaPer100, (v) => signedFixed(v, 2), seasonBp?.izaPer100, thinPa),
                   statRow("hitter", "ozaPer100", "Out-of-zone", profile.ozaPer100, (v) => signedFixed(v, 2), seasonBp?.ozaPer100, thinPa),
                 ]} />

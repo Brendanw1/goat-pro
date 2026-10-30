@@ -416,8 +416,9 @@ try:
     _MEASURED = json.loads((ROOT / "web" / "lib" / "measured-mlb.json").read_text())
     DISC_HALF: dict[str, int | None] = _MEASURED["DISCIPLINE_HALF_PITCHER_MLB"]
     DISC_HALF_HITTER: dict[str, int | None] = _MEASURED.get("DISCIPLINE_HALF_HITTER_MLB", {})
+    _DEC_HALF: dict[str, int | None] = _MEASURED.get("DECISION_HALF_HITTER_MLB", {})
 except (OSError, KeyError):
-    DISC_HALF, DISC_HALF_HITTER = {}, {}
+    DISC_HALF, DISC_HALF_HITTER, _DEC_HALF = {}, {}, {}
 
 
 def league_rates(season: int, totals) -> dict:
@@ -1938,6 +1939,15 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     f"stuffVs{h}Lo": f(pl.lo, 1), f"stuffVs{h}Hi": f(pl.hi, 1),
                     f"usageVs{h}": f(pl.usage, 1), f"nVs{h}": int(pl.n)})
         # D-11 pitch rank: where each type sits in the season's qualified league population
+        # D-03 remainder: per-pitch-type xRV (the §78 v2 fit) onto the arsenal rows —
+        # descriptive (§71: stable y2y but not a forecast), shown at 30+ pitches of the type.
+        _xrv_pt: dict = {}
+        if level == "mlb":
+            _xp = ROOT / "pipeline" / "results" / "xrv_v2_pitch_types.csv"
+            if _xp.exists():
+                for _xr in pd.read_csv(_xp).itertuples():
+                    if _xr.n >= 30:
+                        _xrv_pt[(int(_xr.mlbam), int(_xr.season), _xr.pitch_type)] = (_xr.xrv100, _xr.rv100)
         _ql = bytype[bytype["n"] >= SABR_FLOORS["row"]].copy()
         _ql["wq"] = 100 * _ql["whiff"] / _ql["swings"].where(_ql["swings"] > 0)
         _ql["vq"] = 100 * _ql["rv"] / _ql["n"]
@@ -2026,6 +2036,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                         "velo": _rk[(season, b["pitch_type"])]["velo"].get(pid),
                         "rv": _rk[(season, b["pitch_type"])]["rv"].get(pid)}) or None,
                     "pitchingPlus": f(pg, 1) if pg is not None else None,
+                    **({"xrv100": f(_v[0], 2), "xrvLuck": f(_v[1] - _v[0], 2)}
+                       if (_v := _xrv_pt.get((pid, season, site))) else {}),
                     # no per-type ABStuff+: train_mlb grades it per pitcher only (abs_grade)
                     **platoon.get((pid, season, site), {}),
                 })
@@ -2944,14 +2956,28 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         h_trend = trends(con, tuple(seasons), who="batter", level=level)
         from hitter_proj import projections  # §67 Marcel + measured ranges (D-36)
         h_proj = projections(level, con)
-        # §69 (D-02) swing decisions: descriptive, not a forecast (failed the gate, reliable); MLB only
+        # §69 (D-02) swing decisions: descriptive, not a forecast (failed the gate, reliable); MLB only.
+        # D-02 remainder: the sample-adjusted twins. k comes from measure_discipline_mlb.py's
+        # decision block (the repo's fixed half-signal method on the sealed cross-fit values);
+        # the twin pulls his season mean dRV/100 toward the season's ≥100-PA mean with k
+        # pseudo-decisions, and the Decision+ twin is the same value on the §69 season scale.
         dec_f = ROOT / "pipeline" / "results" / "decisions_hitters.csv"
         h_dec = {}
         if level == "mlb" and dec_f.exists():
-            for decr in pd.read_csv(dec_f).itertuples():
-                h_dec[(int(decr.mlbam), int(decr.season))] = {
-                    "drvPer100": f(decr.drv100, 2), "izaPer100": f(decr.iza, 2), "ozaPer100": f(decr.oza, 2),
-                    "decisionPlus": f(decr.decision_plus, 0) if pd.notna(decr.decision_plus) else None}
+            _dc = pd.read_csv(dec_f)
+            _k_dec = _DEC_HALF.get("drvPer100")
+            _sc = _dc[_dc["pa"] >= 100].groupby("season")["drv100"].agg(["mean", "std"])
+            for decr in _dc.itertuples():
+                row = {"drvPer100": f(decr.drv100, 2), "izaPer100": f(decr.iza, 2), "ozaPer100": f(decr.oza, 2),
+                       "decisionPlus": f(decr.decision_plus, 0) if pd.notna(decr.decision_plus) else None}
+                _mu = _sc["mean"].get(int(decr.season)) if _k_dec else None
+                _sd = _sc["std"].get(int(decr.season)) if _k_dec else None
+                if _mu is not None and not pd.isna(_mu):
+                    _sh = (decr.drv100 * decr.n + _k_dec * _mu) / (decr.n + _k_dec)
+                    row["drvPer100Shrunk"] = f(_sh, 2)
+                    if _sd is not None and not pd.isna(_sd) and _sd > 0:
+                        row["decisionPlusShrunk"] = f(100 + 10 * (_sh - _mu) / _sd, 0)
+                h_dec[(int(decr.mlbam), int(decr.season))] = row
         from savant_fielding import fielding  # D-16: Savant baserunning / fielding / catcher runs, descriptive
         h_fld = fielding(con, seasons) if level == "mlb" else {}
         spd_f = ROOT / "pipeline" / "results" / "speed_players.csv"  # D-39: Speed Score + Jump, descriptive
@@ -3387,7 +3413,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         for s in seasons:
             sub = hboard_df[hboard_df["season"] == s]
             pcts = {}
-            for key in H_DISC_SHRINK:
+            for key in [*H_DISC_SHRINK, "drvPer100", "decisionPlus"]:
                 p5 = pct5(sub[f"{key}Shrunk"]) if f"{key}Shrunk" in sub.columns else None
                 if p5:
                     pcts[key] = p5

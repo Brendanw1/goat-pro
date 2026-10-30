@@ -18,7 +18,7 @@ type Num = number | null;
 type File = {
   side: "P" | "H"; season: number; types: string[]; outcomes: string[]; zone: [number, number]; start: string;
   t: number[]; x: number[]; z: number[]; h: number[]; c: number[]; o: number[]; r: number[];
-  e: Num[]; w: Num[]; d: number[]; q?: number[]; lgc?: Record<string, [Num, Num]>; ba?: Num[]; sl?: Num[]; wp?: Num[]; pp?: Num[];
+  e: Num[]; w: Num[]; d: number[]; q?: number[]; lgc?: Record<string, [Num, Num]>; ba?: Num[]; sl?: Num[]; wp?: Num[]; pp?: Num[]; dv?: Num[];
 };
 
 const colorOf = (t: string) => PITCH_CONFIG[t as PitchType]?.color ?? "#8C9591";
@@ -39,7 +39,7 @@ type Metric = {
   of?: (f: File, i: number) => [number, number] | null;
   lo: number; hi: number; mid?: number; fmt: (v: number) => string;
   /** +1 when higher is better for a pitcher (flipped on hitter pages), 0 = no good/bad */
-  dir: number; pitcherOnly?: boolean;
+  dir: number; pitcherOnly?: boolean; hitterOnly?: boolean;
 };
 
 const pct = (v: number) => `${(100 * v).toFixed(0)}%`;
@@ -53,6 +53,9 @@ const METRICS: Metric[] = [
   { key: "xwobacon", label: "xwOBAcon", kind: "value", of: (f, i) => (f.w[i] === null ? null : [f.w[i]! / 1000, 1]), lo: 0.12, hi: 0.62, mid: 0.37, fmt: x3, dir: -1 },
   { key: "whiffPlus", label: "Whiff+", kind: "value", of: (f, i) => (f.wp?.[i] == null ? null : [f.wp[i]! / 10, 1]), lo: 70, hi: 130, mid: 100, fmt: (v) => v.toFixed(0), dir: 1, pitcherOnly: true },
   { key: "pitchingPlus", label: "Pitching+", kind: "value", of: (f, i) => (f.pp?.[i] == null ? null : [f.pp[i]! / 10, 1]), lo: 70, hi: 130, mid: 100, fmt: (v) => v.toFixed(0), dir: 1, pitcherOnly: true },
+  // D-02 replay: section-69's cross-fit decision value (E[chosen] - E[other]) per pitch,
+  // stored hitter-positive on hitter files; a take at the top of the zone prices highest.
+  { key: "dec", label: "Decision value", kind: "value", of: (f, i) => (f.dv?.[i] == null ? null : [f.dv[i]! / 1000, 1]), lo: -0.07, hi: 0.07, mid: 0, fmt: x3, dir: 1, hitterOnly: true },
 ];
 
 type Stops = [number, [number, number, number]][];
@@ -236,7 +239,8 @@ export function PitchExplorer({ id, season, side, level = "mlb" }: { id: string;
     return ix;
   }, [file, hand, cnt, out]);
 
-  const metrics = METRICS.filter((x) => !x.pitcherOnly || (file?.side === "P" && file.wp));
+  const metrics = METRICS.filter((x) => !x.pitcherOnly || (file?.side === "P" && file.wp))
+    .filter((x) => !x.hitterOnly || (file?.side === "H" && file.dv));
   const m = metrics.find((x) => x.key === mkey) ?? metrics[0];
   const good = (file?.side === "H" ? -m.dir : m.dir) || 1;
   const panels = useMemo(() => {

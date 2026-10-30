@@ -428,6 +428,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
             <div className="w-[100px] text-right text-usf-gold" title={STUFF_TIP}>Whiff+</div>
             {!compact && <div className="w-[84px] text-right" title={PITCHING_TIP}>Pitching+</div>}
             {!compact && <div className="w-[54px] text-right" title={RV100_TIP}>RV/100</div>}
+            {!compact && <div className="w-[54px] text-right" title="xRV/100 (D-03): expected run value per 100 pitches of this type, cross-fit model (§71/§78). Descriptive; 30+ pitches.">xRV/100</div>}
+            {!compact && <div className="w-[54px] text-right" title="RV − xRV on this type: results minus expectation, positive = beat it">RV−xRV</div>}
             {!compact && hasPlatoon && <div className="w-[76px] text-right" title={PLATOON_TIP}>vs LHH</div>}
             {!compact && hasPlatoon && <div className="w-[76px] text-right" title={PLATOON_TIP}>vs RHH</div>}
           </div>
@@ -489,6 +491,18 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                 {!compact && (
                   <div className="w-[54px] text-right text-xs font-data text-text-secondary" title={RV100_TIP}>
                     {typeof pitch.rv100 === "number" && Number.isFinite(pitch.rv100) ? signed2(pitch.rv100) : "—"}
+                  </div>
+                )}
+                {!compact && (
+                  <div className="w-[54px] text-right text-xs font-data text-text-secondary"
+                    title="xRV/100 (D-03): the cross-fit model's expected run value per 100 pitches of this type, from shape and location. Stable year to year but it did not forecast next season's run value (RESULTS-MLB §71), so it is descriptive. Needs 30+ pitches of the type.">
+                    {typeof pitch.xrv100 === "number" && Number.isFinite(pitch.xrv100) ? signed2(pitch.xrv100) : "—"}
+                  </div>
+                )}
+                {!compact && (
+                  <div className="w-[54px] text-right text-xs font-data text-text-secondary"
+                    title="RV − xRV on this type: what actually happened minus what the model expected, positive = his results beat the pitches (small samples are noise).">
+                    {typeof pitch.xrvLuck === "number" && Number.isFinite(pitch.xrvLuck) ? signed2(pitch.xrvLuck) : "—"}
                   </div>
                 )}
                 {!compact && hasPlatoon && (["LHH", "RHH"] as const).map((h) => <PlatoonCell key={h} pitch={pitch} h={h} />)}
