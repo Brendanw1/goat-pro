@@ -18,7 +18,6 @@ const NAV_ITEMS = [
   { href: "/matchup", label: "Matchup" },
   { href: "/arsenal", label: "Arsenal" },
   { href: "/defense", label: "Defense" },
-  { href: "/hoops", label: "Hoops" },
   { href: "/research", label: "Research" },
   { href: "/glossary", label: "Glossary" },
   // past the fade: scroll the strip to reach these
@@ -31,6 +30,10 @@ const NAV_ITEMS = [
   { href: "/abs", label: "ABS" },
   { href: "/scouting/savant", label: "Savant boards" },
 ] as const;
+
+/** The hoops sibling's origin (goat-hoops). NEXT_PUBLIC_ is inlined at build;
+    prod is the subdomain, dev crosses ports (the hoops app mirrors this). */
+const HOOPS_URL = process.env.NEXT_PUBLIC_HOOPS_URL ?? "https://hoops.goatpro.dev";
 
 /* Baseball seams for the badge, traced from the owner's reference (pngtree
    "3D baseball on transparent background"): the front-on view, one seam
@@ -155,8 +158,14 @@ export function Nav() {
         })}
       </div>
 
-      {/* Right side — search */}
-      <div className="ml-auto flex shrink-0 items-center">
+      {/* Right side — the sport switcher (leaves this app for the hoops
+          sibling origin; env-driven so dev crosses ports) + search */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <a href={HOOPS_URL}
+          className="whitespace-nowrap px-2.5 py-1.5 rounded-full text-[12px] font-semibold text-text-primary/70 border border-border-subtle hover:text-white hover:bg-black/25 transition-colors"
+          title="Switch to the basketball site">
+          🏀 Hoops
+        </a>
         <Search />
       </div>
 

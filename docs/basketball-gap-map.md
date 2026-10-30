@@ -1,3 +1,8 @@
+> **Moved 2026-10-29:** the basketball program lives in its own repo now —
+> `~/Projects/goat-hoops` (surfaces + bake) beside `~/Projects/vt_baseball/hoops_mart`
+> (feed + mart + LUMA gate). This file stays as the source investigation record.
+> The former `docs/hoops-spec.md` and `docs/basketball-site-plan.md` moved with it.
+
 # Basketball gap map (2026-10-30, day 1)
 
 The NBA counterpart of `savant-gap-map.md`: what's reachable, what it carries, what's
