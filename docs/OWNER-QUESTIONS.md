@@ -4,6 +4,19 @@ The three lanes are complete: every queued deliverable is shipped or carries a r
 verdict (RESULTS-MLB §104–§107 this week alone: two negatives, three shipped surfaces).
 These are the decisions only you can make, in priority order.
 
+## 1. Contracts display (gates D-44's surface + all of D-46) — **UPDATED 2026-10-30, likely resolved**
+
+**balldontlie.io** (found via the basketball gap map) carries an NBA API with
+`contracts/players` + `contracts/teams` endpoints and — decisive — **terms §6 grants
+explicit permission to copy, store, publish, display and distribute** lawfully retrieved
+data. Free key (5 req/min) to register; contracts are a small dataset, so the free tier
+likely suffices. If live probing confirms coverage and the tier, D-44/D-46 build on
+balldontlie and the (a)/(b) choice below dissolves — Cot's/Spotrac stay as private
+accuracy references regardless. Your action: register at balldontlie.io and put the key
+in the KB `.env` as `BDL_KEY`.
+
+<details>The original question, for the record:</details>
+
 ## 1. Contracts display (gates D-44's surface + all of D-46)
 
 Cot's/Spotrac publish no republication license. Pick one:
