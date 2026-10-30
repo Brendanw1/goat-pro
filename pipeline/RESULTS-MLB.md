@@ -4170,3 +4170,30 @@ uses strictly more information. The univariate-vs-vector comparison was listed r
 no configuration of the state-space was going to cross the gate. **D-43 recorded, not shipped; the projections page
 keeps the §52/§50 grades and the D-36/§67 bands.** A future revisit would need new information the grades don't
 already see (per-outing sequences, role changes), not a different smoother over the same six numbers.
+
+## §105 What predicts a 40-man removal at the tender deadline (D-47 research), pre-registered 2026-10-30 before any read
+
+**Population and labels.** Every player on any club's 40-man at a tender-date snapshot (Nov 22 of tender years
+2020–2024: five cycles 2020–2024, with 2025 held out as the not-read confirmation set). **Label:** absent from
+*every* club's 40-man by the following Feb 20 (non-tender, DFA → outright, released) = removed; moved to another
+club's 40-man = traded (labelled separately, not pooled).
+
+**Features (frozen; the honest limits first).** The roster payload carries no options and no service class — the
+two strongest real-world predictors — so the study says what it can see: the ending season's workload and production
+(IP/BF, K%, RV/100 for arms; PA, K%, BB%, wOBA-scale for bats, ≥ 10 IP / ≥ 40 PA), age (June 30 convention), role,
+60-day-IL flag at the snapshot, and seasons-on-40-man **among our snapshots** (a floor, not true service time;
+cycles before 2020 have no snapshot). Features come from `pitches_all` aggregates joined at (id, ending season).
+
+**Model.** Gradient boosting (small trees), 5-fold cross-fit grouped by player, one model pooled over the five
+cycles; removal probability per player-season.
+
+**Reported, not gated (descriptive study — no gate):** cross-fit AUC; calibration by decile; the top features;
+the removed-vs-traded split; per-cycle rates (the 2022 lockout cycle flagged); what the score misses (expected:
+recently-traded-for players, top prospects optioned and returned).
+
+**Confirmation set.** The 2025 tender cycle (Nov 2025 → Feb 2026) is scored once, after the study is written, and
+reported as held-out AUC. This November's (2026) snapshots extend the population when they land.
+
+**Shipping.** A descriptive read ships on `/rosters` as a context column (removal score beside the name, labelled)
+only if held-out AUC ≥ .70 — below that it is a research note only, because a removal score weaker than that would
+decorate the tracker without informing it.
