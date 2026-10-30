@@ -152,6 +152,11 @@ export function Nav() {
       <div className="ml-auto flex shrink-0 items-center">
         <Search />
       </div>
+
+      {/* Pearl rail under the header: hangs off the sticky nav so it scrolls with it; a soft drop shadow lifts the bar */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-full h-[7px]
+        bg-[linear-gradient(180deg,#fffdf8_0%,#f7f2e7_45%,#ece5d6_100%)]
+        shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_6px_-2px_rgba(15,23,42,0.28)]" />
     </nav>
   );
 }
