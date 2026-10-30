@@ -79,6 +79,35 @@ public endpoints, same treatment as nba.com — low rate, honest UA, receipts.
    deliberately defeating a bot block is against the house etiquette — needs an owner
    call before any use.
 
+### balldontlie.io — verified spec 2026-10-30 (owner to register the key)
+
+The OpenAPI spec (`balldontlie.io/openapi/nba.yml`, v1.0.0, ApiKeyAuth — free
+registration) carries endpoints that overlap our gaps **and** a clean license:
+
+- `/nba/v1/plays` — play-by-play per game (chronological, clock + score + team).
+- `/nba/v2/stats/advanced` — per-player advanced incl. **player tracking (speed,
+  distance, touches)**, hustle stats, defensive matchups, usage. The tracking gap.
+- `/nba/v1/lineups` — starters/bench per game, 2025 season on.
+- `/nba/v1/box_scores` (+ live), `stats`, `season_averages`, `standings`, `leaders`,
+  `player_injuries`, `teams/players`.
+- **`/nba/v1/contracts/players` / `contracts/teams` / `contracts/players/aggregate`**
+  — contract data. **Their terms §6 ("Permitted Use of Data; No Approval Required")
+  explicitly allows copying, storing, publishing, displaying and distributing** lawfully
+  retrieved data — the clean license Cot's/Spotrac lack, which unblocks the D-44/D-46
+  display question via this source.
+- Paid tiers (GOAT/ALL-ACCESS): `shot_charts` (x/y per FGA — we have ESPN's free
+  coordinates anyway), team season averages, odds, DFS.
+
+Tiers: Free 5 req/min · Extended 60 · Full 600 · GOAT 600 (the pricing page's
+endpoint-tier mapping needs the dashboard to verify which tier carries contracts and
+v2 advanced). Owner action: register (free) and put the key in the KB `.env` as
+`BDL_KEY`; the mart then probes payloads and rate ceilings live.
+
+Also assessed: `swar/nba_api` — a wrapper over the same stats.nba.com/cdn.nba.com
+endpoints the gap map already recorded as blocked from this network. Useful as
+endpoint/parameter reference code when the block is solved; it does not change
+reachability.
+
 ## The mart plan (mirroring savant_mart)
 
 `hoops` mart beside `savant_mart`: `ingest_daily` (LUMA pulls: box scores via `sql`,
