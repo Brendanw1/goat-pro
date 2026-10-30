@@ -4042,3 +4042,34 @@ pipeline keeps org_rank/org_list_len), so the §103 family changes do not move i
 **§97 v0.** Its leave-one-list-year-out split trained on future list years and removed test players
 (`prospect_model.py` l.222). Its lifts (ΔAUC +.026, ΔSpearman +.059, sleepers +32 pp) are **not forward-valid** and are not
 cited. No re-run.
+
+## §103 Stuff v4: swing-conditional run-value target (D-42), pre-registered 2026-10-29 before any read
+
+**Why.** v3 Whiff+ (§34) targets binary whiff on swings with location+count partialled out. Fouls are a real swing
+outcome and contact quality carries run value the binary target throws away. The Pitch Profiler V12 note proposes
+valuing each swing outcome at its run constant. The harness scaffold exists (`crossfit_v2.add_targets` line 97,
+`swing_xrv`, written 2026-10-26, never run or read).
+
+**The change.** One thing differs from §34's shipped run: the training target. `swing_xrv` = whiff at its TRAIN mean
+run value, foul at its TRAIN mean, balls in play at the TRAIN per-pitch xwOBA→rv line (HRs priced inside xwOBA), NaN
+on takes. Then the identical §34 machine: double ML (location + count partialled out of the target and every shape
+input, per class, TRAIN-fit nuisances), same 13 shape features, same pitcher-fold cross-fit (K folds by crc32), same
+§82 hand-matched grade scaling path. Run: `crossfit_v2.py --target swing_xrv_dml --name swing_xrv_dml`.
+The TRAIN constants print at run time and are recorded, not gated (they are descriptive league means, not results).
+
+**Judged (read once).** `judge.py` (GOAT_LO=2020, --skip 2023, 2000 pitcher-bootstrap draws, seed 13),
+A = the shipped hand-matched v3 grades (`crossfit_v2_s4_bb_grades.csv`), B = `crossfit_v2_swing_xrv_dml_grades.csv`:
+- **next-season K%: Δr ≥ 0 in ≥ 2 of 3 pairs, none of the three CIs negative;**
+- **next-season RV/100: the same clauses;**
+- composite Δr ≥ 0;
+- YoY of the new grade ≥ v3's − .02 (from the run's own gates output);
+- leak z ≤ .15 and location_leak_x ≤ .134 (the §34/§29 gates).
+**Reported, not judged:** CSW% Δr (expected negative — a swing-conditional target gives called strikes up by design,
+§34); fit by season; the standard-v2 (non-cross-fit) row.
+
+**Shipping rule.** Pass → the grade becomes Stuff v4 for the wire (p7_export swap + rebake + glossary, a separate
+commit); fail → recorded with the diagnosis (data / handling / modeling) and v3 stays. No silent target edits.
+
+**Expected.** Marginal. The binary whiff target is already the K% champion (§30/§34); fouls are nearly pitcher-neutral
+in run value and the xwOBA line re-imports some contact noise the binary target avoided. The plausible win is RV/100
+fouls-that-set-up-putaways, which whiff misses entirely; the plausible loss is stickiness (YoY) from contact noise.
