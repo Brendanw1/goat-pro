@@ -15,7 +15,13 @@ export const metadata = { title: "40-man rosters" };
  * payload carries name / position / status only: options remaining, service class
  * and acquisition source are needs-source and are flagged, not faked. The
  * decision-date diffs (protection, tender) arrive when this year's snapshots do.
+ * D-44 v1 adds UNOFFICIAL service / control estimates (pipeline/service_time.py,
+ * docs/service-time-method.md) from Stats API transactions — not contract data.
  */
+
+const SPOTRAC = "https://www.spotrac.com/mlb/";
+const COTS = "https://legacy.baseballprospectus.com/compensation/cots/";
+const EST_TIP = "Unofficial estimates from MLB Stats API transactions; not contract data. Service = days on the active roster or injured list (172 = 1 year), seeded from each opening-day 40-man and walked through the season's transactions. Status: pre-arb / arb-1..3 / arb-4+ / 6+, S2 = estimated Super Two. Control thru = the last season before 6.000 if he spends every day up from here; extensions and contracts override it. ~ = uncertain (contradictory transaction walk or within 15 days of a boundary). Salaries, options and no-trade clauses: see Spotrac / Cot's.";
 
 export default async function RostersPage({ searchParams }: {
   searchParams?: Promise<{ team?: string }>;
@@ -53,7 +59,8 @@ export default async function RostersPage({ searchParams }: {
             with the movement since spring reporting ({moves?.since ?? "—"}). Status rides the API&apos;s roster
             field (60-day IL and restricted show beside the name). <span className="text-text-secondary">Not on the
             card yet: options remaining, service class and acquisition source — the roster payload doesn&apos;t
-            carry them, and the sources that do carry terms.</span>
+            carry them, and the sources that do carry terms. Service and control-through columns are our own
+            unofficial estimates from MLB transactions (hover for the method).</span>
           </p>
         </div>
         <form method="get" className="flex items-center gap-2">
@@ -120,6 +127,7 @@ export default async function RostersPage({ searchParams }: {
                 {playerLink(p)}
                 <span className="text-[11px] text-text-dim">
                   #{p.rank} of {p.of} {p.g} behind {p.by} ({p.byW.toFixed(1)}) · WAR <Signed v={p.w} dp={1} /> &apos;26, <Signed v={p.w1} dp={1} /> &apos;25 · removal {Math.round(100 * p.rem)}%
+                  {p.svc ? <span title={EST_TIP}> · service {p.svc} est.{p.ctl ? `, control thru ${p.ctl} (est.)` : ", control set by contract"}</span> : null}
                 </span>
               </li>
             ))}
@@ -132,22 +140,36 @@ export default async function RostersPage({ searchParams }: {
           <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">{sel.abbr} 40-man ({sel.n})</span>
           <span className="text-[10px] text-text-dim">the % is the §105 removal score — the modelled chance he is off a 40-man by spring if this were the tender deadline (descriptive)</span>
         </div>
-        <div className="grid gap-x-6 gap-y-0.5 p-3 sm:grid-cols-2 lg:grid-cols-3">
-          {sel.players.map((p: any) => (
-            <div key={p.id} className="flex items-baseline gap-2 text-xs" style={{ minHeight: "24px" }}>
-              <span className="w-7 text-[10px] font-data text-text-dim">{p.p}</span>
-              <span className="flex-1">
-                {playerLink(p)}
-                {p.s ? statusChip(p.s) : null}
-              </span>
-              {p.rem != null ? (
-                <span className="font-data text-[10px] text-text-dim"
-                  title="Removal score (§105, descriptive): the modelled probability this player is off a 40-man by spring if this were the tender deadline — a cross-fit model over five cycles (held-out AUC .805), which sees age, tenure, workload, K% and run value. It cannot see options or service class.">
-                  {Math.round(100 * p.rem)}%
-                </span>
-              ) : null}
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-text-dim">
+                <th className="px-3 py-1.5 font-semibold">Pos</th>
+                <th className="px-3 py-1.5 font-semibold">Player</th>
+                <th className="px-3 py-1.5 font-semibold" title={EST_TIP}>Service (est.) ⓘ</th>
+                <th className="px-3 py-1.5 font-semibold" title={EST_TIP}>Control thru (est.) ⓘ</th>
+                <th className="px-3 py-1.5 font-semibold text-right">Removal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sel.players.map((p: any) => (
+                <tr key={p.id} className="border-t border-border-subtle/50">
+                  <td className="px-3 py-1 text-[10px] font-data text-text-dim">{p.p}</td>
+                  <td className="px-3 py-1">{playerLink(p)}{p.s ? statusChip(p.s) : null}</td>
+                  <td className="px-3 py-1 font-data text-text-secondary" title={EST_TIP}>
+                    {p.svc ? <>{p.unc ? "~" : ""}{p.svc} <span className="text-[10px] text-text-dim">{p.st}{p.s2 ? " · S2" : ""}</span></> : <span className="text-text-dim">pre-MLB</span>}
+                  </td>
+                  <td className="px-3 py-1 font-data text-text-secondary" title={EST_TIP}>
+                    {p.ctl ? <>{p.unc ? "~" : ""}{p.ctl}</> : p.st === "6+" ? <span className="text-[10px] text-text-dim">contract</span> : <span className="text-text-dim">—</span>}
+                  </td>
+                  <td className="px-3 py-1 text-right font-data text-[10px] text-text-dim"
+                    title="Removal score (§105, descriptive): the modelled probability this player is off a 40-man by spring if this were the tender deadline — a cross-fit model over five cycles (held-out AUC .805), which sees age, tenure, workload, K% and run value. It cannot see options or service class.">
+                    {p.rem != null ? `${Math.round(100 * p.rem)}%` : ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -155,6 +177,15 @@ export default async function RostersPage({ searchParams }: {
         Snapshot {board.updated} · movement window {moves?.since ?? "—"} → {board.updated}. The research layer — what
         predicts a 40-man removal at the tender deadline, and what happens to fringe players after a trade — is
         pre-registered separately and needs this year&apos;s protection and tender snapshots (due in November).
+      </p>
+      <p className="text-[10px] leading-relaxed text-text-dim max-w-[100ch]">
+        Service and control: unofficial estimates from MLB Stats API transactions; not contract data. Salaries, options
+        and no-trade clauses: see <a href={SPOTRAC} target="_blank" rel="noopener noreferrer" className="underline">Spotrac</a> / <a
+        href={COTS} target="_blank" rel="noopener noreferrer" className="underline">Cot&apos;s</a>. Method and error sources:
+        docs/service-time-method.md. Roster and transaction data: Copyright {board.updated.slice(0, 4)} MLB Advanced
+        Media, L.P. Use of any content on this page acknowledges agreement to the terms posted at <a
+        href="http://gdx.mlb.com/components/copyright.txt" target="_blank" rel="noopener noreferrer"
+        className="underline">gdx.mlb.com/components/copyright.txt</a>.
       </p>
     </div>
   );

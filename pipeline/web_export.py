@@ -594,13 +594,15 @@ _TC_POS = {2: "C", 3: "1B", 4: "2B", 5: "3B", 6: "SS", 7: "OF", 8: "OF", 9: "OF"
 _TC_SLOTS = {"C": 1, "1B": 1, "2B": 1, "3B": 1, "SS": 1, "OF": 3, "DH": 1, "SP": 5, "RP": 7}
 
 
-def trade_candidates(teams: list, war_seasons: dict, season: int, keep: int = 8) -> dict:
+def trade_candidates(teams: list, war_seasons: dict, season: int, keep: int = 8, prospects: frozenset = frozenset()) -> dict:
     """D-47 "possible trade candidates": a transparent rule, not a model (§107 is descriptive, with no
     held-out signal to fit weights on). A 40-man player qualifies when all three hold:
       1. §105 removal score in the league's middle band (50th-90th pct): not core, not DFA fodder;
       2. best §85 WAR of the last two seasons below his club's median (best-of-two keeps an injured star out);
       3. buried: below the club's starter slots at his group (C/IF 1, OF 3, DH 1, SP 5, RP 7), depth by that WAR.
-    Needs MLB time in the two seasons. Ranked by best WAR (the most useful of the blocked fringe first)."""
+    Needs MLB time in the two seasons. Ranked by best WAR (the most useful of the blocked fringe first).
+    `prospects` (ids on a Pipeline top-100 or org top-10 list this year or last) never qualify: depth is
+    ordered by WAR, so a top prospect with a short MLB stint (Colt Emerson, Lazaro Montes) read "blocked"."""
     lines: dict = {}
     for s in (season - 1, season):
         for k in ("hitters", "pitchers"):
@@ -634,12 +636,12 @@ def trade_candidates(teams: list, war_seasons: dict, season: int, keep: int = 8)
             grp = sorted((x for x in ps if x["grp"] == g), key=lambda x: -x["best"])
             for i, x in enumerate(grp):
                 x["rank"], x["of"], x["top"] = i + 1, len(grp), grp[0]
-        c = [x for x in ps if x.get("rem") is not None and lo <= x["rem"] <= hi and x["best"] < med
+        c = [x for x in ps if x.get("rem") is not None and lo <= x["rem"] <= hi and x["best"] < med and x["id"] not in prospects
              and x.get("rank", 1) > _TC_SLOTS.get(x["grp"], 1)]
         c.sort(key=lambda x: -x["best"])
         out[t["abbr"]] = [{"id": x["id"], "n": x["n"], "lnk": x["lnk"], "g": x["grp"], "rank": x["rank"],
                            "of": x["of"], "by": x["top"]["n"], "byW": round(x["top"]["best"], 1),
-                           "w": x["w"], "w1": x["w1"], "rem": x["rem"]} for x in c[:keep]]
+                           "w": x["w"], "w1": x["w1"], "rem": x["rem"], "ctl": x.get("ctl"), "svc": x.get("svc")} for x in c[:keep]]
     return out
 
 
@@ -5616,6 +5618,16 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             rem_f = ROOT / "cache" / "removal_model_scored.parquet"
             rem_score = (pd.read_parquet(rem_f).set_index("id")["p_removed"].to_dict()
                          if rem_f.exists() else {})
+            # D-44 v1: unofficial service / control estimate (pipeline/service_time.py, Stats API
+            # transactions + opening-day seeds). Not contract data; "unc" marks estimates too close
+            # to a boundary or with contradictory transaction walks.
+            svc_f = ROOT / "data" / "service" / "service_est.parquet"
+            svc_of = ({int(r.id): r for r in pd.read_parquet(svc_f).itertuples()} if svc_f.exists() else {})
+            svc_cols = lambda pid: ({} if pid not in svc_of else {
+                "svc": svc_of[pid].service, "st": svc_of[pid].status,
+                "ctl": None if pd.isna(svc_of[pid].control_thru) else int(svc_of[pid].control_thru),
+                "s2": bool(svc_of[pid].super2) or None, "unc": bool(svc_of[pid].uncertain) or None,
+                "opt": int(svc_of[pid].opt_years)})
             teams_out = []
             for tid, gg in cur.groupby("team_id"):
                 abbr = abbr_of.get(int(tid))
@@ -5625,20 +5637,27 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                             "p": r.pos,
                             "s": None if r.status_desc == "Active" else r.status_desc,
                             "rem": round(float(rem_score[int(r.id)]), 3) if int(r.id) in rem_score else None,
-                            "lnk": str(int(r.id)) in pidx}
+                            "lnk": str(int(r.id)) in pidx, **svc_cols(int(r.id))}
                            for r in gg.sort_values(["pos", "name"]).itertuples()]
                 teams_out.append({"id": int(tid), "abbr": abbr, "n": len(players), "players": players})
             teams_out.sort(key=lambda t: t["abbr"])
             war_f = out / "war_index.json"
             if war_f.exists() and rem_score:
-                cand = trade_candidates(teams_out, json.loads(war_f.read_text())["seasons"], int(cur_date[:4]))
+                yr = int(cur_date[:4])
+                pl_ = json.loads((ROOT / "data" / "milb" / "prospects.json").read_text())
+                listed = frozenset(str(r_["id"]) for y_ in (str(yr - 1), str(yr)) for k_, v_ in pl_.get(y_, {}).items()
+                                   if k_ == "top100" or k_.startswith("team:") for r_ in v_
+                                   if k_ == "top100" or (r_.get("rank") or 99) <= 10)
+                cand = trade_candidates(teams_out, json.loads(war_f.read_text())["seasons"], yr, prospects=listed)
                 for t_ in teams_out:
                     t_["trade"] = cand.get(t_["abbr"], [])
             jwrite(out / "rosters40" / "teams.json", {
                 "updated": cur_date,
                 "comment": "Current 40-man rosters (Stats API, date-honored query; pipeline/roster40_fetch.py). "
                            "Status rides the API's roster status (Active / 60-day IL / restricted). "
-                           "Options remaining and service class are not in the payload.",
+                           "Options remaining and service class are not in the payload; svc/st/ctl/opt are "
+                           "UNOFFICIAL estimates from Stats API transactions (pipeline/service_time.py, "
+                           "docs/service-time-method.md), not contract data.",
                 "teams": teams_out,
             }, sort_keys=True)
             # offseason movement: today vs the last spring-reporting snapshot
