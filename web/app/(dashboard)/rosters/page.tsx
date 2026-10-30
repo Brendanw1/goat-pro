@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getRosters40, getRostersMoves } from "@/lib/data";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
+import { logoUrl } from "@/lib/team-pixel";
+import { TeamTheme } from "@/components/ui/team-theme";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "40-man rosters" };
@@ -24,6 +26,7 @@ export default async function RostersPage({ searchParams }: {
   }
   const sel = board.teams.find((t: any) => t.abbr === team) ?? board.teams.find((t: any) => t.abbr === "LAD") ?? board.teams[0];
   const mv = moves?.teams?.find((t: any) => t.abbr === sel.abbr) ?? null;
+  const crest = logoUrl(sel.abbr);
   const chip = "rounded-md border border-border-subtle px-2 py-1 text-[11px] text-text-secondary";
   const statusChip = (s: string) => (
     <span className="ml-1.5 rounded border border-usf-gold/40 px-1 py-px text-[9px] uppercase tracking-wide text-usf-gold">{s}</span>
@@ -34,9 +37,16 @@ export default async function RostersPage({ searchParams }: {
 
   return (
     <div className="space-y-4">
+      <TeamTheme team={sel.abbr} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-text-primary">40-man rosters</h1>
+          <div className="flex items-center gap-3">
+            {crest ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={crest} alt="" width={34} height={34} className="rounded" />
+            ) : null}
+            <h1 className="text-lg font-semibold text-text-primary">{sel.abbr} 40-man roster</h1>
+          </div>
           <p className="text-xs text-text-dim max-w-[90ch]">
             Each club&apos;s current 40-man as of {board.updated}, from MLB&apos;s date-honored roster endpoint,
             with the movement since spring reporting ({moves?.since ?? "—"}). Status rides the API&apos;s roster

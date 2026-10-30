@@ -30,7 +30,7 @@ import { baseCode, type PitchType, MovementPoint, ReleasePoint } from "@/types";
 import { DescriptiveChip, DESCRIPTIVE_LINE, PITCHING_TIP, K_TIP, PREVENTION_TIP, CONTROL_TIP, STUFF_TIP, gradeColor, confidenceBadge } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { logoUrl, teamPixels } from "@/lib/team-pixel";
-import { signedFixed, PctChip, TeamLine, TeamSplitsDetails } from "@/components/ui/shared-ui";
+import { signedFixed, Signed, PctChip, TeamLine, TeamSplitsDetails } from "@/components/ui/shared-ui";
 import { PitchRvCard } from "@/components/ui/pitch-rv-card";
 import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { FatigueTab } from "@/components/ui/fatigue-tab";
@@ -708,10 +708,12 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                   <div key={i} className="flex items-center gap-3">
                     <span className="w-24 text-text-primary">{s.from} → {s.to}</span>
                     <span className="w-14 text-right text-text-secondary">{s.p.toFixed(1)}%</span>
-                    <span className="w-40 text-text-dim">{s.n}× after {s.from}{s.lgP != null ? ` · league ${s.lgP.toFixed(1)}%` : ""}</span>
-                    <span className={`text-[10px] ${s.p >= (s.lgP ?? 0) ? "text-usf-green" : "text-text-dim"}`}>
-                      {s.lgP != null ? (s.p >= s.lgP ? `+${(s.p - s.lgP).toFixed(1)} vs league` : `${(s.p - s.lgP).toFixed(1)} vs league`) : ""}
-                    </span>
+                    <span className="w-40 text-[9.5px] text-text-dim/70">{s.n}× after {s.from}{s.lgP != null ? ` · league ${s.lgP.toFixed(1)}%` : ""}</span>
+                    {s.lgP != null && (
+                      <span className="text-[10px]">
+                        <Signed v={s.p - s.lgP} dp={1} /><span className="text-text-dim"> vs league</span>
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -728,7 +730,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                 <div className="flex items-center px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-dim border-b border-border-subtle">
                   <div className="w-[52px]">Count</div>
                   <div className="w-[64px] text-right">P</div>
-                  <div className="w-[190px]">His mix</div>
+                  <div className="w-[190px] pl-3">His mix</div>
                   <div className="w-[120px] text-right">CSW% · lg</div>
                   <div className="w-[120px] text-right">RV/100 · lg</div>
                 </div>
@@ -742,14 +744,15 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                       <div key={c.count} className={`flex items-center px-2 border-b border-white/[0.025] ${thin ? "opacity-55" : ""}`} style={{ height: "30px" }}
                         title={thin ? `${c.n} pitches in this count — a lean, not a rate` : undefined}>
                         <div className="w-[52px] text-xs font-medium text-text-primary">{c.count}</div>
-                        <div className="w-[64px] text-right text-xs font-data text-text-dim">{c.n.toLocaleString("en-US")}</div>
-                        <div className="w-[190px] text-xs font-data text-text-secondary">{c.mix}</div>
+                        <div className="w-[64px] text-right text-[9.5px] font-data text-text-dim/70">{c.n.toLocaleString("en-US")}</div>
+                        <div className="w-[190px] pl-3 text-xs font-data text-text-secondary">{c.mix}</div>
                         <div className="w-[120px] text-right text-xs font-data">
                           <span className="text-text-secondary">{c.cswPct ?? "—"}</span>
                           <span className="text-text-dim"> · {lg?.cswPct ?? "—"}</span>
                         </div>
                         <div className="w-[120px] text-right text-xs font-data">
-                          <span className={typeof c.rv100 === "number" ? (c.rv100 >= 0 ? "text-usf-green" : "text-[#e0654f]") : "text-text-secondary"}>{c.rv100 ?? "—"}</span>
+                          {/* pitcher-positive (runs saved), so higher is good for him */}
+                          <Signed v={c.rv100} dp={2} />
                           <span className="text-text-dim"> · {lg?.rv100 ?? "—"}</span>
                         </div>
                       </div>
