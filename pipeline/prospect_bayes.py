@@ -231,16 +231,25 @@ def fit_nuts(d, task, warmup, samples, chains, thin, tree, seed=99):
               num_chains=chains, thinning=thin, chain_method="vectorized", progress_bar=False)
     mc.run(jax.random.PRNGKey(seed), d, task, extra_fields=("diverging", "num_steps"))
     smp = mc.get_samples(group_by_chain=True)
-    sm = summary({k: smp[k] for k in GLOBALS})
+    glob = {k: np.asarray(smp[k]) for k in GLOBALS}
+    sm = summary(glob)
     ex = mc.get_extra_fields()
+
+    def r(x, nd=4):          # NaN-safe: a NaN R-hat/ESS is recorded as None (a validity fail), never a crash
+        x = float(x)
+        return None if not np.isfinite(x) else round(x, nd) if nd else round(x)
+    rh = {k: np.asarray(sm[k]["r_hat"]) for k in GLOBALS}
+    ne = {k: np.asarray(sm[k]["n_eff"]) for k in GLOBALS}
     dg = {"divergences": int(ex["diverging"].sum()), "draws": int(ex["diverging"].size),
-          "mean_leapfrog": float(np.mean(ex["num_steps"])),
-          "rhat_max_globals": round(float(max(np.max(sm[k]["r_hat"]) for k in GLOBALS)), 4),
-          "ess_min_globals": round(float(min(np.min(sm[k]["n_eff"]) for k in GLOBALS))),
-          "globals": {k: {"rhat_max": round(float(np.max(sm[k]["r_hat"])), 4), "ess_min": round(float(np.min(sm[k]["n_eff"]))),
-                          "mean": np.round(np.asarray(smp[k]).mean((0, 1)), 3).tolist()} for k in GLOBALS}}
+          "mean_leapfrog": r(np.mean(ex["num_steps"]), 1),
+          "rhat_max_globals": r(max(np.max(v) for v in rh.values())),
+          "ess_min_globals": r(min(np.min(v) for v in ne.values()), 0),
+          "nan_stats": [k for k in GLOBALS if not (np.isfinite(rh[k]).all() and np.isfinite(ne[k]).all())],
+          "nan_draws": {k: int(np.isnan(v).sum()) for k, v in glob.items() if np.isnan(v).any()},
+          "globals": {k: {"rhat_max": r(np.max(rh[k])), "ess_min": r(np.min(ne[k]), 0),
+                          "mean": np.round(np.nanmean(glob[k], (0, 1)), 3).tolist()} for k in GLOBALS}}
     flat = {k: np.asarray(v).reshape(-1, *np.shape(v)[2:]) for k, v in smp.items() if k in ("p_debut", "e_val")}
-    return flat, dg
+    return flat, dg, glob
 
 
 T_START = time.time()
@@ -278,7 +287,8 @@ def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin
         dg = {"pitcher": pit, "method": method, "entities": int(len(E)), "lines": int(len(d["e"])),
               "T": int(d["dims"][1]), "center": center, "mu0": np.round(d["mu0"], 3).tolist()}
         if method == "nuts":
-            pr, nd = fit_nuts(d, task, warmup, samples, chains, thin, tree)
+            pr, nd, glob = fit_nuts(d, task, warmup, samples, chains, thin, tree)
+            np.savez_compressed(RES / f"{part.stem}_globals.npz", **glob)   # raw global draws by chain, for diagnosis
             dg.update(nd, warmup=warmup, samples=samples, chains=chains, thin=thin, tree=tree)
         else:
             guide, res = fit(d, task)
