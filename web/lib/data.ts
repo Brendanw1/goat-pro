@@ -637,3 +637,8 @@ export async function getRostersMoves(level: Level = "mlb"): Promise<any | null>
 export async function getCoaches(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "coaches.json"), { shared: true }).catch(() => null);
 }
+
+/** §106: what a top-100 rank returns (descriptive tier table, Pipeline ranks + our WAR). */
+export async function getProspectValue(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "prospects/value.json"), { shared: true }).catch(() => null);
+}

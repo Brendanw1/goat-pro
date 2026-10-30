@@ -4240,3 +4240,33 @@ do after: next-season WAR of traded players vs their own prior-season WAR and vs
 on age band × prior-WAR bucket), plus the share returning ≥ their prior WAR. (3) The prospect angle: traded players
 who sat on a top-100 list within the prior three years, scored against §106's tier table — did the player's
 post-trade production match what his rank tier returns?
+
+### §106 result (read once, 2026-10-30): the table ships
+
+Top-100 prospects, cohorts 2016–2021, §85 WAR after listing (first-3-seasons column complete for every cohort):
+
+| tier | n (B/P) | reach MLB (B) | WAR/3y (B, mean/med) | reach MLB (P) | WAR/3y (P, mean/med) |
+|---|---|---|---|---|---|
+| 1–10 | 82 / 32 | .85 | **1.22** / 0.0 | .88 | **0.53** / 0.0 |
+| 11–25 | 82 / 56 | .77 | 0.58 / 0.0 | .88 | 0.37 / 0.0 |
+| 26–50 | 123 / 88 | .73 | 0.46 / 0.0 | .67 | 0.54 / 0.0 |
+| 51–100 | 219 / 148 | .64 | 0.54 / 0.0 | .70 | 0.40 / 0.0 |
+
+The medians are zero at every tier: half of every top-100 tier returns nothing in three years. The top-10 batter tier
+is the only reliably valuable slot (1.22 WAR/3y, 85% reaching). Top-10 *pitchers* return barely more than the 26–50
+tier — the volatility the market prices. The table (with the 2y/5y columns and ≥1-WAR rates) ships on /prospects as
+the rank-to-value expectation, labelled Pipeline's rankings plus our WAR.
+
+### §107 result (read once, 2026-10-30): descriptive, recorded
+
+314 trades (cycles 2020–2024) against a 2:1 retained sample (646), matched on age band × prior-WAR bucket:
+
+- **Who gets moved:** the fringe profile — 51.6% of traded players had ≤ 0 prior-season WAR (retained 38.4%) and the
+  27–29 band is the most-traded age (43.6% vs 32.7% retained). Old-and-productive players almost never move
+  (2+ WAR: 7% traded vs 11.1% retained).
+- **What they do after:** matched next-season WAR 0.39 (traded) vs 0.47 (retained) — the club that keeps a fringe
+  player keeps the better one, worth about −0.1 WAR to the receiving side. 63.1% of traded players returned ≥ their
+  prior WAR (retained 55.0%) — regression to health, not a trade heal.
+- **The prospect angle:** 52 traded players were top-100 alums; their next-season WAR averaged 1.23 with 36.5% ≥ 1
+  WAR — well above the fringe average, i.e. the players clubs actually trade in these windows include real
+  contributors, and §106's tier table is the right reference for what their side of a return should look like.

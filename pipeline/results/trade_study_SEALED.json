@@ -1,0 +1,48 @@
+{
+ "section": "\u00a7107 (fringe trades)",
+ "n_traded": 314,
+ "n_retained": 646,
+ "moved_shares": {
+  "age_band": {
+   "<=26": 0.338,
+   "27-29": 0.436,
+   "30-32": 0.172,
+   "33+": 0.054
+  },
+  "war_band": {
+   "<=0": 0.516,
+   "0-1": 0.328,
+   "1-2": 0.086,
+   "2+": 0.07
+  }
+ },
+ "retained_shares": {
+  "age_band": {
+   "<=26": 0.498,
+   "27-29": 0.327,
+   "30-32": 0.139,
+   "33+": 0.036
+  },
+  "war_band": {
+   "<=0": 0.384,
+   "0-1": 0.361,
+   "1-2": 0.144,
+   "2+": 0.111
+  }
+ },
+ "next_war_mean": {
+  "traded": 0.55,
+  "retained": 0.84,
+  "traded_matched": 0.39,
+  "retained_matched": 0.47
+ },
+ "returned_ge_prior": {
+  "traded": 0.631,
+  "retained": 0.55
+ },
+ "traded_prospects": {
+  "n": 52,
+  "next_war_mean": 1.23,
+  "share_ge1war_next": 0.365
+ }
+}

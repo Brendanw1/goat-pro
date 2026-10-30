@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getProspectsSeason, getDraftHitRates, getFarmOutput } from "@/lib/data";
+import { getProspectValue, getProspectsSeason, getDraftHitRates, getFarmOutput } from "@/lib/data";
 import { DescriptiveChip, DESCRIPTIVE_LINE } from "@/lib/grades";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { logoUrl } from "@/lib/team-pixel";
@@ -64,7 +64,7 @@ function RowList({ rows, season }: { rows: any[]; season: number }) {
 
 export default async function ProspectsPage({ searchParams }: { searchParams?: Promise<Q> }) {
   const q = (await searchParams) ?? {};
-  const view = q.view === "team" ? "team" : q.view === "pos" ? "pos" : q.view === "hitrate" ? "hitrate" : q.view === "farm" ? "farm" : "top100";
+  const view = q.view === "team" ? "team" : q.view === "pos" ? "pos" : q.view === "hitrate" ? "hitrate" : q.view === "farm" ? "farm" : q.view === "value" ? "value" : "top100";
   const indexSeasons = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011];
   const year = indexSeasons.includes(Number(q.year)) ? Number(q.year) : 2026;
   const data = await getProspectsSeason(year);
@@ -89,6 +89,57 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
   const team = TEAM_SLUGS.includes(q.team ?? "") ? q.team! : "yankees";
   const pos = POS_SLUGS.some(([s]) => s === (q.pos ?? "")) ? q.pos! : "of";
   let rows: any[] = data.top100 ?? [];
+  if (view === "value") {
+    const pv = await getProspectValue();
+    if (!pv) return <div className="glass-panel p-8 text-sm text-text-dim">Value table not baked yet.</div>;
+    const table = (side: "batters" | "pitchers") => (
+      <table className="w-full min-w-[560px] text-xs font-data">
+        <thead>
+          <tr className="text-[9px] uppercase tracking-wider text-text-dim border-b border-border-subtle">
+            <th className="px-3 py-2 text-left font-semibold">Rank at his best</th>
+            <th className="py-2 text-right font-semibold">N</th>
+            <th className="py-2 text-right font-semibold" title="Share appearing in the majors within the 2020-24 window">Reach</th>
+            <th className="py-2 text-right font-semibold" title="Mean §85 WAR over his first three seasons after listing (complete for every cohort)">WAR 3y</th>
+            <th className="py-2 text-right font-semibold" title="Median — half of every tier returns nothing in three years">med</th>
+            <th className="py-2 text-right font-semibold" title="Share with ≥1 WAR over the first three seasons">≥1 WAR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(pv[side] as Record<string, any>).map(([tier, v]: [string, any]) => (
+            <tr key={tier} className="border-t border-white/[0.04]">
+              <td className="px-3 py-1.5 text-text-primary">{tier}</td>
+              <td className="py-1.5 text-right text-text-dim">{v.n}</td>
+              <td className="py-1.5 text-right text-text-secondary">{Math.round(100 * v.reached_mlb)}%</td>
+              <td className="py-1.5 text-right text-text-primary font-medium">{v.war_3y.toFixed(2)}</td>
+              <td className="py-1.5 text-right text-text-dim">{v.war_3y_med.toFixed(2)}</td>
+              <td className="py-1.5 text-right text-text-secondary">{Math.round(100 * v.ge1war_3y)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">Prospects — what a rank returns</h1>
+        <p className="text-xs text-text-dim max-w-[85ch]">
+          What each top-100 tier actually returned: Pipeline cohorts 2016–2021 valued in the site&apos;s own WAR
+          (§85), by seasons after listing. The three-year column is complete for every cohort; later columns
+          under-count recent classes. <span className="text-text-secondary">The medians are zero at every tier —
+          half of every tier returns nothing in three years; the top-10 batter slot is the only reliably valuable
+          one (1.22 WAR/3y at an 85% reach rate), while top-10 pitchers return barely more than the 26–50 tier.</span>
+          Descriptive: Pipeline&apos;s rankings plus our WAR (§106).
+        </p>
+        <div className="glass-panel overflow-x-auto">
+          <div className="px-4 py-2 border-b border-border-subtle text-[10px] font-semibold uppercase tracking-wider text-text-dim">Batters</div>
+          {table("batters")}
+        </div>
+        <div className="glass-panel overflow-x-auto">
+          <div className="px-4 py-2 border-b border-border-subtle text-[10px] font-semibold uppercase tracking-wider text-text-dim">Pitchers</div>
+          {table("pitchers")}
+        </div>
+      </div>
+    );
+  }
   if (view === "hitrate") {
     const hr = await getDraftHitRates();
     const fmtP = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? `${v.toFixed(1)}%` : "—");
@@ -104,7 +155,9 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
           <Link href={link({ view: "top100" })} className={chip(false)}>Top 100</Link>
           <Link href={link({ view: "team" })} className={chip(false)}>By team</Link>
           <Link href={link({ view: "pos" })} className={chip(false)}>By position</Link>
-          <Link href={link({ view: "hitrate" })} className={chip(true)}>Hit rates</Link>
+          <Link href={link({ view: "hitrate" })} className={chip(false)}>Hit rates</Link>
+          <Link href={link({ view: "value" })} className={chip(false)}>What a rank returns</Link>
+          <Link href={link({ view: "value" })} className={chip(true)}>What a rank returns</Link>
         </div>
         <div className="glass-panel p-4">
           <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">
@@ -223,6 +276,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
           <Link href={link({ view: "team" })} className={chip(false)}>By team</Link>
           <Link href={link({ view: "pos" })} className={chip(false)}>By position</Link>
           <Link href={link({ view: "hitrate" })} className={chip(false)}>Hit rates</Link>
+          <Link href={link({ view: "value" })} className={chip(false)}>What a rank returns</Link>
           <Link href={link({ view: "farm" })} className={chip(true)}>Farm output</Link>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -364,6 +418,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
         <Link href={link({ view: "team" })} className={chip(view === "team")}>By team</Link>
         <Link href={link({ view: "pos" })} className={chip(view === "pos")}>By position</Link>
           <Link href={link({ view: "hitrate" })} className={chip(false)}>Hit rates</Link>
+          <Link href={link({ view: "value" })} className={chip(false)}>What a rank returns</Link>
           <Link href={link({ view: "farm" })} className={chip(false)}>Farm output</Link>
       </div>
       {view === "team" && (

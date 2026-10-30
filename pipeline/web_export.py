@@ -4613,6 +4613,10 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     **season_out,
                 }, sort_keys=True)
                 n_season_files += 1
+            # §106: what a rank returns (descriptive table, from prospect_value.py's read)
+            pvf = ROOT / "pipeline" / "results" / "prospect_value_SEALED.json"
+            if pvf.exists():
+                jwrite(out / "prospects" / "value.json", json.loads(pvf.read_text()), sort_keys=True)
             n_rank_files = 0
             # Draft + debut context (depth item 5): every ranked player's draft
             # line and MLB debut from the amateur fetch, so the profile badge
