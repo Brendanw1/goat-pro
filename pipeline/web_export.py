@@ -364,35 +364,53 @@ def apply_dir(src: Path, dst: Path, skip: tuple[str, ...]) -> int:
     return len(changed)
 
 
-def fold_site_rows(sub: pd.DataFrame) -> pd.DataFrame:
-    """Fold Statcast types to site codes WITHOUT duplicate labels: a pitcher
-    throwing both ST and SW (or SL and SV, CU and KC) has two rows per site
-    code, and everything downstream keys on the site code. n/n_pa/rv sum,
-    means are n-weighted, SDs pool as weighted within + between-of-means."""
+# Means over balls in play weight by n_bip; every other mean weights by n.
+FOLD_WEIGHT = {"ev": "n_bip", "la": "n_bip"}
+
+
+def _wmean(v, w) -> float:
+    v, w = np.asarray(v, float), np.asarray(w, float)
+    ok = np.isfinite(v) & np.isfinite(w) & (w > 0)
+    return float((v[ok] * w[ok]).sum() / w[ok].sum()) if ok.any() else np.nan
+
+
+def fold_to_site(df: pd.DataFrame, keys=("id", "season"), means=(), sds=None, floor: int = 0) -> pd.DataFrame:
+    """THE pitch-code standard (docs/formulas.md): every per-pitch-type key in the export is a
+    site code (SC_TO_SITE). One row per keys + site: counts sum, `means` are n-weighted
+    (FOLD_WEIGHT overrides the weight), `sds` {sd_col: mean_col} pool as within + between-of-means,
+    and `pitch_type` keeps the largest-n Statcast code (class_key lookups). The floor applies to
+    the FOLDED n. Codes with no site (EP, FA, KN, CS, SC, UN) keep site NaN and pass through.
+    Caveat: n_pa sums, so a PA that saw both folded codes counts twice."""
+    df = df.copy()
+    df["site"] = df["pitch_type"].map(SC_TO_SITE)
+    by = [*keys, "site"]
+    sds = sds or {}
+    dup = df["site"].notna() & df.duplicated(by, keep=False)
     rows = []
-    for site, g in sub.groupby("site"):
-        n = g["n"].values.astype(float)
-        tot = n.sum()
-        row: dict = {"site": site, "n": int(tot)}
-        if "n_pa" in g:
-            row["n_pa"] = int(g["n_pa"].sum())
-        if "rv" in g:
-            row["rv"] = float(g["rv"].sum())
-        for c in ("velo", "ivb", "hb"):
-            row[c] = float((g[c].values * n).sum() / tot)
-        for mean_col, sd_col in (("ivb", "ivb_sd"), ("hb", "hb_sd")):
-            if sd_col not in g:
+    for _, g in df[dup].groupby(by, sort=False):
+        g = g.sort_values(["n", "pitch_type"], ascending=[False, True])
+        n = g["n"].to_numpy(float)
+        row = g.iloc[0].to_dict()
+        for c in g.columns:
+            if c in by or c == "pitch_type":
                 continue
-            m = g[mean_col].values.astype(float)
-            s = g[sd_col].values.astype(float)
-            ok = np.isfinite(s) & np.isfinite(m) & (g["n"].values > 2)
-            if ok.any():
-                var = float((n[ok] * (s[ok] ** 2 + (m[ok] - np.average(m[ok], weights=n[ok])) ** 2)).sum() / n[ok].sum())
-                row[sd_col] = var ** 0.5
-            else:
-                row[sd_col] = None
+            if c in sds:
+                m, s = g[sds[c]].to_numpy(float), g[c].to_numpy(float)
+                ok = np.isfinite(s) & np.isfinite(m) & (n > 2)
+                row[c] = (float((n[ok] * (s[ok] ** 2 + (m[ok] - np.average(m[ok], weights=n[ok])) ** 2)).sum()
+                                / n[ok].sum()) ** 0.5) if ok.any() else np.nan
+            elif c in means:
+                row[c] = _wmean(g[c], g[FOLD_WEIGHT.get(c, "n")])
+            elif pd.api.types.is_numeric_dtype(g[c]):
+                row[c] = g[c].sum()
         rows.append(row)
-    return pd.DataFrame(rows)
+    out = pd.concat([df[~dup], pd.DataFrame(rows, columns=df.columns)], ignore_index=True)
+    out = out.sort_values([*keys, "pitch_type"]).reset_index(drop=True)
+    return out[out["n"] >= floor].reset_index(drop=True) if floor else out
+
+
+BYTYPE_MEANS = ("velo", "ivb", "hb", "spin", "ext", "rel_h", "rel_s", "arm_angle", "vaa", "ev", "la")
+BYTYPE_SDS = {"ivb_sd": "ivb", "hb_sd": "hb"}
 
 
 # MLB half-signal constants, measured by pipeline/measure_discipline_mlb.py
@@ -514,12 +532,25 @@ MILB = ROOT / "data" / "milb"  # pipeline/milb_lines.py (MLB Stats API season li
 
 def prev_pitch_scores() -> dict:
     """§101 per-pitch Prevention+ (a forecast; prevention_pitch.py --score), MLB, n >= 150 of the type:
-    (mlbam, season, Statcast type) -> (grade, vs LHH, vs RHH). The hand values are descriptive, n >= 100 per hand."""
+    (mlbam, season, site code) -> (grade, vs LHH, vs RHH), folded by fold_to_site (n-weighted). The hand
+    values are descriptive, n >= 100 per hand. The scorer writes only Statcast types with n >= 150, so a
+    CU 100 + KC 100 season has no score; the folded-n floor still applies."""
     fp = ROOT / "pipeline" / "results" / "prevention_pitch_scores.csv"
     if not fp.exists():
         return {}
-    return {(int(x.pitcher), int(x.season), x.pitch_type): (x.prev_plus, x.prev_L, x.prev_R)
-            for x in pd.read_csv(fp).itertuples()}
+    d = fold_to_site(pd.read_csv(fp), keys=("pitcher", "season"), means=("prev_plus", "prev_L", "prev_R"), floor=150)
+    return {(int(x.pitcher), int(x.season), x.site): (x.prev_plus, x.prev_L, x.prev_R)
+            for x in d[d["site"].notna()].itertuples()}
+
+
+def xrv_by_site(floor: int = 0) -> dict:
+    """§71/§78 per-pitch-type xRV (descriptive, MLB): (mlbam, season, site code) -> (xRV/100, RV/100),
+    folded by fold_to_site (n-weighted); the floor applies to the folded n."""
+    fp = ROOT / "pipeline" / "results" / "xrv_v2_pitch_types.csv"
+    if not fp.exists():
+        return {}
+    d = fold_to_site(pd.read_csv(fp), keys=("mlbam", "season"), means=("xrv100", "rv100", "obs_xrv100"), floor=floor)
+    return {(int(x.mlbam), int(x.season), x.site): (x.xrv100, x.rv100) for x in d[d["site"].notna()].itertuples()}
 
 
 def milb_names(kind: str) -> dict[int, str]:
@@ -1428,8 +1459,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             GROUP BY pitcher, season, pitch_type
         """).df()
         bytype["id"] = bytype["id"].astype(int)
-        bytype["site"] = bytype["pitch_type"].map(SC_TO_SITE)
-        bytype = bytype.sort_values(["id", "season", "pitch_type"])
+        # one row per site code (CU+KC -> CB, ST+SW -> SW, SL+SV -> SL): no duplicate labels downstream
+        bytype = fold_to_site(bytype, means=BYTYPE_MEANS, sds=BYTYPE_SDS)
 
     # ------------------------------------------------------ class × VAA cells
     # cell = plate height third x arm/mid/glove, descriptive; feeds the profile
@@ -1588,7 +1619,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             (type_grade.get((int(row.id), int(row.season), row.site), (None,))[0]) for row in tg.itertuples()]
         tg = tg[tg["type_grade"].notna()] if "type_grade" in tg else tg
         _pp = prev_pitch_scores() if level == "mlb" else {}
-        tg["prev_pitch"] = [_pp.get((int(row.id), int(row.season), row.pitch_type), (None,))[0] for row in tg.itertuples()]
+        tg["prev_pitch"] = [_pp.get((int(row.id), int(row.season), row.site), (None,))[0] for row in tg.itertuples()]
 
         def season_population(season: int | None):
             """(board rows, per-type rows, graded rows) for one season, or pooled."""
@@ -1792,7 +1823,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         bt_kept = bytype[[keep_row(int(row.id), int(row.season)) for row in bytype.itertuples()]]
         for (pid, season), sub0 in bt_kept.groupby(["id", "season"]):
             # EP (eephus) has no site code and folds away; an all-EP season has no mix.
-            sub = fold_site_rows(sub0[(sub0["n"] > 0) & sub0["site"].notna()])
+            sub = sub0[(sub0["n"] > 0) & sub0["site"].notna()]  # bytype is already one row per site
             if sub.empty:
                 continue
             use_all = dict(zip(sub["site"], (sub["n"] / sub["n"].sum()).values))
@@ -1957,18 +1988,12 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         # D-11 pitch rank: where each type sits in the season's qualified league population
         # D-03 remainder: per-pitch-type xRV (the §78 v2 fit) onto the arsenal rows —
         # descriptive (§71: stable y2y but not a forecast), shown at 30+ pitches of the type.
-        _xrv_pt: dict = {}
-        if level == "mlb":
-            _xp = ROOT / "pipeline" / "results" / "xrv_v2_pitch_types.csv"
-            if _xp.exists():
-                for _xr in pd.read_csv(_xp).itertuples():
-                    if _xr.n >= 30:
-                        _xrv_pt[(int(_xr.mlbam), int(_xr.season), _xr.pitch_type)] = (_xr.xrv100, _xr.rv100)
+        _xrv_pt = xrv_by_site(floor=30) if level == "mlb" else {}
         _ql = bytype[bytype["n"] >= SABR_FLOORS["row"]].copy()
         _ql["wq"] = 100 * _ql["whiff"] / _ql["swings"].where(_ql["swings"] > 0)
         _ql["vq"] = 100 * _ql["rv"] / _ql["n"]
         _rk: dict = {}
-        for (_ss, _pt), _g in _ql.groupby(["season", "pitch_type"]):
+        for (_ss, _pt), _g in _ql.groupby(["season", "site"]):  # ranks within site code (CU+KC together)
             _rk[(int(_ss), _pt)] = {
                 "n": int(len(_g)),
                 "whiff": {int(r_.id): int(r_.wq) for r_ in
@@ -2044,15 +2069,15 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "stuffPlus": f(sg, 1) if sg is not None else None,
                     "nStuffPitches": int(sn),
                     **({"prevPitch": f(_pv[0], 1), "prevVsLHH": f(_pv[1], 1), "prevVsRHH": f(_pv[2], 1)}
-                       if (_pv := _prev_pt.get((pid, season, b["pitch_type"]))) else {}),
+                       if (_pv := _prev_pt.get((pid, season, site))) else {}),
                     "stuffGradeFrom": None if (pid, season, site) in type_grade else p_host.get(site),
                     "gyro": site == "SL" and (pid, season, "SL") in type_gyro or None,
                     "twin": twin_of(pid, site, b["velo"], b["ivb"], b["hb"]),
-                    "classRank": (_rk.get((season, b["pitch_type"])) and {
-                        "n": _rk[(season, b["pitch_type"])]["n"],
-                        "whiff": _rk[(season, b["pitch_type"])]["whiff"].get(pid),
-                        "velo": _rk[(season, b["pitch_type"])]["velo"].get(pid),
-                        "rv": _rk[(season, b["pitch_type"])]["rv"].get(pid)}) or None,
+                    "classRank": (_rk.get((season, site)) and {
+                        "n": _rk[(season, site)]["n"],
+                        "whiff": _rk[(season, site)]["whiff"].get(pid),
+                        "velo": _rk[(season, site)]["velo"].get(pid),
+                        "rv": _rk[(season, site)]["rv"].get(pid)}) or None,
                     "pitchingPlus": f(pg, 1) if pg is not None else None,
                     **({"xrv100": f(_v[0], 2), "xrvLuck": f(_v[1] - _v[0], 2)}
                        if (_v := _xrv_pt.get((pid, season, site))) else {}),
@@ -2177,18 +2202,13 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         """).df().set_index("site")
         RV_HIDE = 50  # matches the type-grade floor: under this the cell hides
         rv_written: set[int] = set()
-        xrv_type: dict = {}  # §71 (D-03): xRV/100 per site code, descriptive, MLB only
-        xtf = ROOT / "pipeline" / "results" / "xrv_v2_pitch_types.csv"
-        if level == "mlb" and xtf.exists():
-            xt = pd.read_csv(xtf).assign(site=lambda d: d["pitch_type"].map(lambda t: SC_TO_SITE.get(t, t)))
-            xt["w"] = xt["xrv100"] * xt["n"]
-            for (m, s_, site), g_ in xt.groupby(["mlbam", "season", "site"]):
-                xrv_type[(int(m), int(s_), site)] = float(g_["w"].sum() / g_["n"].sum())
+        # §71 (D-03): xRV/100 per site code, descriptive, MLB only
+        xrv_type = {k: v[0] for k, v in xrv_by_site().items()} if level == "mlb" else {}
         bt_latest = bytype[(bytype["season"] == max(seasons))]
         for (pid, season), sub0 in bt_latest.groupby(["id", "season"]):
             if not keep_row(int(pid), int(season)) or season != latest_season.get(pid):
                 continue
-            sub = fold_site_rows(sub0[(sub0["n"] > 0) & sub0["site"].notna()])
+            sub = sub0[(sub0["n"] > 0) & sub0["site"].notna()]  # bytype is already one row per site
             rows_rv = []
             for b in sub.itertuples():
                 if b.n < RV_HIDE or b.site not in lg_rv.index:
@@ -2360,7 +2380,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    WHEN arm_angle >= 30 THEN '34' WHEN arm_angle >= 15 THEN 'low34'
                    WHEN arm_angle >= 0 THEN 'side' ELSE 'sub' END"""
         slot_league = con.sql(f"""
-            SELECT pitch_type, {BAND_SQL} AS band,
+            SELECT {site_case_sql()} AS pitch_type, {BAND_SQL} AS band,  -- site codes (EP stays EP)
                    AVG(pfx_z) * 12 AS exp_ivb,
                    AVG(pfx_x * 12 * CASE WHEN p_throws = 'L' THEN -1 ELSE 1 END) AS exp_hb_arm,
                    COUNT(DISTINCT pitcher) AS n_pitchers
@@ -2371,7 +2391,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         """).df().set_index(["pitch_type", "band"])
         # season-mean movement per pitcher x type (his own arm-side-normalized HB)
         pm = con.sql(f"""
-            SELECT pitcher AS id, season, pitch_type,
+            SELECT pitcher AS id, season, {site_case_sql()} AS pitch_type,
                    AVG(pfx_z) * 12 AS my_ivb,
                    AVG(pfx_x * 12 * CASE WHEN p_throws = 'L' THEN -1 ELSE 1 END) AS my_hb_arm,
                    AVG(arm_angle) AS arm
@@ -2434,7 +2454,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
 
         # arm-angle league distribution per type
         arm_pool = con.sql(f"""
-            SELECT pitch_type, arm_angle FROM pitches_all
+            SELECT {site_case_sql()} AS pitch_type, arm_angle FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND arm_angle IS NOT NULL {GATES}
             ORDER BY pitch_type, arm_angle
         """).df()
@@ -2454,19 +2474,20 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             throws_sign = -1 if tot_indexed.loc[(pid, season)]["throws"] == "L" else 1
             types = bytype[(bytype["id"] == pid) & (bytype["season"] == season) & (bytype["n"] >= 10)]
             for tr in types.itertuples():
-                key3 = (pid, season, tr.pitch_type)
+                pt = tr.site if isinstance(tr.site, str) else tr.pitch_type  # slot keys are site codes; EP stays EP
+                key3 = (pid, season, pt)
                 if key3 not in slot_mean_g.index:
                     continue
                 mine = slot_mean_g.loc[key3]
-                cell = slot_league.loc[(tr.pitch_type, band)] if (tr.pitch_type, band) in slot_league.index else None
-                pool = delta_pool.get((tr.pitch_type, band))
+                cell = slot_league.loc[(pt, band)] if (pt, band) in slot_league.index else None
+                pool = delta_pool.get((pt, band))
                 d_ivb = float(mine["my_ivb"] - cell["exp_ivb"]) if cell is not None else None
                 d_hb_arm = float(mine["my_hb_arm"] - cell["exp_hb_arm"]) if cell is not None else None
                 rows_out.append({
                     "type": tr.site, "n": int(tr.n),
                     "swings": int(tr.swings), "whiffs": int(tr.whiff),
                     "arm": f(mine["arm"], 1),
-                    "armPct": arm_rank(arm_by_type.get(tr.pitch_type, []), float(mine["arm"])),
+                    "armPct": arm_rank(arm_by_type.get(pt, []), float(mine["arm"])),
                     "relH": f(tr.rel_h, 2), "relS": f(tr.rel_s, 2), "ext": f(tr.ext, 2),
                     "velo": f(tr.velo, 1), "ivb": f(tr.ivb, 1), "hb": f(tr.hb, 1), "spin": r(tr.spin),
                     "expIvb": f(cell["exp_ivb"], 1) if cell is not None else None,
@@ -2606,6 +2627,39 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 n_pub += 1
             counts[f"situational_{s}"] = n_pub
             print(f"situational {s}: {n_pub} pitchers published (states {len(li)}, cuts {hi_cut:.2f}/{lo_cut:.2f})")
+
+        # ---- D-20 pitch plan (descriptive, §61-63): what he throws and how each count
+        # plays, from pipeline/pitch_plan.csv, with the league's same-season per-count
+        # line beside it. Never a recommendation: §61-63 found usage near equilibrium.
+        _pp_f = ROOT / "pipeline" / "results" / "pitch_plan.csv"
+        _plg_f = ROOT / "pipeline" / "results" / "pitch_plan_league.csv"
+        if _pp_f.exists() and _plg_f.exists():
+            _pp = pd.read_csv(_pp_f)
+            _plg = pd.read_csv(_plg_f)
+            jwrite(out / "pitch_plan_league.json", {
+                "comment": "League per-count lines (all pitch types pooled) per season: pitches, CSW%, "
+                           "run value per 100 (pitcher-positive). The pitch-plan panel's reference rows.",
+                "seasons": {str(int(s)): g[["count", "n", "cswPct", "rv100"]].to_dict("records")
+                            for s, g in _plg.groupby("season")},
+            }, sort_keys=True)
+            _cnt_order = {f"{b}-{k}": i for i, (k, b) in enumerate(
+                (st, bl) for st in range(3) for bl in range(4))}
+            n_pp = 0
+            for (pid, s), gg in _pp.groupby(["pitcher", "season"]):
+                if (int(pid), int(s)) not in pitcher_pop:
+                    continue
+                rows = [{"count": r.count, "n": int(r.n), "mix": r.mix,
+                         "cswPct": None if pd.isna(r.cswPct) else f(r.cswPct, 1),
+                         "rv100": None if pd.isna(r.rv100) else f(r.rv100, 2)}
+                        for r in sorted(gg.itertuples(), key=lambda r: _cnt_order.get(r.count, 99))]
+                doc_pp = {"id": str(int(pid)), "season": int(s), "counts": rows,
+                          "meta": {"note": ("descriptive, not a recommendation: §61-63 found MLB usage near "
+                                            "equilibrium, so this is what he throws and how it plays per count")}}
+                jwrite(out / "pitch_plan" / f"{pid}-{s}.json", doc_pp, sort_keys=True)
+                jwrite(out / "pitch_plan" / f"{pid}.json", doc_pp, sort_keys=True)
+                n_pp += 1
+            counts["pitch_plan"] = n_pp
+            print(f"pitch plan: {n_pp} pitchers published")
 
     # ------------------------------------------------------ Savant reference
     savant_meta = []

@@ -70,6 +70,8 @@ type ProfileViewProps = {
   careerArsenal?: any[] | null;
   level?: string;
   situational?: any | null;
+  pitchPlan?: any | null;
+  pitchPlanLeague?: any | null;
   load?: any | null;
   deception?: any | null;
   initialTab?: string | null;
@@ -334,7 +336,7 @@ function SwingDisruption({ d }: { d: any }) {
   );
 }
 
-export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, visuals, career, careerArsenal, load, deception, initialTab, agingStrip, backHref = "/pitchers", level }: ProfileViewProps) {
+export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct, vaaSeason, pitchRv, zoneMix, gameLog, situational, pitchPlan, pitchPlanLeague, visuals, career, careerArsenal, load, deception, initialTab, agingStrip, backHref = "/pitchers", level }: ProfileViewProps) {
   const [vaaPitchFilter, setVaaPitchFilter] = useState<string>("all");
   const [percentilePitchTab, setPercentilePitchTab] = useState<string | null>(null);
   // ?tab= deep link (the fatigue board links here); stale keys fall back to Overview.
@@ -713,6 +715,52 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                 ))}
               </div>
               <p className="mt-2 text-[10px] text-text-dim">His most-used back-to-back pairs: how often the second pitch follows the first inside a plate appearance, against the same season&apos;s league rate for that pair.</p>
+            </div>
+          )}
+          {pitchPlan?.counts?.length > 0 && (
+            <div className="glass-panel p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold text-text-primary">Pitch plan</h3>
+                <span className="text-[10px] text-text-dim">per count · descriptive (§61–63: usage is near equilibrium — a record, not a recommendation)</span>
+              </div>
+              <div className="mt-2 overflow-x-auto"><div className="min-w-max">
+                <div className="flex items-center px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-dim border-b border-border-subtle">
+                  <div className="w-[52px]">Count</div>
+                  <div className="w-[64px] text-right">P</div>
+                  <div className="w-[190px]">His mix</div>
+                  <div className="w-[120px] text-right">CSW% · lg</div>
+                  <div className="w-[120px] text-right">RV/100 · lg</div>
+                </div>
+                {(() => {
+                  const lgCounts: any[] = pitchPlanLeague?.seasons?.[String(profile.season)] ?? [];
+                  const lgBy = Object.fromEntries(lgCounts.map((c: any) => [c.count, c]));
+                  return pitchPlan.counts.map((c: any) => {
+                    const lg = lgBy[c.count];
+                    const thin = c.n < 50;
+                    return (
+                      <div key={c.count} className={`flex items-center px-2 border-b border-white/[0.025] ${thin ? "opacity-55" : ""}`} style={{ height: "30px" }}
+                        title={thin ? `${c.n} pitches in this count — a lean, not a rate` : undefined}>
+                        <div className="w-[52px] text-xs font-medium text-text-primary">{c.count}</div>
+                        <div className="w-[64px] text-right text-xs font-data text-text-dim">{c.n.toLocaleString("en-US")}</div>
+                        <div className="w-[190px] text-xs font-data text-text-secondary">{c.mix}</div>
+                        <div className="w-[120px] text-right text-xs font-data">
+                          <span className="text-text-secondary">{c.cswPct ?? "—"}</span>
+                          <span className="text-text-dim"> · {lg?.cswPct ?? "—"}</span>
+                        </div>
+                        <div className="w-[120px] text-right text-xs font-data">
+                          <span className={typeof c.rv100 === "number" ? (c.rv100 >= 0 ? "text-usf-green" : "text-[#e0654f]") : "text-text-secondary"}>{c.rv100 ?? "—"}</span>
+                          <span className="text-text-dim"> · {lg?.rv100 ?? "—"}</span>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div></div>
+              <p className="mt-2 text-[10px] text-text-dim">
+                Counts run strikes then balls (0-0, 1-0, 2-0, 3-0, 0-1 … 3-2). Dimmed rows are under 50 pitches — a lean.
+                CSW% is called + swinging strikes per pitch; RV/100 is runs saved per 100 pitches, pitcher-positive, league
+                line from every pitcher that season. All descriptive.
+              </p>
             </div>
           )}
           {/* Per-type percentiles beside VAA by zone: two mid-height cards in one row. */}

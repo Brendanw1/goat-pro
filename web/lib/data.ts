@@ -612,3 +612,13 @@ export async function getMovementLeague(level: Level = "mlb"): Promise<any | nul
 export async function getArsenalLeague(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "arsenal_league.json"), { shared: true }).catch(() => null);
 }
+
+/** Pitch plan (D-20, descriptive): his type mix, CSW% and RV/100 per count. */
+export async function getPitchPlan(id: string, season?: string | number, level: Level = "mlb"): Promise<any | null> {
+  return perSeasonFile("pitch_plan", id, season, level);
+}
+
+/** League per-count reference lines for the pitch-plan panel. */
+export async function getPitchPlanLeague(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "pitch_plan_league.json"), { shared: true }).catch(() => null);
+}

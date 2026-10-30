@@ -32,9 +32,22 @@ When a formula changes, update this table and the glossary in the same commit.
 | Hitter Marcel | 5/4/3 weights on counts, plus 1,200 PA of league rate; no age term | Marcel (kb `sources/baseball/tangotiger-net-2a3f95964b.md`): 3 years, recent heavier, regressed, age factor | OK, with the age term left out (stated in the glossary). The kb has no source for the 1,200 PA constant; it comes from Tango's published Marcel code. |
 | Park factors | home/road rate ratio, 3 seasons, EB-shrunk log ratio, venue-level (not halved) | FanGraphs, *Park Factors – 5 Year Regressed* (kb `library-fangraphs-com-8599408685.md`, 2016) | OK for a venue factor. Any future `adj_*` stat must use (1 + PF)/2 for a full season line, per the same source. |
 | Decision+ | 100 + 10·z of decision runs/100 among 100+ PA hitters | Site metric (RESULTS-MLB §69) | Documented; descriptive. |
+| Pitch plan (D-20) | per pitcher-season × count: type mix (types ≥15%, top 3), CSW% = called+swinging strikes / pitches, RV/100 = 100·mean(−Δrun_exp); league lines per season × count pooled over types; counts < 25 pitches and arms < 400 total are left out (`pipeline/pitch_plan.py`) | `results/pitch_plan.csv`, `pitch_plan_league.csv` | Descriptive (§61–63). |
 | Decision twins (D-02) | `drvPer100Shrunk` = (drv100·n + k·μ)/(n + k) toward the season's ≥100-PA mean μ; `decisionPlusShrunk` = the §69 scale on the twin. k = 632 decisions, measured by `measure_discipline_mlb.py` (median-date split, SB r_full .646, 2026 holdout .679) | Same file | Descriptive. |
 | Run value / 100 | 100 × mean `delta_run_exp`, batter-positive; pitchers flipped | Savant CSV docs (kb) | OK |
 | Tunnel+ | Chase-logistic lift at actual vs geometry-implied separation at the 23.8 ft commit point; EB-shrunk per pairing and per pitcher (pairing type removed); 100 + 10 per pairing SD (`tunnel_plus.py`) | Past the Eye Test, *Pitch+* (kb `sources/web/substack-com-b8664fc421.md`, 2026): 23.8 ft = 175 ms decision point from Baseball Prospectus; college `compute_tunnel_plus.py` | Ported 2026-10-28 (§74). Trajectories are rebuilt from Statcast's nine-parameter fit and match `release_pos` to a median of 0.03 in. |
+
+## Pitch-code standard (pipeline/web_export.py `fold_to_site`, 2026-10-29)
+- Every per-pitch-type key in the export is a **site code** (`SC_TO_SITE`, mirrors `web/lib/constants.ts` PITCH_CONFIG):
+  FF, SI, FC→CT, SL and SV→SL, SW and ST→SW, CU and KC→CB, CH, FS and FO→FS.
+- `fold_to_site` makes one row per pitcher-season-site: counts sum, means are n-weighted (EV/LA by balls in play), movement
+  SDs pool (within + between), and a floor (xRV/100 n ≥ 30, Prev+ n ≥ 150) applies to the folded n. `nPa` sums, so a PA
+  that saw both folded codes counts twice.
+- It feeds the profile arsenal rows, the arsenal boards, the per-type percentile pools, classRank (ranks within site code),
+  Prev+ and xRV/100 lookups, pitch_rv, the mix metrics and the slot files (slot league cells, deltas and arm° pools key on site).
+- Codes without a site code: EP passes through as its own row (no site label; slot keeps it as EP; transitions call it OS).
+  FA, KN, CS, SC, UN are outside the bake gate (xRV rows for them are dropped).
+- Model files that train on Statcast classes are unchanged; only the export joins fold.
 
 ## Trade tracker (pipeline/trades.py → trades/{season}.json)
 

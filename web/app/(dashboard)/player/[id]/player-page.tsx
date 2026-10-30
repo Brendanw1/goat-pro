@@ -1,4 +1,4 @@
-import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard, getLoadProfile, getLoadIndex, getAgingTrack, getAgingCurves, getDeception } from "@/lib/data";
+import { type Level, getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getVaaZonePct, getArmSlot, getPitchRv, getZoneMix, getGameLog, getSpray, getSprayRefs, getHitterScouting, getScoutingLeague, getSituational, getPitchPlan, getPitchPlanLeague, getVisuals, getCareer, getHitterSplitBenchmarks, getProspectRank, getSwingProfile, getSavantBoard, getLoadProfile, getLoadIndex, getAgingTrack, getAgingCurves, getDeception } from "@/lib/data";
 import { vaaZoneRows } from "@/lib/vaa-zone";
 import { profilePercentiles } from "@/lib/percentiles";
 import { PlayerReady } from "@/components/ui/player-transition";
@@ -38,7 +38,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   // Savant boards are MLB; an AAA page must not show his MLB rows.
   const board = (f: string) => hitter && level === "mlb" ? getSavantBoard(f).catch(() => null) : Promise.resolve(null);
   const [
-    vaaFile, slot, pitchRv, situational,
+    vaaFile, slot, pitchRv, situational, pitchPlan, pitchPlanLeague,
     gameLog, spray, sprayRefs, scouting, scoutingLeague, visuals, career, splitBench, prospectRank, swing,
     bsrBoard, stealBoard, xbBoard, sprintBoard,
     deceptionDoc, loadDoc, loadIdx,
@@ -48,6 +48,8 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
     hitter ? null : getArmSlot(id, pid, level),
     hitter ? null : getPitchRv(id, level),
     hitter ? null : getSituational(id, pid, level),
+    hitter ? null : getPitchPlan(id, pid, level),
+    hitter ? null : getPitchPlanLeague(level),
     detSeason ? getGameLog(id, detSeason, level) : null,
     hitter && detSeason ? getSpray(id, detSeason, level) : null,
     hitter ? getSprayRefs(level) : null,
@@ -183,6 +185,8 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
           zoneMix={zoneMix}
           gameLog={gameLog}
           situational={situational}
+          pitchPlan={pitchPlan}
+          pitchPlanLeague={pitchPlanLeague}
           visuals={visuals}
           career={career}
           careerArsenal={career?.kind === "P" ? career.seasons : null}
