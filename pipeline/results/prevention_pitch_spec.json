@@ -1,0 +1,25 @@
+{
+ "spec": {
+  "name": "ridge_fwd",
+  "kind": "ridge",
+  "families": [
+   "swing_miss",
+   "context",
+   "location",
+   "contact",
+   "whiff_plus",
+   "usage",
+   "shape",
+   "putaway"
+  ],
+  "inner_mse": {
+   "ridge_all": 1.8357,
+   "ridge_fwd": 1.8193,
+   "lgbm_all": 1.8664
+  }
+ },
+ "scale": {
+  "mean": 0.052980042853478515,
+  "sd": 0.4665316853082205
+ }
+}

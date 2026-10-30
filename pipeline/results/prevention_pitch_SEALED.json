@@ -1,0 +1,309 @@
+{
+ "n_sealed": 1084,
+ "n_sealed_pitchers": 168,
+ "spec": {
+  "name": "ridge_fwd",
+  "kind": "ridge",
+  "families": [
+   "swing_miss",
+   "context",
+   "location",
+   "contact",
+   "whiff_plus",
+   "usage",
+   "shape",
+   "putaway"
+  ],
+  "inner_mse": {
+   "ridge_all": 1.8357,
+   "ridge_fwd": 1.8193,
+   "lgbm_all": 1.8664
+  }
+ },
+ "b1_k": 1600,
+ "gate_a": {
+  "B1": {
+   "r2_model": 0.08095,
+   "r2_base": 0.01472,
+   "d_r2": {
+    "est": 0.06622,
+    "ci": [
+     0.03031,
+     0.10104
+    ]
+   },
+   "d_mae": {
+    "est": 0.03433,
+    "ci": [
+     0.01061,
+     0.05832
+    ]
+   },
+   "beats": true
+  },
+  "B2": {
+   "r2_model": 0.08095,
+   "r2_base": 0.02204,
+   "d_r2": {
+    "est": 0.0589,
+    "ci": [
+     0.02995,
+     0.08546
+    ]
+   },
+   "d_mae": {
+    "est": 0.03404,
+    "ci": [
+     0.01391,
+     0.05344
+    ]
+   },
+   "beats": true
+  },
+  "B3": {
+   "r2_model": 0.08095,
+   "r2_base": 0.01098,
+   "d_r2": {
+    "est": 0.06997,
+    "ci": [
+     0.03179,
+     0.10704
+    ]
+   },
+   "d_mae": {
+    "est": 0.03877,
+    "ci": [
+     0.01357,
+     0.06307
+    ]
+   },
+   "beats": true
+  }
+ },
+ "gate_a_pass": true,
+ "gate_a_weighted": {
+  "B1": {
+   "r2_model": 0.09988,
+   "r2_base": 0.02842,
+   "d_r2": {
+    "est": 0.07145,
+    "ci": [
+     0.03534,
+     0.10499
+    ]
+   },
+   "d_mae": {
+    "est": 0.03307,
+    "ci": [
+     0.00934,
+     0.05706
+    ]
+   },
+   "beats": true
+  },
+  "B2": {
+   "r2_model": 0.09988,
+   "r2_base": 0.03345,
+   "d_r2": {
+    "est": 0.06642,
+    "ci": [
+     0.03258,
+     0.09773
+    ]
+   },
+   "d_mae": {
+    "est": 0.03979,
+    "ci": [
+     0.01687,
+     0.06182
+    ]
+   },
+   "beats": true
+  },
+  "B3": {
+   "r2_model": 0.09988,
+   "r2_base": 0.02221,
+   "d_r2": {
+    "est": 0.07766,
+    "ci": [
+     0.04122,
+     0.11205
+    ]
+   },
+   "d_mae": {
+    "est": 0.04259,
+    "ci": [
+     0.01733,
+     0.06702
+    ]
+   },
+   "beats": true
+  }
+ },
+ "gate_b": {
+  "split_half": {
+   "n": 1809,
+   "median_half_n": 168.0,
+   "r": 0.7034,
+   "sb": 0.8259
+  },
+  "yoy_r": 0.6831,
+  "r_with_whiff_plus": 0.4355,
+  "partial_r_next_rv_beyond_whiff": {
+   "est": 0.23176,
+   "ci": [
+    0.1772,
+    0.27691
+   ]
+  },
+  "sd_runs100": 0.4626,
+  "true_sd_runs100": 0.4204,
+  "r_score_next_rv": 0.29,
+  "r_last_rv_next_rv": 0.1351,
+  "grade_scale": {
+   "mean": 0.052980042853478515,
+   "sd": 0.4665316853082205
+  },
+  "pass": {
+   "reliable": true,
+   "distinct": true,
+   "spread": true
+  }
+ },
+ "by_hand_dev": {
+  "vs_LHH": {
+   "n": 2473,
+   "r_score_next_rv": 0.3238,
+   "r_last_rv_next_rv": 0.1769,
+   "yoy_r": 0.6651,
+   "split_half": {
+    "n": 5111,
+    "median_half_n": 90.0,
+    "r": 0.611,
+    "sb": 0.7585
+   }
+  },
+  "vs_RHH": {
+   "n": 3399,
+   "r_score_next_rv": 0.315,
+   "r_last_rv_next_rv": 0.1702,
+   "yoy_r": 0.6714,
+   "split_half": {
+    "n": 6568,
+    "median_half_n": 101.0,
+    "r": 0.6065,
+    "sb": 0.755
+   }
+  }
+ },
+ "examples_2026": {
+  "top": [
+   {
+    "name": "Mason Miller",
+    "pitch_type": "SL",
+    "n": 571,
+    "grade": 148.3,
+    "rv100": 2.1,
+    "whiff_plus": 126.2
+   },
+   {
+    "name": "Jacob Misiorowski",
+    "pitch_type": "FF",
+    "n": 1669,
+    "grade": 135.4,
+    "rv100": 1.7,
+    "whiff_plus": 130.2
+   },
+   {
+    "name": "Aroldis Chapman",
+    "pitch_type": "SL",
+    "n": 153,
+    "grade": 129.6,
+    "rv100": 2.3,
+    "whiff_plus": 128.1
+   },
+   {
+    "name": "Adri\u00e1n Morej\u00f3n",
+    "pitch_type": "CH",
+    "n": 303,
+    "grade": 128.0,
+    "rv100": 2.5,
+    "whiff_plus": 109.3
+   },
+   {
+    "name": "Jared Jones",
+    "pitch_type": "SL",
+    "n": 555,
+    "grade": 126.8,
+    "rv100": 1.3,
+    "whiff_plus": 130.2
+   },
+   {
+    "name": "Jacob Misiorowski",
+    "pitch_type": "CU",
+    "n": 282,
+    "grade": 126.2,
+    "rv100": 2.5,
+    "whiff_plus": 138.3
+   },
+   {
+    "name": "Tyron Guerrero",
+    "pitch_type": "SI",
+    "n": 520,
+    "grade": 125.6,
+    "rv100": 1.8,
+    "whiff_plus": 116.7
+   },
+   {
+    "name": "Bradgley Rodriguez",
+    "pitch_type": "CH",
+    "n": 500,
+    "grade": 125.5,
+    "rv100": 2.6,
+    "whiff_plus": 105.9
+   }
+  ],
+  "bottom": [
+   {
+    "name": "Aaron Civale",
+    "pitch_type": "FF",
+    "n": 196,
+    "grade": 68.9,
+    "rv100": -3.2,
+    "whiff_plus": 96.4
+   },
+   {
+    "name": "Eric Lauer",
+    "pitch_type": "CH",
+    "n": 269,
+    "grade": 69.7,
+    "rv100": -1.1,
+    "whiff_plus": 90.6
+   },
+   {
+    "name": "Brady Singer",
+    "pitch_type": "FC",
+    "n": 193,
+    "grade": 71.7,
+    "rv100": -5.1,
+    "whiff_plus": 100.0
+   },
+   {
+    "name": "Sam Moll",
+    "pitch_type": "CH",
+    "n": 169,
+    "grade": 72.1,
+    "rv100": -1.2,
+    "whiff_plus": 95.1
+   },
+   {
+    "name": "Erick Fedde",
+    "pitch_type": "CH",
+    "n": 273,
+    "grade": 72.1,
+    "rv100": -2.7,
+    "whiff_plus": 88.2
+   }
+  ]
+ }
+}

@@ -3848,3 +3848,81 @@ no recalibration. 62,623 dev rows; player-clustered bootstrap, 1,000 draws.
   excluding 0, **and** 10-bin ECE ≤ .02, **and** not worse on Brier than §99g's LGB + era map (else the simpler winner).
 - **Kill:** fail → no arrival probability ships; ETA stays descriptive. The §99g era-map read stays as logged, but this
   diagnosis says its premise (era drift) explains little of the miss.
+
+## §101 Per-pitch-type Prevention+: forecast, or a descriptive grade if it earns one. Pre-registered 2026-10-29 before any read (the brief asked for §100; §100 was already taken by the range-residual read)
+
+**Unit and target.** Pitcher × season × Statcast pitch type (FF SI FC SL CU KC SW SV ST CH FS FO EP), MLB regular season,
+pairs S → S+1 for S = 2020…2025, n ≥ 150 of that type in both seasons. Target: RV/100 of that type in S+1,
+100 × mean(−delta_run_exp) (runs saved, pitcher-positive), on the §71 pitch filter (no bunts, pitchouts, automatic calls).
+
+**Seal.** The seasonal holdouts are spent (2020 MLB, AAA 2026). A random 20% of all pitchers in the eligible pair set
+(numpy default_rng(101) permutation of the sorted ids) is written to `results/prevention_pitch_seal.json` before any
+target is read, and read once on the frozen spec (`--seal`). Caveat: earlier sections (§50/§52 etc.) read some of these
+pitchers' season outcomes; nothing in this section has.
+
+**Inputs in S (wide, 11 families).** shape (velo, IVB, arm-side HB, spin, extension, release height/side, VAA, arm angle);
+Whiff+ per pitch (mean of `cache/pitch_models.parquet`, cross-fit); usage (share, log n); location/command (zone%, edge%,
+heart%, chase% induced, zone-swing%, called-strike%, ball%); swing-miss (whiff/swing, CSW%); putaway (K / two-strike
+pitches, two-strike usage share); contact (GB%, mean LA, xwOBAcon, hard-hit%); results (RV/100 in S; xRV/100 v2 is a baseline only, not an input, since
+it has no per-pitch values to rebuild for the split-half read); platoon (RV/100, whiff/swing, usage share vs LHH and vs RHH; same-hand share);
+count usage (first-pitch, ahead, behind shares); other-pitch context (pitcher's other-pitch RV/100, primary-FB velo and
+ΔVelo/ΔIVB/ΔHB vs it, number of types, pitcher's K% and BB%); pitch-type one-hots and season.
+
+**Model and selection (dev = the other 80%).** Nested CV grouped by pitcher: outer 5 folds score the whole procedure;
+the inner 4 folds choose among (i) ridge on every family, (ii) ridge after greedy family-forward selection,
+(iii) LightGBM on every family (fixed small-tree params, ≤ 4 threads), by inner MSE. The outer read reports which
+families get picked, how stable the choice is across folds, and a leave-one-family-out ablation of the frozen spec.
+The frozen spec = the procedure re-run on all dev pitchers.
+
+**Baselines (each fit on dev, with pitch-type intercepts so every arm sees the type mean).**
+B1 last-season RV/100 shrunk to the type mean, k by dev CV; B2 Whiff+ per pitch alone; B3 xRV/100 v2 per pitch.
+
+**Gate (a), forecast.** On the sealed pitchers, pooled over pairs, unweighted rows: the model beats **each** of B1–B3 on
+ΔR² (1 − SSE/SST vs the sealed mean) **or** ΔMAE, with a pitcher-clustered bootstrap (2,000 draws, seed 13) 95% CI
+excluding 0 in the model's favour. Pitch-count-weighted versions are reported, not judged.
+
+**Gate (b), descriptive (only if (a) fails).** The descriptive grade = the frozen model's score in S, scaled
+100 + 10 z over dev rows. All four must hold: (1) split-half (odd/even pitches) Spearman-Brown ≥ .50 at the median
+sample, and YoY r reported; (2) partial r with next RV/100 beyond Whiff+ per pitch > 0 with the clustered CI excluding 0,
+**and** r with Whiff+ per pitch < .80; (3) real spread: true-score SD = SD × √(split-half SB) ≥ 0.25 runs/100;
+(4) a plain-language read a coach can use. Gate (b) is read on dev and confirmed on the sealed set (same thresholds).
+
+**Secondary, descriptive only.** The frozen model scored per batter hand (n ≥ 100 of that type vs that hand in both
+seasons): YoY r, split-half SB and r with next same-hand RV/100. Not judged.
+
+**Either way.** Pass (a) → a forecast grade; fail (a), pass (b) → descriptive grade, labelled so; fail both → no ship,
+with a data / handling / modeling diagnosis. `pipeline/prevention_pitch.py`, `results/prevention_pitch_*.json`.
+
+### §101 dev read and frozen spec (written 2026-10-29 before the seal read)
+
+Dev = 672 pitchers, 3,998 pitcher × type pairs. Outer 5-fold nested CV: the inner step chose family-forward ridge in 5 / 5
+folds; swing_miss, context, location, contact were picked in 5 / 5, whiff_plus 4 / 5, shape and usage 2 / 5, count 2 / 5;
+results (last RV/100) and platoon never. Dev out-of-fold R² .098 vs B1 .036, B2 .028, B3 .026; ΔR² vs each +.061 to +.071,
+all CIs > 0. **Frozen spec** (`results/prevention_pitch_spec.json`): ridge on swing_miss, context, location, contact,
+whiff_plus, usage, shape, putaway (+ type, season). Seal next, read once.
+
+### §101 result (sealed read once, 2026-10-29): CONFIRMED as a forecast
+
+Sealed = 168 pitchers, 1,084 pitcher × type pairs. Frozen ridge vs each baseline, pooled, pitcher-clustered CI:
+
+| baseline | R² base | R² model | ΔR² | ΔMAE (runs/100) |
+|---|---|---|---|---|
+| B1 last RV/100 shrunk to type mean (k = 1,600) | .015 | .081 | **+.066 [+.030, +.101]** | +.034 [+.011, +.058] |
+| B2 Whiff+ per pitch | .022 | .081 | **+.059 [+.030, +.085]** | +.034 [+.014, +.053] |
+| B3 xRV/100 v2 | .011 | .081 | **+.070 [+.032, +.107]** | +.039 [+.014, +.063] |
+
+Pitch-weighted (reported): ΔR² +.071 / +.066 / +.078, all CIs > 0. Gate (b) numbers (reported, since (a) passed): split-half
+SB .83 (median half 168 pitches), YoY r .68, r with Whiff+ .44, partial r with next RV beyond Whiff+ .23 [.18, .28],
+true-score SD .42 runs/100. Per batter hand (dev, descriptive): r with next same-hand RV .32 (vs LHH) / .32 (vs RHH)
+against .18 / .17 for last same-hand RV; SB .76 / .76; YoY .67 / .67.
+
+Top standardized weights: hard-hit% −.13, CSW% +.13, whiff/swing +.11, chase +.11, ΔHB vs primary FB −.11, FB velo +.09,
+heart% +.08, pitcher K% +.07, Whiff+ +.07. Ablation (dev): contact, swing-miss and location carry the gain; whiff_plus,
+usage, shape and putaway each ≈ 0 once the rest is in. Last-season RV/100 was never selected: the process stats beat the
+result they produce.
+
+**Read:** a per-pitch run-prevention grade built from how the pitch misses bats, where it lands, how hard it is hit and
+how it plays off the fastball forecasts that pitch's next-season run value better than its own run value, its Whiff+ or
+its xRV. The level is honest: next-season RV/100 on 150+ pitches is mostly noise, so R² is .08 against .01–.02. Ships as
+a forecast grade, Prevention+ (pitch) = 100 + 10 z, z = (pred − .0530) / .4665. Caveat: the seal is a random pitcher
+split, not a season; some sealed pitchers' season outcomes were read in earlier sections, none on this target.

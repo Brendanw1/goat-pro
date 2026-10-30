@@ -35,6 +35,7 @@ tables below are the original plan and are kept as written.
 | **Framing+** | confirmed against Savant, shipped | §76, `PREREG-framing-plus.md` |
 | **Deception+** | passed its gates, shipped | `PREREG-deception-plus.md` |
 | Topo Level-1 class as the grading key | failed on K% and RV (wins on CSW% and stability); not adopted | §40 |
+| **Prevention+ (per pitch type)** | confirmed as a forecast (sealed ΔR² +.06 to +.07 vs last RV, Whiff+ and xRV per pitch); export + UI pending the lead | §101 |
 | Velocity/steepness under-credit checks | not confirmed; models unchanged | §83, §84 |
 | **WAR** | shipped (r .92 / .81 vs bWAR, team wins r .91) | §85 |
 | Pitch decay / buyback, usage optimizer, count policy, predictability | research only: decay confirmed, the rest no edge | §59–§63 |

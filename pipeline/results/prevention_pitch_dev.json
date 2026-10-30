@@ -1,0 +1,307 @@
+{
+ "n_dev": 3998,
+ "n_dev_pitchers": 672,
+ "outer_picks": [
+  {
+   "name": "ridge_fwd",
+   "kind": "ridge",
+   "families": [
+    "swing_miss",
+    "context",
+    "location",
+    "contact",
+    "whiff_plus",
+    "usage",
+    "count",
+    "shape"
+   ],
+   "inner_mse": {
+    "ridge_all": 1.7609,
+    "ridge_fwd": 1.7504,
+    "lgbm_all": 1.8196
+   }
+  },
+  {
+   "name": "ridge_fwd",
+   "kind": "ridge",
+   "families": [
+    "swing_miss",
+    "context",
+    "location",
+    "contact",
+    "count",
+    "shape",
+    "usage",
+    "whiff_plus"
+   ],
+   "inner_mse": {
+    "ridge_all": 1.7926,
+    "ridge_fwd": 1.7849,
+    "lgbm_all": 1.8632
+   }
+  },
+  {
+   "name": "ridge_fwd",
+   "kind": "ridge",
+   "families": [
+    "swing_miss",
+    "context",
+    "location",
+    "contact"
+   ],
+   "inner_mse": {
+    "ridge_all": 1.8389,
+    "ridge_fwd": 1.8316,
+    "lgbm_all": 1.8982
+   }
+  },
+  {
+   "name": "ridge_fwd",
+   "kind": "ridge",
+   "families": [
+    "swing_miss",
+    "context",
+    "location",
+    "contact",
+    "whiff_plus"
+   ],
+   "inner_mse": {
+    "ridge_all": 1.8774,
+    "ridge_fwd": 1.8628,
+    "lgbm_all": 1.9264
+   }
+  },
+  {
+   "name": "ridge_fwd",
+   "kind": "ridge",
+   "families": [
+    "swing_miss",
+    "context",
+    "location",
+    "contact",
+    "whiff_plus"
+   ],
+   "inner_mse": {
+    "ridge_all": 1.8307,
+    "ridge_fwd": 1.825,
+    "lgbm_all": 1.879
+   }
+  }
+ ],
+ "gate_a_dev": {
+  "B1": {
+   "r2_model": 0.09773,
+   "r2_base": 0.03625,
+   "d_r2": {
+    "est": 0.06147,
+    "ci": [
+     0.04182,
+     0.0798
+    ]
+   },
+   "d_mae": {
+    "est": 0.03452,
+    "ci": [
+     0.02162,
+     0.04677
+    ]
+   },
+   "beats": true
+  },
+  "B2": {
+   "r2_model": 0.09773,
+   "r2_base": 0.02774,
+   "d_r2": {
+    "est": 0.06999,
+    "ci": [
+     0.05252,
+     0.08769
+    ]
+   },
+   "d_mae": {
+    "est": 0.04651,
+    "ci": [
+     0.03369,
+     0.05914
+    ]
+   },
+   "beats": true
+  },
+  "B3": {
+   "r2_model": 0.09773,
+   "r2_base": 0.02632,
+   "d_r2": {
+    "est": 0.0714,
+    "ci": [
+     0.05092,
+     0.09089
+    ]
+   },
+   "d_mae": {
+    "est": 0.04335,
+    "ci": [
+     0.02878,
+     0.05741
+    ]
+   },
+   "beats": true
+  }
+ },
+ "gate_a_dev_pass": true,
+ "gate_a_dev_weighted": {
+  "B1": {
+   "r2_model": 0.11217,
+   "r2_base": 0.0501,
+   "d_r2": {
+    "est": 0.06208,
+    "ci": [
+     0.03899,
+     0.08307
+    ]
+   },
+   "d_mae": {
+    "est": 0.0322,
+    "ci": [
+     0.01824,
+     0.04558
+    ]
+   },
+   "beats": true
+  },
+  "B2": {
+   "r2_model": 0.11217,
+   "r2_base": 0.01653,
+   "d_r2": {
+    "est": 0.09564,
+    "ci": [
+     0.07325,
+     0.11718
+    ]
+   },
+   "d_mae": {
+    "est": 0.05623,
+    "ci": [
+     0.04037,
+     0.07148
+    ]
+   },
+   "beats": true
+  },
+  "B3": {
+   "r2_model": 0.11217,
+   "r2_base": 0.02809,
+   "d_r2": {
+    "est": 0.08409,
+    "ci": [
+     0.05906,
+     0.10784
+    ]
+   },
+   "d_mae": {
+    "est": 0.04578,
+    "ci": [
+     0.02969,
+     0.06096
+    ]
+   },
+   "beats": true
+  }
+ },
+ "frozen_spec": {
+  "name": "ridge_fwd",
+  "kind": "ridge",
+  "families": [
+   "swing_miss",
+   "context",
+   "location",
+   "contact",
+   "whiff_plus",
+   "usage",
+   "shape",
+   "putaway"
+  ],
+  "inner_mse": {
+   "ridge_all": 1.8357,
+   "ridge_fwd": 1.8193,
+   "lgbm_all": 1.8664
+  }
+ },
+ "ablation_mse_increase": {
+  "swing_miss": 0.01288,
+  "context": 0.00288,
+  "location": 0.00964,
+  "contact": 0.01603,
+  "whiff_plus": -0.00126,
+  "usage": -0.00263,
+  "shape": -0.0,
+  "putaway": -0.00193
+ },
+ "coef_std": {
+  "hh": -0.1342,
+  "csw": 0.126,
+  "wps": 0.1136,
+  "chase": 0.1115,
+  "d_hb": -0.111,
+  "fb_velo": 0.0922,
+  "heart": 0.0762,
+  "k_p": 0.0729,
+  "hb": 0.0712,
+  "whiff_plus": 0.0706,
+  "zone": 0.0703,
+  "rz": -0.0662,
+  "velo": 0.0629,
+  "zsw": -0.0615,
+  "two": 0.0472,
+  "usage": 0.0466,
+  "spin": 0.046,
+  "la": -0.0379,
+  "gb": 0.0372,
+  "arm": 0.0348,
+  "cs": -0.0318,
+  "putaway": 0.0313,
+  "bb_p": -0.0307,
+  "d_velo": 0.0276,
+  "ball": -0.0267,
+  "ext": 0.0244,
+  "n_types": 0.0241,
+  "log_n": 0.0182,
+  "rx": 0.0164,
+  "rv_other": 0.0148,
+  "vaa": 0.0116,
+  "xwcon": -0.0101,
+  "d_ivb": 0.0096,
+  "season": -0.0069,
+  "edge": -0.0061,
+  "ivb": -0.002
+ },
+ "gate_b_dev": {
+  "split_half": {
+   "n": 9625,
+   "median_half_n": 155.0,
+   "r": 0.6929,
+   "sb": 0.8186
+  },
+  "yoy_r": 0.6718,
+  "r_with_whiff_plus": 0.4058,
+  "partial_r_next_rv_beyond_whiff": {
+   "est": 0.25073,
+   "ci": [
+    0.21623,
+    0.28109
+   ]
+  },
+  "sd_runs100": 0.4665,
+  "true_sd_runs100": 0.4221,
+  "r_score_next_rv": 0.313,
+  "r_last_rv_next_rv": 0.1814,
+  "grade_scale": {
+   "mean": 0.052980042853478515,
+   "sd": 0.4665316853082205
+  },
+  "pass": {
+   "reliable": true,
+   "distinct": true,
+   "spread": "True"
+  }
+ }
+}
