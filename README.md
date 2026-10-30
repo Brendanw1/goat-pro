@@ -47,6 +47,7 @@ labelled **descriptive, not a forecast**, or does not ship.
 | Whiff+ (pitch shape, whiff per swing) | forecast gate passed | §34, §82 |
 | K+ (strikeout projection) | forecast gate passed | §50 |
 | Prevention+ (run-prevention stack) | forecast gate passed | §52 |
+| Prevention+ per pitch type (Prev+ on the arsenal table) | forecast gate passed | §101 |
 | Control+ | shown; its walk projection is not confirmed | §55 |
 | Pitching+ | shown; ties SIERA, not confirmed | §56 |
 | P7 family on AAA | confirmed | §66 |
@@ -67,7 +68,7 @@ labelled **descriptive, not a forecast**, or does not ship.
 | Park factors (2B, 3B, HR, SO by hand) | descriptive | §70, §72 |
 | Hitter Marcel projection | display-only baseline with measured ranges | §67 |
 | Minor-league translations (MLEs, AAA/AA → MLB) | tested for AAA hitter K%, BB%, ISO and AA hitter BB%; provisional for AA hitter K% and AAA pitcher K%; the rest descriptive | §88 |
-| Prospect model (point-in-time snapshots, LightGBM + hierarchical Bayes in NumPyro) | value ranking passed its one holdout (NDCG@100 +.076 [+.027, +.121] vs a draft/rank baseline); debut probability and the sleeper board failed (post-2020 drift; power); not shown; era recalibration pre-registered for the 2024 list after 2027 | §97, §99f, §99g |
+| Prospect model (point-in-time snapshots, LightGBM + hierarchical Bayes in NumPyro) | value ranking passed its one holdout (NDCG@100 +.076 [+.027, +.121] vs a draft/rank baseline), but a later audit found its training split biased, so that pass is under review; debut probability and the sleeper board failed (post-2020 drift; power); not shown; era recalibration pre-registered for the 2024 list after 2027 | §97, §99f, §99g |
 | Our own xwOBA and xRV | not shipped (failed, diagnosed, re-tests failed) | §68, §71, §77, §78 |
 
 `docs/model-inventory.md` has the full list, including what was tried and
