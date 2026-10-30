@@ -100,7 +100,12 @@ export default async function GameReportPage({ params, searchParams }: {
             <p className="text-[11px] text-text-dim">Official box score and lineups; the pitch-by-pitch table arrives with the next Statcast ingest.</p>
           ) : null}
         </div>
-        <Link href={g.postseason ? `/postseason?season=${season}` : level === "aaa" ? "/minors" : "/pitchers"} className="text-[11px] text-text-dim hover:text-text-secondary">← Back</Link>
+        <div className="flex items-center gap-3">
+          <Link href={`/games/${gid}/report${level === "aaa" ? "?level=aaa" : ""}`} className="text-[11px] text-text-dim underline-offset-2 hover:text-text-secondary hover:underline">
+            Per-player report ↗
+          </Link>
+          <Link href={g.postseason ? `/postseason?season=${season}` : level === "aaa" ? "/minors" : "/pitchers"} className="text-[11px] text-text-dim hover:text-text-secondary">← Back</Link>
+        </div>
       </div>
 
       {g.lineups ? (
