@@ -6,6 +6,8 @@ import { PlayerReady } from "@/components/ui/player-transition";
 import { TransactionsPanel } from "@/components/ui/transactions-panel";
 import { getTransactions } from "@/lib/data";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { isId, isSeason } from "@/lib/r2";
 
 /** A minor leaguer: the AAA Statcast profile when he has one, else his line by level alone. */
 async function latestLine(id: string) {
@@ -24,6 +26,7 @@ export async function generateMetadata({ params, searchParams }: {
 }) {
   const { id } = await params;
   const season = (await searchParams)?.season;
+  if (!isId(id) || (season != null && season !== "" && !isSeason(season))) notFound();
   const p = (await getPlayerProfile(id, season, "aaa")) ?? (await getHitterProfile(id, season, "aaa")) ?? (await latestLine(id));
   return { title: p?.name ? `${p.name} (Minors)` : "Player Not Found" };
 }
@@ -33,6 +36,7 @@ export default async function MinorsPlayerPage({ params, searchParams }: {
 }) {
   const { id } = await params;
   const season = (await searchParams)?.season;
+  if (!isId(id) || (season != null && season !== "" && !isSeason(season))) notFound();
   const aaa = (await getPlayerProfile(id, season, "aaa")) ?? (await getHitterProfile(id, season, "aaa"));
   const tx = (aaa || (await latestLine(id))) ? await getTransactions(id) : null;
   const back = (

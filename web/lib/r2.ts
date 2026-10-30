@@ -185,6 +185,17 @@ function settle(path: string, text: string, mtime: number | null, shared: boolea
   return { data };
 }
 
+/** Route-level checks (defence in depth on top of safeKey): MLBAM ids are digits, seasons are four digits. */
+export const isId = (id: string | undefined | null): id is string => !!id && /^\d+$/.test(id);
+export const isSeason = (s: string | undefined | null): s is string => !!s && /^\d{4}$/.test(s);
+const BAD = () => Response.json({ error: "Not found", code: "NOT_FOUND" }, { status: 404 });
+/** 404 when id or (required/optional) season is malformed; null when the input is fine. */
+export function badInput(id: string, season?: string | null, required = true): Response | null {
+  if (!isId(id)) return BAD();
+  if (season == null || season === "") return required ? BAD() : null;
+  return isSeason(season) ? null : BAD();
+}
+
 /**
  * Object keys come from request input (player ids, seasons, levels). URL parsing resolves `..` and drops `#`, and the
  * signature covers the normalised path, so an unchecked key could climb out of the prefix and the bucket (security

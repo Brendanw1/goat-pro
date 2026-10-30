@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchFromR2 } from "@/lib/r2";
+import { badInput, fetchFromR2 } from "@/lib/r2";
 import type { PlayerProfile } from "@/types";
 
 export async function GET(
@@ -8,6 +8,8 @@ export async function GET(
 ) {
   const { id } = await params;
   const season = request.nextUrl.searchParams.get("season") ?? undefined;
+  const bad = badInput(id, season, false);
+  if (bad) return bad;
 
   // Pitcher profiles at players/, hitter docs (wave 2b) at hitters/.
   const profile = (await fetchFromR2<PlayerProfile>(`players/${id}.json`).catch(() => null))

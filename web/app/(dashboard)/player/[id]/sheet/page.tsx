@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { isId, isSeason } from "@/lib/r2";
 import { getPlayerProfile, getHitterProfile, getPercentiles, getHitterPercentiles, getHitterScouting } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
 import { getPitcherPercentileRank, getStatPercentileRank, ordinal } from "@/lib/percentiles";
@@ -42,6 +44,7 @@ export default async function PlayerSheetPage({ params, searchParams }: {
 }) {
   const { id } = await params;
   const sp = (await searchParams) ?? {};
+  if (!isId(id) || (sp.season != null && sp.season !== "" && !isSeason(sp.season))) notFound();
   const level = sp.level === "aaa" ? "aaa" : "mlb";
   const profile = (await getPlayerProfile(id, sp.season, level)) ?? (await getHitterProfile(id, sp.season, level));
   if (!profile) {

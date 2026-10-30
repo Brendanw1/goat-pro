@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
+import { badInput } from "@/lib/r2";
 import { getHitterPercentiles, getHitterProfile, getPercentiles, getPlayerProfile } from "@/lib/data";
 import { getPitcherPercentileRank, getStatPercentileRank, percentileColor } from "@/lib/percentiles";
 
@@ -25,6 +26,8 @@ const PITCHER: [string, string, (v: number) => string][] = [
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const season = request.nextUrl.searchParams.get("season") ?? undefined;
+  const bad = badInput(id, season, false);
+  if (bad) return bad;
   const pitcher = await getPlayerProfile(id, season);
   const prof = pitcher ?? (await getHitterProfile(id, season));
   if (!prof) return new Response("not found", { status: 404 });

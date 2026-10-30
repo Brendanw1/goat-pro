@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPaLog, type Level } from "@/lib/data";
+import { badInput } from "@/lib/r2";
 
 /** One player's per-PA pitch sequences for a season (gzipped R2, decompressed server-side). */
 export async function GET(
@@ -11,7 +12,9 @@ export async function GET(
   if (!season) {
     return NextResponse.json({ error: "season is required", code: "BAD_REQUEST" }, { status: 400 });
   }
-  const level = (request.nextUrl.searchParams.get("level") ?? "mlb") as Level;
+  const bad = badInput(id, season);
+  if (bad) return bad;
+  const level: Level = request.nextUrl.searchParams.get("level") === "aaa" ? "aaa" : "mlb";
   const log = await getPaLog(id, season, level);
   if (!log) {
     return NextResponse.json({ error: `No PA log: ${id} (${season})`, code: "NOT_FOUND" }, { status: 404 });
