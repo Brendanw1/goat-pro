@@ -4123,3 +4123,31 @@ swing produce" rather than "how hard is this to hit on the money" — and the fo
 binary whiff target's coarseness is load-bearing. v4 does not ship; Whiff+ (§34/§82) stays the shape grade. No target
 edits; a different decomposition (e.g. valuing only putaway swings differently) would be a new pre-registration with
 a reason to expect a sign flip, which this read does not provide.
+
+## §104 VectorSSM: a bivariate Kalman projection vs the shipped stack (D-43), pre-registered 2026-10-29 before any read
+
+**Why.** The R&D status report's idea 10: a multivariate state-space over the P7 grades feeding the projections
+page. D-17 exists, so the bar is real: **the Kalman must beat the shipped forecast grades, not the naive** (§103's
+lesson verbatim — a fancier smoother that loses to the existing grade is a second projection-looking number with no
+job).
+
+**Model (fixed before the run).** Per pitcher, a bivariate local-level state x = [μ_rv, μ_k] (true-talent run value
+per 100 pitches, K/PA), observations y_t = [RV100_t, K/PA_t] for the seasons he has. **The vector part is load-bearing:
+the innovation covariance is a full 2×2**, estimated pool-wide on TRAIN (pairs ending 2020–2023) by the method of
+moments on successive differences: Cov(Δy) from the pooled within-pitcher successive-difference covariance; R =
+diag of the pooled within-pitcher, within-period mean square about the pitcher's TRAIN mean, with the same estimator
+on the k series; Q = sym(Cov(Δy)/2 − R/2) floored so its diagonal is ≥ 1% of the observation variances. Filter
+forward per pitcher (x_0 = first observation, P_0 = R), project S+1 = x_S (no drift term). No per-pitcher refits,
+no tuning on the test pairs; a single ×0.5 / ×2 scaling of Q is the pre-declared sensitivity, reported not judged.
+
+**Judged (read once), judge.py (GOAT_LO=2020, --skip 2023), the standard ≥ 50 taken pitches population:**
+- **RV/100 leg: A = Prevention+ (§52, `mlb_pitcher_models.json`), B = the Kalman RV projection. Ships only if
+  Δr ≥ 0 in ≥ 2 of 3 pairs with none CI-negative AND the pooled composite CI excludes 0.**
+- **K/PA leg: the same clauses with A = K+ (§50) and the Kalman K projection.**
+- Both legs must pass for the model to feed the projections page; either failing records the verdict and stops.
+**Reported, not judged:** Δr vs a 5/4/3 Marcel and vs last-season value; the ×0.5/×2 Q sensitivity; how much the
+cross-covariance moves the projection vs a univariate run (the honest test of whether "vector" earns its name).
+
+**What it means either way.** A pass puts a state-space projection on D-17 beside the grades. A fail retires the
+idea on this data: with 3–5 season observations per pitcher, a smoother is a weighted average, and the ridge with
+eleven feature families has already claimed the forecast slot (§101's read points the same way).
