@@ -33,7 +33,8 @@ const NAV_ITEMS = [
 
 /** The hoops sibling's origin (goat-hoops). NEXT_PUBLIC_ is inlined at build;
     prod is the subdomain, dev crosses ports (the hoops app mirrors this). */
-const HOOPS_URL = process.env.NEXT_PUBLIC_HOOPS_URL ?? "https://hoops.goatpro.dev";
+// Hidden until the hoops site is deployed: set NEXT_PUBLIC_HOOPS_URL (e.g. https://hoops.goatpro.dev) to show the switcher.
+const HOOPS_URL = process.env.NEXT_PUBLIC_HOOPS_URL;
 
 /* Baseball seams for the badge, traced from the owner's reference (pngtree
    "3D baseball on transparent background"): the front-on view, one seam
@@ -161,11 +162,13 @@ export function Nav() {
       {/* Right side — the sport switcher (leaves this app for the hoops
           sibling origin; env-driven so dev crosses ports) + search */}
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <a href={HOOPS_URL}
-          className="whitespace-nowrap px-2.5 py-1.5 rounded-full text-[12px] font-semibold text-text-primary/70 border border-border-subtle hover:text-white hover:bg-black/25 transition-colors"
-          title="Switch to the basketball site">
-          Hoops
-        </a>
+        {HOOPS_URL && (
+          <a href={HOOPS_URL}
+            className="whitespace-nowrap px-2.5 py-1.5 rounded-full text-[12px] font-semibold text-text-primary/70 border border-border-subtle hover:text-white hover:bg-black/25 transition-colors"
+            title="Switch to the basketball site">
+            Hoops
+          </a>
+        )}
         <Search />
       </div>
 
