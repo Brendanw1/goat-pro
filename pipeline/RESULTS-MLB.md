@@ -4151,3 +4151,22 @@ cross-covariance moves the projection vs a univariate run (the honest test of wh
 **What it means either way.** A pass puts a state-space projection on D-17 beside the grades. A fail retires the
 idea on this data: with 3–5 season observations per pitcher, a smoother is a weighted average, and the ridge with
 eleven feature families has already claimed the forecast slot (§101's read points the same way).
+
+### §104 result (read once, 2026-10-30): FAIL on both legs — the idea retires on this data
+
+`judge.py` (GOAT_LO=2020, --skip 2023), B = the bivariate Kalman projection, A = the shipped grade:
+
+| leg | A | pooled Δr (B − A), the judged outcome [95% CI] | composite Δr |
+|---|---|---|---|
+| RV/100 | Prevention+ (§52) | **−.157 [−.208, −.106]** on RV/100 | −.220 [−.263, −.178] |
+| K/PA | K+ (§50) | **−.043 [−.059, −.027]** on K | −.030 [−.045, −.014] |
+
+The pre-declared Q sensitivity (×0.5 / ×2): RV-leg Δr −.167 / −.153 — the verdict is insensitive to the smoother's
+one free dial. The filter itself behaved (R = [0.54, 0.001], Q = [0.40, 0.0055] pool-wide; 2,390 pitcher-season
+projections; a demo-checked bivariate update), so this is a modeling verdict, not an implementation bug: with 3–6
+noisy season observations per pitcher, a local-level Kalman is a weighted average with two dials, and Prevention+ —
+a ridge over eleven feature families with pitch-type structure — has already claimed exactly that forecast slot and
+uses strictly more information. The univariate-vs-vector comparison was listed reported-not-judged and is moot here:
+no configuration of the state-space was going to cross the gate. **D-43 recorded, not shipped; the projections page
+keeps the §52/§50 grades and the D-36/§67 bands.** A future revisit would need new information the grades don't
+already see (per-outing sequences, role changes), not a different smoother over the same six numbers.
