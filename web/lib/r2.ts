@@ -58,6 +58,11 @@ export async function sign(
 
   // `path` arrives already prefixed (callers build it with keyPrefix()); signing it twice 403s with SignatureDoesNotMatch.
   const url = new URL(`${config.endpoint}/${config.bucket}/${path}`);
+  // Last line of defense: the shared bucket also holds private data outside goat-pro's prefix. Whatever a caller
+  // passes, never sign a request whose normalised path leaves /<bucket>/<prefix>.
+  if (!url.pathname.startsWith(`/${config.bucket}/${keyPrefix()}`)) {
+    throw new Error("R2 request outside the goat-pro prefix refused");
+  }
   const headers: Record<string, string> = {
     host: url.host,
     "x-amz-date": timeStr,

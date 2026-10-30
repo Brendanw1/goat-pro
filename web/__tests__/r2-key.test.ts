@@ -21,3 +21,14 @@ describe("R2 key guard (security audit C1)", () => {
       expect(badInput(id, s)?.status).toBe(404);
   });
 });
+
+describe("sign() refuses paths outside the prefix (defense in depth)", () => {
+  it("throws on an escaping path even if a caller skips safeKey", async () => {
+    const { sign } = await import("@/lib/r2");
+    const cfg = { accountId: "a", accessKeyId: "k", secretAccessKey: "s", bucket: "b", endpoint: "https://r2.example" };
+    process.env.R2_PREFIX = "goatpro";
+    await expect(sign("GET", "goatpro/../x.json", cfg)).rejects.toThrow(/outside/);
+    await expect(sign("GET", "goatpro/players/1.json", cfg)).resolves.toBeDefined();
+    delete process.env.R2_PREFIX;
+  });
+});
