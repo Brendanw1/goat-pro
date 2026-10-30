@@ -3268,6 +3268,9 @@ stints are acute (HBP, hamstring, oblique) with nothing to precede. Handling che
 
 ## §97 Prospect model v0: hierarchical (empirical Bayes) sleeper ranking, pre-registered 2026-10-29 before any outcome read
 
+**Not forward-valid (§103, 2026-10-29).** The split below trained on future list years and removed test players; the lifts
+reported here are not cited.
+
 Owner ask (docs/model-inventory.md queue item 0). Research round, not a ship. `pipeline/prospect_model.py`,
 write-up in `docs/prospect-model.md`. Public data only: Pipeline lists (`prospects_fetch.py`), MLB Stats API season
 lines (MiLB 2010–19 and MLB 2011–25, fetched with `milb_lines.fetch` into `data/milb/hist_*.parquet`), draft picks
@@ -4073,3 +4076,26 @@ commit); fail → recorded with the diagnosis (data / handling / modeling) and v
 **Expected.** Marginal. The binary whiff target is already the K% champion (§30/§34); fouls are nearly pitcher-neutral
 in run value and the xwOBA line re-imports some contact noise the binary target avoided. The plausible win is RV/100
 fouls-that-set-up-putaways, which whiff misses entirely; the plausible loss is stickiness (YoY) from contact noise.
+
+### §103 result (read once, 2026-10-29): FAIL — v3 stays
+
+`judge.py` (GOAT_LO=2020, --skip 2023), A = shipped v3 (hand-matched wps_dml), B = swing_xrv_dml, pooled Δr (B − A):
+
+| outcome | pooled Δr [95% CI] |
+|---|---|
+| K/PA | **−.106 [−.139, −.074]** |
+| (K−BB)/PA | −.089 [−.120, −.059] |
+| RV/100 | **−.036 [−.066, −.008]** |
+| xRV/100 (reported) | −.025 [−.057, +.006] |
+| **composite** | **−.064 [−.091, −.039]** |
+
+The run's own gates (reported): leak z .017, leak_x .038 (both pass); YoY .847/.876/.867/.841/.875/.843 — as sticky as
+v3's .84/.87/.85, so the loss is not stability, it is signal: the continuous contact term re-imports exactly the noise
+the binary target avoided, and fouls (TRAIN mean +.039 runs, nearly neutral) dilute the whiff channel without paying
+for it. TRAIN constants (recorded, not gated): whiff +.114, foul +.039, BIP .267 − .859·xwOBA.
+
+**Diagnosis (modeling).** The richer target is smoother per pitch but answers a different question: "what did the
+swing produce" rather than "how hard is this to hit on the money" — and the forecast gate rewards the second. The
+binary whiff target's coarseness is load-bearing. v4 does not ship; Whiff+ (§34/§82) stays the shape grade. No target
+edits; a different decomposition (e.g. valuing only putaway swings differently) would be a new pre-registration with
+a reason to expect a sign flip, which this read does not provide.
