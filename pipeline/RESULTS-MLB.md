@@ -3926,3 +3926,34 @@ how it plays off the fastball forecasts that pitch's next-season run value bette
 its xRV. The level is honest: next-season RV/100 on 150+ pitches is mostly noise, so R² is .08 against .01–.02. Ships as
 a forecast grade, Prevention+ (pitch) = 100 + 10 z, z = (pred − .0530) / .4665. Caveat: the seal is a random pitcher
 split, not a season; some sealed pitchers' season outcomes were read in earlier sections, none on this target.
+
+## §101 Baserunning runs, XBT leg: extra bases taken vs the average runner (D-40), pre-registered 2026-10-29 before any read
+
+**Why.** §85's own-WAR carries no baserunning leg. Statcast's pitch-level mart has no stolen-base events at any season
+(verified: zero `*steal*` rows in `events` or `description`, 2020–26), so the SB/CS leg needs a Stats API play-by-play
+ingest and becomes D-40a. The XBT leg — a runner's decision to take or hold on a ball in play — is fully reconstructible
+from the pitch data, which carries `on_1b/2b/3b`, `outs_when_up` and the batter's event. Savant's
+`lb_baserunning_run_value.runner_runs_XB` (2021–26) is the validation reference; our number is ours, not theirs.
+
+**Reconstruction rules (fixed before any run).**
+- Walk each game's PAs in order (first pitch of each PA carries the true state). A PA's opportunity set: every runner
+  on base when the PA ended in `single`, `double`, `field_error` (batter reached), `fielders_choice`, or on a
+  `sac_fly`/out ball where a tag-up is possible — no: **hits and reached-on-error only** (single, double,
+  field_error where the batter is credited first), the states where the advance decision is the runner's.
+- Fate of each runner = the base-occupancy diff: state_after (next PA's bases, or empty if the half-inning ended)
+  minus the batter's destination. An advance is read only when the diff is unambiguous; ambiguous diffs are dropped,
+  and the dropped share is reported (target: under 5%).
+- Outs: a runner recorded as retired on the play (state_after missing him while a slower base was open to him
+  unambiguously) counts as an out on the bases, outs adjusted by `outs_when_up` drift within the half-inning.
+- **League baseline:** mean runs value of the play (RE attribution: runs scored on the play + RE24(after) − RE24(before))
+  for every play in the same cell (from_base × event × outs), 2020–26 pooled.
+- **Runner credit:** for his opportunities, credit = play RV − the cell's league mean. Runs = Σ credit over the season.
+  Sprint speed enters as a reported covariate, not a feature.
+
+**Claim (read once).** Our XBT runs per player-season (300+ PA, 10+ opportunities) agree with Savant's
+`runner_runs_XB` — pooled r over 2021–2026 pairs with CI lower bound > .50 and r > 0 in every season pair.
+
+**Reported, not judged:** YoY r of our runs; split-half r within seasons (first/last third); r of our runs with the
+runner's sprint speed; the ambiguous-diff share; SB/CS leg deferred to D-40a.
+
+**Shipping rule:** ship on profiles and the own-WAR leg only if the claim passes; otherwise record and stop.
