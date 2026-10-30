@@ -123,4 +123,13 @@ games, then ARC/xpts_rapm snapshots for validation anchors. Our own derivations
 hit-rate studies) follow the usual pre-registration discipline, tested against LUMA
 as the external benchmark.
 EOF
+> **Re-tested 2026-10-29:** the block has gone QUIET, not gone. `leagueleaders`
+> (CDN-cached) returns 200, but every data endpoint tested — playerindex,
+> commonallplayers, shotchartdetail, playbyplayv2, boxscoretraditionalv2, and
+> the whole tracking/defense/passing/hustle dashboard family — accepts the
+> connection and then never answers (silent drop, both curl and urllib, with
+> nba_api's exact header set). nba_api therefore still cannot serve this
+> network. The routes remain: browser-context fetch, a different network, or
+> the owner's curl-impersonation call.
+
 git add docs/basketball-gap-map.md && git commit -m "docs: basketball gap map day 1 — LUMA verified reachable (box/advanced/RAPM 1997-2027), nba.com endpoints blocked from this network, PBP/shots/tracking are the open gap" 2>&1 | tail -1 && git push 2>&1 | tail -1
