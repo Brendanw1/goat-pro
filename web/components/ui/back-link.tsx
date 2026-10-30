@@ -13,7 +13,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 const KEY = "gp:routeStack";
 const CAP = 30;
@@ -28,15 +28,16 @@ function readStack(): string[] {
 }
 
 export function RouteTracker() {
+  // no useSearchParams(): it forces every page under the layout to dynamic rendering
+  // (or demands a Suspense boundary); the query string read here is client-only anyway.
   const pathname = usePathname();
-  const search = useSearchParams().toString();
   useEffect(() => {
-    const here = pathname + (search ? `?${search}` : "");
+    const here = location.pathname + location.search;
     const stack = readStack();
     if (stack[stack.length - 1] === here) return; // refresh or a re-render: keep the previous entry
     stack.push(here);
     sessionStorage.setItem(KEY, JSON.stringify(stack.slice(-CAP)));
-  }, [pathname, search]);
+  }, [pathname]);
   return null;
 }
 
