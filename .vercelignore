@@ -4,6 +4,5 @@
 /pipeline/models
 /pipeline/results
 node_modules
-.git
 /web/.next
 *.parquet
