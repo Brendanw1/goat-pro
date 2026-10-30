@@ -4282,3 +4282,40 @@ the rank-to-value expectation, labelled Pipeline's rankings plus our WAR.
 - **The prospect angle:** 52 traded players were top-100 alums; their next-season WAR averaged 1.23 with 36.5% ≥ 1
   WAR — well above the fringe average, i.e. the players clubs actually trade in these windows include real
   contributors, and §106's tier table is the right reference for what their side of a return should look like.
+
+## §108 Catcher throwing (xCS%) and blocking (expected WP+PB): our own expectations, pre-registered 2026-10-30 before any read
+
+Plan and data inventory: `docs/catcher-defense-plan.md`. Rows: Savant's public per-play drill-downs
+(`pipeline/catcher_fetch.py` → `cache/catcher/throwing.parquet`, `blocking.parquet`); model code
+`pipeline/catcher_models.py`, results `results/catcher_models_SEALED.json`. Nothing below has been fitted or read.
+
+**§108a xCS% — P(caught stealing | attempt), context only.**
+- *Population:* every regular-season SB attempt 2020-26 on the throwing rows, pitchouts out, target base 2B or 3B
+  (home steals too rare to model). *Label:* `is_runner_cs`. Held throws stay in (not throwing is the catcher's call).
+- *Features (frozen):* runner seasonal sprint speed, primary lead, target base, pitcher hand, delayed-steal flag,
+  prior pickoff attempts, season. **Not** the catcher's pop / exchange / arm: the catcher's credit is CS above this
+  expectation, and his pop / exchange / arm then explain that credit descriptively. Pitch type / location / count are
+  added from the mart on (game_pk, at_bat_number, pitch_number = play_init_seq) only if that join matches ≥ 95% of
+  rows (a handling check, outcomes unseen); below that they stay out. Pitcher time to plate is not public: the
+  pitcher's share is the lead he allows, shown descriptively.
+- *Model:* LightGBM (num_leaves 15, 300 rounds, lr .05, min_child_samples 100). 5-fold CV grouped by catcher on
+  2020-25 (no catcher in his own fit); **2026 held out**, scored once by the model fit on 2020-25.
+- *Baselines:* (i) league CS rate by season x base; (ii) catcher-only: the catcher's CS rate in his other seasons,
+  shrunk to the league rate with k = 30 attempts. Savant's `exp_cs` is a reference, not a bar.
+- *Gates:* **G1** 2026 log loss beats both baselines, by ≥ 3% relative over (i); **G2** OOF max decile gap ≤ .03;
+  **G3** per catcher-season CS above xCS (≥ 30 attempts) vs Savant's `caught_stealing_above_average`: pooled r ≥ .80,
+  every season ≥ .70; **G4** year-to-year r of CS above xCS per attempt (≥ 30 attempts both years) ≥ .75 x Savant's
+  on the same pairs; **G5** (sanity) CS above xCS per attempt vs mean pop time r ≤ -.40.
+- *Verdict:* SHIP (site shows our xCS and CS above xCS) only if G1-G5 all pass; otherwise the running-game views stay
+  descriptive with Savant's numbers labelled, and the failed gate gets a data / handling / modeling diagnosis.
+
+**§108b Expected WP+PB — P(wild pitch or passed ball | pitch with a runner on).**
+- *Population:* every regular-season pitch on the blocking rows 2021-26. *Label:* `is_runner_pbwp`.
+- *Features (frozen):* plate location x / z, ground (in the dirt) flag, Savant pitch-type subgroup, pitcher hand,
+  batter side, plate time (a velocity proxy), season.
+- *Model, CV and holdout:* as §108a (grouped by catcher; 2021-25 CV, 2026 held out once).
+- *Baselines:* (i) league rate by season; (ii) catcher-only rate from his other seasons, shrunk with k = 2,000 opportunities.
+- *Gates:* **G1** 2026 log loss beats both, by ≥ 10% relative over (i); **G2** OOF max decile gap ≤ .005; **G3** per
+  catcher-season blocks above expected (expected − actual, ≥ 1,500 opportunities) vs Savant's `blocks_above_average`:
+  pooled r ≥ .80, every season ≥ .70; **G4** year-to-year r ≥ .75 x Savant's on the same pairs.
+- *Verdict:* as §108a.
