@@ -11,6 +11,8 @@ import { RV100_TIP } from "@/lib/rv-cells";
 import { SLOT_BANDS } from "@/lib/arm-slot";
 import { AGE_TIP, DECEPTION_COL_TIP, DIVB_SLOT_TIP, DHB_SLOT_TIP } from "./slot";
 
+export const PREV_PITCH_TIP = "Prevention+ (pitch): how many runs this pitch should save next season, judged from how it misses bats, gets chases and called strikes, avoids hard contact, and plays off the fastball. 100 = average, 10 = one SD. A forecast, tested on held-out pitchers (RESULTS-MLB §101). MLB only, 150+ pitches of the type.";
+
 export const COLS = [
   { key: "name", label: "Name", w: "flex-[2] min-w-[150px]", align: "left" },
   { key: "team", label: "Team", w: "w-[60px]", align: "left" },
@@ -32,6 +34,7 @@ export const COLS = [
   { key: "rv100", label: "RV/100", w: "w-[54px]", align: "right", tip: RV100_TIP },
   { key: "stuffPlus", label: "Whiff+", w: "w-[112px]", align: "right", model: true },
   { key: "pitchingPlus", label: "Pitching+", w: "w-[84px]", align: "right", model: true },
+  { key: "prevPitch", label: "Prev+", w: "w-[64px]", align: "right", model: true, tip: PREV_PITCH_TIP },
   { key: "deceptionPlus", label: "Deception+", w: "w-[80px]", align: "right", tip: DECEPTION_COL_TIP },
 ] as const;
 

@@ -27,7 +27,7 @@ function fmt(value: any, key: string): string {
   if (key === "spin") return String(Math.round(value));
   if (key === "n_pitches") return String(Math.round(value));
   if (key === "age") return String(Math.floor(value)); // season age (June 30), whole years as on the pitchers board
-  if (["stuffPlus", "pitchingPlus", "deceptionPlus"].includes(key)) return Math.round(value).toString();
+  if (["stuffPlus", "pitchingPlus", "prevPitch", "deceptionPlus"].includes(key)) return Math.round(value).toString();
   if (key === "dIvbSlot" || key === "dHbSlot") return (value > 0 ? "+" : "") + value.toFixed(1);
   if (key === "season") return String(Math.round(value));
   if (key === "rv100") return (value > 0 ? "+" : "") + value.toFixed(2);

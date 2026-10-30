@@ -1713,6 +1713,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     print(f"[{time.time() - t0:.0f}s] arsenal", flush=True)  # per-family timing
     if "arsenal" in fams:
         card_pool = {}
+        _prev_ars = prev_pitch_scores() if level == "mlb" else {}  # §101 per-pitch Prevention+ on the arsenal boards
         for _, t in bytype.iterrows():
             site = t["site"]
             if site not in SITE_TYPES or t["n"] < SABR_FLOORS["row"]:
@@ -1738,7 +1739,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "stuffPlus": f(sg, 1) if sg is not None else None,
                 "nStuffPitches": int(sn), "stuffGradeFrom": None,
                 "pitchingPlus": f(pg, 1) if pg is not None else None,
-                "prevPitch": f(_pv, 1) if (_pv := _pp.get((*key, site), (None,))[0]) is not None else None,  # §101, MLB, n >= 150
+                "prevPitch": f(_pv, 1) if (_pv := _prev_ars.get((*key, site), (None,))[0]) is not None else None,  # §101, MLB, n >= 150
                 "confidence": gr["confidence"],
             }
             arsenal_rows.setdefault(site, []).append(row)
