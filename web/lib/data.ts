@@ -632,3 +632,8 @@ export async function getRosters40(level: Level = "mlb"): Promise<any | null> {
 export async function getRostersMoves(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "rosters40/moves.json"), { shared: true }).catch(() => null);
 }
+
+/** D-48: coaching staffs per club and season (2015-). */
+export async function getCoaches(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "coaches.json"), { shared: true }).catch(() => null);
+}

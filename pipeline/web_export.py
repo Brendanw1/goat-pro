@@ -5607,6 +5607,28 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             print(f"rosters: {len(teams_out)} clubs as of {cur_date} (moves vs "
                   f"{spring.stem.replace('snap_', '') if spring is not None else 'n/a'})")
 
+        # D-48 coaching staffs: one file from data/coaches/coaches_{season}.json
+        # (pipeline/coaches_fetch.py, Stats API teams/{id}/coaches). Rows verbatim;
+        # the staff matrix and turnover read live on the team page.
+        cfiles = sorted((ROOT / "data" / "coaches").glob("coaches_*.json")) if (ROOT / "data" / "coaches").exists() else []
+        if cfiles:
+            staff: dict = {}
+            for cf in cfiles:
+                season = int(cf.stem.replace("coaches_", ""))
+                for r_ in json.loads(cf.read_text()):
+                    abbr = abbr_of.get(int(r_["team_id"]))
+                    if abbr:
+                        staff.setdefault(abbr, {}).setdefault(str(season), []).append(
+                            {"id": str(r_["id"]), "n": r_["name"], "j": r_["job"]})
+            jwrite(out / "coaches.json", {
+                "comment": "Coaching staffs per club and season (Stats API teams/{id}/coaches, "
+                           "2015-, end-of-season staff; a mid-season change shows as the name who "
+                           "finished the year). D-48, descriptive.",
+                "teams": {k: staff[k] for k in sorted(staff)},
+            }, sort_keys=True)
+            counts["coaches_teams"] = len(staff)
+            print(f"coaches: {len(staff)} clubs, {len(cfiles)} seasons")
+
     if "pitches" in fams:
         counts["pitch_files"] = bake_pitches(con, out, seasons, site_case_sql(), level)
         # D-10 movement explorer: a stride sample of the league's shapes, per season x type, for

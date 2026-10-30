@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { sortComparator } from "@/lib/table-sort";
 import { notFound } from "next/navigation";
-import { getPitchers, getHitters, getParks , getRecentGames } from "@/lib/data";
+import { getCoaches, getPitchers, getHitters, getParks , getRecentGames } from "@/lib/data";
 import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 import { ordinal } from "@/lib/percentiles";
@@ -212,7 +212,7 @@ export default async function TeamPage({ params, searchParams }: {
   const { abbr: raw } = await params;
   const abbr = decodeURIComponent(raw).toUpperCase();
   const q = (await searchParams) ?? {};
-  const [pitchersRaw, hittersRaw, parks, recent] = await Promise.all([getPitchers(), getHitters(), getParks(), getRecentGames()]);
+  const [pitchersRaw, hittersRaw, parks, recent, coaches] = await Promise.all([getPitchers(), getHitters(), getParks(), getRecentGames(), getCoaches()]);
   const pitchers = byClub(pitchersRaw ?? []), hitters = byClub(hittersRaw ?? []);
   const prows = (pitchers ?? []).filter((r: any) => r.team === abbr);
   const hrows = (hitters ?? []).filter((r: any) => r.team === abbr);
@@ -285,6 +285,51 @@ export default async function TeamPage({ params, searchParams }: {
                 IP-weighted. The split is the read: a rotation carrying innings at one K-BB profile and a bullpen at
                 another are two staffs, not one mean.
               </p>
+            </div>
+          );
+        })()}
+        {(() => {
+          const st = (coaches as any)?.teams?.[abbr] ?? {};
+          const yrs = Object.keys(st).sort((a, b) => Number(b) - Number(a));
+          if (yrs.length < 1) return null;
+          const JOB_ORDER = ["Manager", "Bench Coach", "Pitching Coach", "Hitting Coach", "First Base Coach", "Third Base Coach", "Bullpen Coach", "Bullpen Catcher", "Assistant Hitting Coach", "Major League Coach", "Coach"];
+          const byJob: Record<string, Record<string, string>> = {};
+          for (const y of yrs) for (const c of st[y]) {
+            byJob[c.j] ??= {};
+            byJob[c.j][y] = c.n;
+          }
+          const jobs = Object.keys(byJob).sort((a, b) => {
+            const ia = JOB_ORDER.indexOf(a), ib = JOB_ORDER.indexOf(b);
+            return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
+          });
+          return (
+            <div className="glass-panel overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-border-subtle">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Coaching staff, {yrs[yrs.length - 1]}–{yrs[0]}</span>
+                <span className="text-[10px] text-text-dim ml-2">bright = new in that job that year (end-of-season staff; a mid-season change shows who finished it)</span>
+              </div>
+              <div className="overflow-x-auto"><div className="min-w-max">
+                <div className="flex items-center px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-dim border-b border-border-subtle sticky-col">
+                  <div className="w-[150px]">Job</div>
+                  {yrs.map((y) => <div key={y} className="w-[110px] text-right font-data">{y}</div>)}
+                </div>
+                {jobs.map((j) => (
+                  <div key={j} className="flex items-center px-4 border-b border-white/[0.025]" style={{ height: "28px" }}>
+                    <div className="w-[150px] text-xs text-text-secondary">{j}</div>
+                    {yrs.map((y, yi) => {
+                      const name = byJob[j][y];
+                      const older = yrs[yi + 1];
+                      const changed = name && name !== byJob[j][older];
+                      return (
+                        <div key={y} className={`w-[110px] text-right text-xs font-data truncate ${name ? (changed ? "text-text-primary" : "text-text-dim") : "text-text-dim/40"}`}
+                          title={name ?? "vacant"}>
+                          {name ?? "—"}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div></div>
             </div>
           );
         })()}
