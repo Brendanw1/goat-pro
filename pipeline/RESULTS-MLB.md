@@ -3957,3 +3957,20 @@ from the pitch data, which carries `on_1b/2b/3b`, `outs_when_up` and the batter'
 runner's sprint speed; the ambiguous-diff share; SB/CS leg deferred to D-40a.
 
 **Shipping rule:** ship on profiles and the own-WAR leg only if the claim passes; otherwise record and stop.
+
+## §101 read (2026-10-29, once): NOT CONFIRMED — do not ship
+
+`pipeline/baserunning_runs.py` over 2020–26: **14,014 kept runner-opportunities, 42.4% dropped** (ambiguous or
+inconsistent) — the pre-registration's own target was under 5%, so the reconstruction failed its adequacy bar before
+the claim was even judged. On what survived: pooled r with Savant `runner_runs_XB` = **.120 [−.008, .241]** (player-
+season bootstrap, seed 13); no season reached the 100-player gate and YoY did not compute, because kept opportunities
+average ~4 per player-season — too few to rank anyone.
+
+**Diagnosis (data/handling, not concept).** The frozen rules assume the batter ends at his coded base (single → 1st,
+double → 2nd). In the dropped plays the batter very often took an extra base on the throw (a "single" with only 2nd
+occupied afterwards), which makes the base-occupancy diff unsolvable under the frozen rule; two-runner plays add
+genuinely ambiguous mappings. A v2 would enumerate the batter's destination jointly with the runners' fates — a rule
+change, so it needs a new pre-registration (§101a), not a silent edit.
+
+**Disposition.** D-40 XBT leg: NOT SHIPPED. The SB/CS leg stays D-40a (Stats API play-by-play ingest). The own-WAR
+baserunning leg continues to carry Savant's runs with attribution. `results/baserunning_SEALED.json` records the read.

@@ -1,0 +1,16 @@
+{
+ "section": "\u00a7101 (D-40 XBT leg)",
+ "kept": 13914,
+ "dropped_share": 0.424,
+ "runner_seasons": 3400,
+ "claim": {
+  "pooled_r": 0.12,
+  "ci": [
+   -0.008,
+   0.241
+  ],
+  "by_season": {},
+  "verdict": "PENDING READ"
+ },
+ "yoy_r": []
+}
