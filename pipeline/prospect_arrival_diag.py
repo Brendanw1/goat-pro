@@ -51,22 +51,7 @@ def fetch():
 # ------------------------------------------------------------------ new point-in-time features
 def add_features(S):
     """Entry path, acquisition cost, Rule 5 timing, org depth. All from data available at as_of."""
-    D = pd.read_parquet(DRAFT)
-    D["round_n"] = pd.to_numeric(D["round"].astype(str).str.extract(r"(\d+)")[0], errors="coerce")
-    # only drafts he SIGNED from are knowable as such; use his latest draft whose July 20 precedes the as-of
-    S = S.copy()
-    S["_r"] = np.arange(len(S))
-    m = S[["_r", "id", "as_of"]].merge(D, on="id", how="left")
-    m = m[m.year.isna() | (pd.to_datetime(m.year.astype("Int64").astype(str) + "-07-20", errors="coerce") <= m.as_of)]
-    m = m.sort_values("year").groupby("_r").tail(1).set_index("_r")
-    for c in ("year", "pick", "round_n", "bonus", "slot", "school", "school_class"):
-        S["d_" + c] = m[c].reindex(S._r).values
-    S["drafted_full"] = S.d_year.notna().astype(float)
-    birth = S.as_of - pd.to_timedelta(S.age * 365.25, unit="D")
-    S["d_age"] = (pd.to_datetime(S.d_year.astype("Int64").astype(str) + "-06-15", errors="coerce") - birth).dt.days / 365.25
-    S["log_pick_full"] = np.log(S.d_pick.astype(float))
-    S["bonus_over_slot"] = np.log((S.d_bonus + 1e4) / (S.d_slot + 1e4))       # 2015+ in the API; NaN elsewhere
-    S["log_bonus"] = np.log1p(S.d_bonus)
+    S = S.copy()                     # full-draft columns (d_*, drafted_full, ...) come from pb.load (add_draft)
     # entry path: HS / college underclass / college senior / international / other undrafted
     first = _first_lines()
     S["first_league"] = S.id.map(first.league_name)
@@ -93,7 +78,7 @@ def add_features(S):
         above = lv[None, :] > lv[:, None]
         S.loc[g.index, "dep_n"] = above.sum(1)
         S.loc[g.index, "dep_listed"] = (above & lst[None, :]).sum(1)
-    return S.drop(columns=["_r"])
+    return S
 
 
 def _first_lines():
@@ -114,7 +99,8 @@ BASE_FAMS = ["env", "rates", "promotion", "draft", "pipeline", "position", "org"
 
 # ------------------------------------------------------------------ hazard model
 def person_periods(L, Y, horizon=4):
-    """List rows of years < Y expanded to seasons y..y+3, kept only if the season is observed by Y's as-of (<= Y-1)."""
+    """List rows of years < Y expanded to seasons y..y+3, kept only if the season is observed by Y's as-of (<= Y-1).
+    §104 amendment (before the 2027 read): one row per (player, calendar season), the latest list row covering it."""
     parts = []
     for t in range(horizon):
         d = L[(L.tyear < Y) & (L.tyear + t <= Y - 1) & ~((L.t_debut >= 0) & (L.t_debut < t))].copy()
@@ -122,7 +108,9 @@ def person_periods(L, Y, horizon=4):
         d["t"] = t
         d["h"] = (d.t_debut == t).astype(float)
         parts.append(d)
-    return pd.concat(parts)
+    pp = pd.concat(parts)
+    return pp.assign(_cal=pp.tyear + pp.t).sort_values("tyear").drop_duplicates(["id", "_cal"], keep="last") \
+        .drop(columns="_cal")
 
 
 def hazard_fit_predict(tr_pp, te, feats, pit):
@@ -139,8 +127,13 @@ def hazard_fit_predict(tr_pp, te, feats, pit):
     return 1 - surv
 
 
+# §99h families pinned as coded (§104 changed pb.FAMILIES' draft and pipeline families for the §99 arms only)
+FAM99H = {**pb.FAMILIES, "draft": ["drafted", "pick", "round", "bonus", "yrs_since_draft", "draft_age"],
+          "pipeline": ["state_code", "top_rank", "org_rank", "org_frac", "org_list_len", "pos_rank", "eta_gap"]}
+
+
 def feats_for(fams, pit):
-    f = pb._feats([x for x in fams if x in pb.FAMILIES], pit)
+    f = pb._feats([x for x in fams if x in FAM99H], pit, FAM99H)
     return f + [c for x in fams if x in NEW for c in NEW[x]]
 
 

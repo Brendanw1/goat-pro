@@ -4,6 +4,9 @@
     $PY pipeline/prospect_bayes.py --prior-check                 # prior predictive: org spread in K%
     $PY pipeline/prospect_bayes.py --folds arr:2015 val:2013     # SVI fit per fold -> results/prospect_99_npy_*.parquet
     $PY pipeline/prospect_bayes.py --nuts                        # NUTS diagnostics on a subsample of one dev fold
+    $PY pipeline/prospect_bayes.py --folds val:2015 --method nuts  # §104 fixed spec: compact NUTS (GPU, see GPU_RUN.md)
+    $PY pipeline/prospect_bayes.py --folds val:2015 --method nuts --warmup 30 --samples 30 --chains 2 --subsample 400
+                                                                 # CPU smoke: confirms the path runs, nothing scored
 
 Spec (frozen in RESULTS-MLB §99e). One latent entity per (player, as-of) row, seeing only lines with avail <= as-of.
   skills     hitters K, BB+HBP, HR per PA; pitchers K, BB+HBP, HR per BF and GB per ball in play (GO+AO)
@@ -19,6 +22,8 @@ Spec (frozen in RESULTS-MLB §99e). One latent entity per (player, as-of) row, s
   value      log1p(control-years FSE) | debut ~ Normal(v0 + theta_last . vc + v_state[bucket] + v_lvl[level], v_sd), censored
              rows as P(Y > y)
 Unlisted training negatives are subsampled with inverse-rate weights on the outcome and scouting terms.
+§104: splits without player removal (prospect_backtest), full 2000+ draft inputs, list buckets by org_frac, mu0 from AAA
+lines available at the fold's as-of, NUTS on the compact model. Outputs results/prospect_104_npy_{task}{Y}.parquet.
 """
 import argparse
 import json
@@ -45,6 +50,8 @@ RES = ROOT / "pipeline" / "results"
 LVL = {"ROK": 0, "A-": 1, "A": 2, "A+": 3, "AA": 4, "AAA": 5}
 CAP = 20000          # training entities per role and fold
 STEPS = 4000
+TAG = "104"
+GLOBALS = ["mu", "drift0", "drift1", "sd_org", "sd_eta", "sd0", "w_rank", "c", "a", "e_state", "sd_rank", "alpha_free"]
 
 
 def lines(pitcher):
@@ -63,7 +70,9 @@ def lines(pitcher):
 
 
 def bucket(d):
-    return np.select([d.list_state == "top100", d.org_rank <= 10, d.org_rank <= 20, d.org_rank.notna()], [4, 3, 2, 1], 0)
+    """List state: unlisted < org bottom third < middle third < top third < Top 100 (org_frac: lists were 10/20/30 deep)."""
+    return np.select([d.list_state == "top100", d.org_frac <= 1 / 3, d.org_frac <= 2 / 3, d.org_rank.notna()],
+                     [4, 3, 2, 1], 0)
 
 
 def prep(E, LC):
@@ -88,19 +97,20 @@ def prep(E, LC):
     A[m.e.values, m.t.values] = np.nan_to_num(age_l, nan=22.0)
     last_t = m.groupby("e").t.max().reindex(E.e).fillna(0).astype(int).values
     orgs = {o: k for k, o in enumerate(sorted(E.org_id.fillna(-1).unique()))}
-    aaa = (L.level == "AAA").values
-    r = cnt[aaa].sum(0) / den[aaa].sum(0)
+    aaa = ((L.level == "AAA") & (pd.to_datetime(L.season.astype(str) + "-10-01") <= E.as_of.max())).values
+    r = cnt[aaa].sum(0) / den[aaa].sum(0)                              # mu0: AAA lines available at the fold as-of
     d = dict(
         e=m.e.values, t=m.t.values, lvl_line=L.level.map(LVL).values[li],
         season=np.array([sidx[s] for s in m.season]), lg=leagues.map(lg_codes).values[li],
         lg_level=lg_level.reindex(range(len(lg_codes))).fillna(0).astype(int).values,
         cnt=cnt[li], den=den[li], age=A, last_t=last_t, has=E.e.isin(m.e).values.astype(np.float32),
-        X=np.stack([(np.log(E.pick.fillna(1500)) - 6) / 1.5, E.drafted.astype(float), (E.age.fillna(21) - 21) / 3], 1)
+        X=np.stack([(np.log(E.d_pick.astype(float).fillna(1500)) - 6) / 1.5, E.drafted_full.astype(float),
+                    (E.age.fillna(21) - 21) / 3], 1)
         .astype(np.float32),
         state=bucket(E), lvl=E.lvl.fillna(0).astype(int).values,
         age_rel=E.age_rel.fillna(0).clip(-6, 6).values.astype(np.float32),
         logtop=((np.log(E.top_rank.fillna(150)) - 4) * E.top_rank.notna()).values.astype(np.float32),
-        logpick=((np.log(E.pick.fillna(1500)) - 6) / 1.5).values.astype(np.float32),
+        logpick=((np.log(E.d_pick.astype(float).fillna(1500)) - 6) / 1.5).values.astype(np.float32),
         org=E.org_id.fillna(-1).map(orgs).values,
         y_arr=np.nan_to_num(E.y_arr.values).astype(np.float32), y_val=np.log1p(E.y_val.fillna(0).values),
         reach=(E.y_val.fillna(0) > 0).values, cens=E.value_censored.fillna(False).values.astype(bool),
@@ -210,32 +220,87 @@ def fit(d, task, steps=STEPS, seed=99):
     return guide, svi.run(jax.random.PRNGKey(seed), steps, d, task, progress_bar=False)
 
 
-def run_fold(S, task, Y):
-    out, diags = [], []
+def fit_nuts(d, task, warmup, samples, chains, thin, tree, seed=99):
+    """§104 fit: NUTS on the compact model; returns draws of p_debut (and e_val) and the diagnostics."""
+    from numpyro.diagnostics import summary
+    d = {**d, "compact": True}
+    mc = MCMC(NUTS(model, target_accept_prob=0.9, max_tree_depth=tree), num_warmup=warmup, num_samples=samples,
+              num_chains=chains, thinning=thin, chain_method="vectorized", progress_bar=False)
+    mc.run(jax.random.PRNGKey(seed), d, task, extra_fields=("diverging", "num_steps"))
+    smp = mc.get_samples(group_by_chain=True)
+    sm = summary({k: smp[k] for k in GLOBALS})
+    ex = mc.get_extra_fields()
+    dg = {"divergences": int(ex["diverging"].sum()), "draws": int(ex["diverging"].size),
+          "mean_leapfrog": float(np.mean(ex["num_steps"])),
+          "rhat_max_globals": round(float(max(np.max(sm[k]["r_hat"]) for k in GLOBALS)), 4),
+          "ess_min_globals": round(float(min(np.min(sm[k]["n_eff"]) for k in GLOBALS))),
+          "globals": {k: {"rhat_max": round(float(np.max(sm[k]["r_hat"])), 4), "ess_min": round(float(np.min(sm[k]["n_eff"]))),
+                          "mean": np.round(np.asarray(smp[k]).mean((0, 1)), 3).tolist()} for k in GLOBALS}}
+    flat = {k: np.asarray(v).reshape(-1, *np.shape(v)[2:]) for k, v in smp.items() if k in ("p_debut", "e_val")}
+    return flat, dg
+
+
+T_START = time.time()
+FIT_SECS = []                                  # wall seconds of each fit done in this process (budget estimate)
+
+
+def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin=5, tree=10, subsample=0,
+             max_minutes=0, est_minutes=60):
+    """One fold = a hitter fit and a pitcher fit. Each fit is saved as soon as it ends and skipped if its file exists
+    (resumable after a kill or preemption). With max_minutes, a fit that would not finish in the budget is not started.
+    Returns False when the budget stops the run."""
+    name = f"prospect_{TAG}{'' if method == 'nuts' else method}_npy_{task}{Y}{'_smoke' if subsample else ''}"
+    if (RES / f"{name}.parquet").exists():
+        print("skip (done):", name, flush=True)
+        return True
     for pit in (False, True):
+        part = RES / f"{name}_{'p' if pit else 'h'}.parquet"
+        if part.exists():
+            print("skip (done):", part.name, flush=True)
+            continue
+        est = max(FIT_SECS, default=est_minutes * 60)
+        if max_minutes and time.time() - T_START + est > max_minutes * 60:
+            print(f"budget stop before {part.name}: elapsed {(time.time() - T_START) / 60:.1f} min, "
+                  f"next fit est {est / 60:.1f} min, budget {max_minutes} min", flush=True)
+            return False
         t0 = time.time()
-        d, E = prep(entities(S, task, Y, pit), lines(pit))
-        guide, res = fit(d, task)
-        sites = ["p_debut"] + (["e_val"] if task == "val" else [])
-        pr = Predictive(model, guide=guide, params=res.params, num_samples=200, return_sites=sites)(
-            jax.random.PRNGKey(1), d, task)
+        E0 = entities(S, task, Y, pit)
+        if subsample:                          # CPU smoke only: a small entity sample, never a scored file
+            E0 = pd.concat([E0[E0.train].sample(subsample, random_state=7),
+                            E0[~E0.train].sample(min(subsample // 4, int((~E0.train).sum())), random_state=7)])
+        d, E = prep(E0, lines(pit))
         te = ~d["train"]
         o = E.loc[te, ["id", "as_of", "tyear", "pitcher"]].copy()
+        dg = {"pitcher": pit, "method": method, "entities": int(len(E)), "lines": int(len(d["e"])),
+              "T": int(d["dims"][1]), "mu0": np.round(d["mu0"], 3).tolist()}
+        if method == "nuts":
+            pr, nd = fit_nuts(d, task, warmup, samples, chains, thin, tree)
+            dg.update(nd, warmup=warmup, samples=samples, chains=chains, thin=thin, tree=tree)
+        else:
+            guide, res = fit(d, task)
+            sites = ["p_debut"] + (["e_val"] if task == "val" else [])
+            pr = Predictive(model, guide=guide, params=res.params, num_samples=200, return_sites=sites)(
+                jax.random.PRNGKey(1), d, task)
+            med = guide.median(res.params)
+            loss = np.asarray(res.losses)
+            dg.update(loss_first=float(loss[:100].mean()), loss_last=float(loss[-100:].mean()),
+                      finite=bool(np.isfinite(loss[-1])),
+                      **{k: np.round(np.asarray(med[k]), 3).tolist() for k in ("sd_org", "c", "w_rank", "drift0", "mu")})
         o["NPY_raw"] = np.asarray(pr["p_debut"]).mean(0)[te]
         if task == "val":
             o["NPY_ev"] = (np.asarray(pr["p_debut"]) * np.asarray(pr["e_val"])).mean(0)[te]
-        med = guide.median(res.params)
-        loss = np.asarray(res.losses)
-        dg = {"pitcher": pit, "entities": int(len(E)), "lines": int(len(d["e"])), "T": int(d["dims"][1]),
-              "secs": round(time.time() - t0), "loss_first": float(loss[:100].mean()),
-              "loss_last": float(loss[-100:].mean()), "finite": bool(np.isfinite(loss[-1])),
-              **{k: np.round(np.asarray(med[k]), 3).tolist() for k in ("sd_org", "c", "w_rank", "drift0", "mu")}}
-        print(task, Y, dg, flush=True)
-        out.append(o)
-        diags.append(dg)
-    pd.concat(out).to_parquet(RES / f"prospect_99_npy_{task}{Y}.parquet", compression="zstd")
-    with open(RES / "prospect_99_npy_diag.jsonl", "a") as f:
-        f.write(json.dumps({"task": task, "Y": Y, "diag": diags}) + "\n")
+        dg["secs"] = round(time.time() - t0)
+        FIT_SECS.append(dg["secs"])
+        print(f"fit wall {dg['secs'] / 60:.1f} min:", task, Y, json.dumps(dg, default=str)[:600], flush=True)
+        o.to_parquet(part, compression="zstd")
+        with open(RES / f"prospect_{TAG}_npy_diag.jsonl", "a") as f:
+            f.write(json.dumps({"file": part.name, "task": task, "Y": Y, "devices": str(jax.devices()), "diag": dg},
+                               default=str) + "\n")
+    parts = [RES / f"{name}_{r}.parquet" for r in ("h", "p")]
+    pd.concat([pd.read_parquet(x) for x in parts]).to_parquet(RES / f"{name}.parquet", compression="zstd")
+    for x in parts:
+        x.unlink()
+    return True
 
 
 def prior_check(n=4000, seed=0):
@@ -285,6 +350,15 @@ if __name__ == "__main__":
     ap.add_argument("--prior-check", action="store_true")
     ap.add_argument("--folds", nargs="*")
     ap.add_argument("--nuts", action="store_true")
+    ap.add_argument("--method", default="svi", choices=["svi", "nuts"])
+    ap.add_argument("--warmup", type=int, default=1000)
+    ap.add_argument("--samples", type=int, default=1000)
+    ap.add_argument("--chains", type=int, default=4)
+    ap.add_argument("--thin", type=int, default=5)
+    ap.add_argument("--tree", type=int, default=10)
+    ap.add_argument("--subsample", type=int, default=0)
+    ap.add_argument("--max-minutes", type=float, default=0, help="stop before a fit that would not finish in time")
+    ap.add_argument("--est-minutes", type=float, default=60, help="first-fit estimate until one fit has been timed")
     a = ap.parse_args()
     if a.prior_check:
         prior_check()
@@ -292,6 +366,8 @@ if __name__ == "__main__":
         S = bt.load()
         for f in a.folds or []:
             task, y = f.split(":")
-            run_fold(S, task, int(y))
+            if not run_fold(S, task, int(y), a.method, a.warmup, a.samples, a.chains, a.thin, a.tree, a.subsample,
+                            a.max_minutes, a.est_minutes):
+                break
         if a.nuts:
             nuts_check(S)

@@ -107,6 +107,9 @@ numpyro` away.
 - **ETA and quality are separate outputs.** ETA comes from level and age. Quality comes from θ.
 
 ## 4. Early results (§97)
+**Not forward-valid (§104).** This split trained on future list years and removed test players, so the lifts below
+are not cited.
+
 Leave one list year out, with all of a test player's rows removed from training (pre-registered, §97).
 
 | out of fold | B0 Pipeline ordinal | B1 Pipeline + draft + age | M hierarchical |

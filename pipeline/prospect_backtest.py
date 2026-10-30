@@ -6,7 +6,13 @@
 Models: B1 (Pipeline + draft + age logistic), v0u (§97 v0 spec on the wide universe), LGB (LightGBM hurdle on every
 feature family, families selected inside each training window), NPY (prospect_bayes.py predictions, merged if present).
 Arrival: debut_k4, forward chained (train lists <= Y-4, eos seasons <= Y-5). Value: control-years FSE if debut within
-4 seasons else 0, matured lists <= 2017, train lists < Y minus test-year players. Hitters and pitchers fit apart.
+4 seasons else 0. Hitters and pitchers fit apart.
+
+§104 fixed spec (RESULTS-MLB §104): no removal of test-list players from training (value or inner splits); value trains
+on tyear <= Y-4; Platt on player-grouped out-of-fold predictions of the applied model; full 2000-26 draft columns;
+health NaN where unavailable; org rank only as a fraction of the list length.
+    python pipeline/prospect_backtest.py --dev104         # dev (val 2015, arr 2015-21) + post-hoc val 2016-17
+    python pipeline/prospect_backtest.py --read104        # ONE read: value list 2018, needs the NPY (NUTS) file
 """
 import argparse
 import json
@@ -18,9 +24,11 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 SNAP = ROOT / "data" / "milb" / "prospect_snapshots.parquet"
 RES = ROOT / "pipeline" / "results"
+DRAFT = ROOT / "data" / "milb" / "draft_full.parquet"
 FROZEN = RES / "prospect_99_frozen.json"
 ARR_DEV, ARR_HOLD = list(range(2015, 2022)), [2022, 2023]
-VAL_DEV, VAL_HOLD = [2013, 2014, 2015], [2016, 2017]
+VAL_DEV, VAL_HOLD = [2013, 2014, 2015], [2016, 2017]          # §99 (spent)
+VAL104_DEV, VAL104_POSTHOC, VAL104_READ = [2015], [2016, 2017], [2018]  # §104: first fold with tyear <= Y-4 data
 THREADS = 2
 
 FAMILIES = {
@@ -30,19 +38,43 @@ FAMILIES = {
               "hz_sb_l1", "hz_sb_2y", "pz_k_l1", "pz_k_2y", "pz_bb_l1", "pz_bb_2y", "pz_hr_l1", "pz_hr_2y", "pz_gb_l1",
               "pz_gb_2y", "pz_kbb_2y", "gs_share", "ip_career"],
     "promotion": ["lvl_gain_1y", "lvl_per_yr", "yrs_pro"],
-    "draft": ["drafted", "pick", "round", "bonus", "yrs_since_draft", "draft_age"],
-    "pipeline": ["state_code", "top_rank", "org_rank", "org_frac", "org_list_len", "pos_rank", "eta_gap"],
+    "draft": ["drafted_full", "log_pick_full", "d_round_n", "d_age", "yrs_since_draft_full"],  # §104: 2000+ draft
+    "pipeline": ["state_code", "top_rank", "org_frac", "pos_rank", "eta_gap"],
     "position": ["pos_code", "fld_rf9", "fld_err_rate", "premium_pos_share"],
     "health": ["il_n_365", "il_n_career", "il_60day_365", "health_avail"],
     "org": ["org_code"],
 }
 # Structurally absent from every training window of this backtest (seasons 2023+/2021+ only): AAA Statcast, §88 MLE.
-# Pipeline grades: excluded by the §99b rule (not shown to be point-in-time).
+# Pipeline grades: excluded by the §99b rule (not shown to be point-in-time). The org list is 10 deep in 2011, 20 in
+# 2012-14, 30 from 2015, so raw org_rank / org_list_len change meaning; org_frac (rank / list length) is kept. Draft
+# bonus exists 2017+ only, so it is left out of the §104 draft family.
 MONO = {"top_rank": -1, "org_frac": -1, "org_rank": -1, "lvl": 1}
 
 
+def add_draft(S):
+    """Full 2000-26 June draft (Stats API, data/milb/draft_full.parquet): his latest draft whose Jul 20 precedes as-of."""
+    D = pd.read_parquet(DRAFT)
+    D["round_n"] = pd.to_numeric(D["round"].astype(str).str.extract(r"(\d+)")[0], errors="coerce")
+    S = S.copy()
+    S["_r"] = np.arange(len(S))
+    m = S[["_r", "id", "as_of"]].merge(D, on="id", how="left")
+    m = m[m.year.isna() | (pd.to_datetime(m.year.astype("Int64").astype(str) + "-07-20", errors="coerce") <= m.as_of)]
+    m = m.sort_values("year").groupby("_r").tail(1).set_index("_r")
+    for c in ("year", "pick", "round_n", "bonus", "slot", "school", "school_class"):
+        S["d_" + c] = m[c].reindex(S._r).values
+    S["drafted_full"] = S.d_year.notna().astype(float)
+    birth = S.as_of - pd.to_timedelta(S.age * 365.25, unit="D")
+    S["d_age"] = (pd.to_datetime(S.d_year.astype("Int64").astype(str) + "-06-15", errors="coerce") - birth).dt.days / 365.25
+    S["log_pick_full"] = np.log(S.d_pick.astype(float))
+    S["bonus_over_slot"] = np.log((S.d_bonus + 1e4) / (S.d_slot + 1e4))       # 2017+ in the API; NaN elsewhere
+    S["log_bonus"] = np.log1p(S.d_bonus)
+    S["yrs_since_draft_full"] = S.as_of.dt.year - S.d_year
+    return S.drop(columns=["_r"])
+
+
 def load():
-    S = pd.read_parquet(SNAP)
+    S = add_draft(pd.read_parquet(SNAP))
+    S.loc[S.health_avail == 0, ["il_n_365", "il_n_career", "il_60day_365"]] = np.nan   # no transactions before 2019
     S["tyear"] = np.where(S.snap == "list", S.as_of.dt.year, S.as_of.dt.year + 1)   # first label season
     S["state_code"] = S.list_state.map({"unlisted": 0, "org": 1, "top100": 2})
     S["pos_code"] = S.pos_main.astype("category").cat.codes
@@ -55,29 +87,31 @@ def load():
     S["log_top"] = np.log(S.top_rank.fillna(150))
     S["on_org"] = S.org_rank.notna().astype(float)
     S["org_frac0"] = S.org_frac.fillna(1.2)
-    S["log_pick0"] = np.log(S.pick.fillna(1500))
+    S["log_pick0"] = np.log(S.d_pick.astype(float).fillna(1500))   # full draft (§104)
     S["age0"] = S.age.fillna(S.age.median())
     S["has_line"] = S.n_last.notna().astype(float)
     S["logn"] = np.log1p(S.n_last.fillna(0))
     return S
 
 
+# §104: no removal of test-list players. Training labels close by Y-1 (debut window tyear..tyear+3 <= Y-1), so a test
+# player's earlier rows are known outcomes; removing them kept mostly players who had debuted or exited (§99h, audit).
 def arrival_split(S, Y):
     te = S[(S.snap == "list") & (S.tyear == Y) & S.y_arr.notna()]
-    tr = S[(S.tyear <= Y - 4) & S.y_arr.notna() & ~S.id.isin(te.id)]
+    tr = S[(S.tyear <= Y - 4) & S.y_arr.notna()]
     return tr, te
 
 
 def value_split(S, Y):
     te = S[(S.snap == "list") & (S.tyear == Y) & (S.event != "debuted_before")]
-    tr = S[(S.tyear < Y) & (S.event != "debuted_before") & ~S.id.isin(te.id) & (S.tyear <= 2017)]
+    tr = S[(S.tyear <= Y - 4) & (S.event != "debuted_before")]
     return tr, te
 
 
 def inner_split(tr, seed=0):
     last = tr.tyear.max()
     va = tr[tr.tyear == last]
-    it = tr[(tr.tyear < last) & ~tr.id.isin(va.id)]
+    it = tr[tr.tyear <= last - 4]             # labels closed by the va as-of; no player removal
     if len(it) < 1000:                       # one training year only: player-grouped 70/30
         rng = np.random.default_rng(seed)
         ids = tr.id.unique()
@@ -87,7 +121,7 @@ def inner_split(tr, seed=0):
 
 
 # ------------------------------------------------------------------ models
-B1_COLS = ["has_top", "log_top", "on_org", "org_frac0", "drafted", "log_pick0", "age0"]
+B1_COLS = ["has_top", "log_top", "on_org", "org_frac0", "drafted_full", "log_pick0", "age0"]
 V0_COLS = B1_COLS + ["age_rel", "lvl", "logn", "has_line"]
 
 
@@ -152,8 +186,8 @@ def lgb_fit_one(tr, va, feats, y, kind, leaves=31, mcs=100):
     return m
 
 
-def _feats(fams, pit):
-    f = [c for fam in fams for c in FAMILIES[fam]]
+def _feats(fams, pit, F=None):
+    f = [c for fam in fams for c in (F or FAMILIES)[fam]]
     return [c for c in f if not c.startswith("pz_" if not pit else "hz_")]
 
 
@@ -163,7 +197,7 @@ def brier(y, p):
 
 def lgb_select(tr, pit, task):
     """Wide then select, inside the training window only: start with every family; backward elimination on the
-    inner validation year(s); then a 4-point hyper-grid; Platt fitted on inner validation predictions."""
+    inner validation year(s); then a 4-point hyper-grid. Platt is fitted by the caller (oof_platt)."""
     it, va = inner_split(tr)
     y = "y_arr"
 
@@ -193,9 +227,17 @@ def lgb_select(tr, pit, task):
     grid = {(lv, mc): score(fams, lv, mc)[0] for lv in (15, 31) for mc in (50, 200)}
     lv, mc = min(grid, key=grid.get)
     s, m, feats = score(fams, lv, mc)
-    pva = m.predict_proba(va[feats])[:, 1]
-    platt = fit_platt(pva, va[y].values)
-    return dict(fams=fams, leaves=lv, mcs=mc, n_iter=int(m.best_iteration_ or 300), platt=platt, log=log)
+    return dict(fams=fams, leaves=lv, mcs=mc, n_iter=int(m.best_iteration_ or 300), log=log)
+
+
+def oof_platt(tr, fit_pred, k=5):
+    """§104: Platt on player-grouped out-of-fold predictions of the same model class that is applied to the test.
+    Every training label is closed by the test as-of, so any split inside the training window is honest to the test."""
+    from sklearn.model_selection import GroupKFold
+    p = np.empty(len(tr))
+    for a, b in GroupKFold(k).split(tr, groups=tr.id.values):
+        p[b] = fit_pred(tr.iloc[a], tr.iloc[b])
+    return fit_platt(p, tr.y_arr.values)
 
 
 def fit_platt(p, y):
@@ -221,7 +263,7 @@ def lgb_fit_final(tr, te, pit, task, spec):
     feats = _feats(spec["fams"], pit)
     m = _lgb("clf", spec, feats, max(spec["n_iter"], 50)).fit(tr[feats], tr.y_arr)
     p_raw = m.predict_proba(te[feats])[:, 1]
-    out = {"p_raw": p_raw, "p": apply_platt(p_raw, spec["platt"])}
+    out = {"p_raw": p_raw, "p": apply_platt(p_raw, spec["platt"]) if "platt" in spec else p_raw}
     if task == "val":
         reach = tr[tr.y_val > 0]
         r = _lgb("reg", spec, feats, 300).fit(reach[feats], np.log1p(reach.y_val))
@@ -310,15 +352,14 @@ def run_fold(S, Y, task, models, spec_lgb=None, ablate=False):
         for name in models:
             if name in ("B1", "v0u"):
                 pa, pv = lin_model(name)(a, pit, task)
-                it, va = inner_split(a)
-                pa_i, _ = lin_model(name)(it, pit, "arr")
-                ab = fit_platt(pa_i(va), va.y_arr.values)
+                ab = oof_platt(a, lambda x, y, name=name: lin_model(name)(x, pit, "arr")[0](y))
                 b[f"{name}_raw"] = pa(b)
                 b[name] = apply_platt(b[f"{name}_raw"].values, ab)
                 if task == "val":
                     b[f"{name}_ev"] = b[f"{name}_raw"] * pv(b)
             elif name == "LGB":
                 spec = spec_lgb[(pit, task)] if spec_lgb else lgb_select(a, pit, task)
+                spec = {**spec, "platt": oof_platt(a, lambda x, y, s=spec: lgb_fit_final(x, y, pit, "arr", s)["p_raw"])}
                 o = lgb_fit_final(a, b, pit, task, spec)
                 b["LGB_raw"], b["LGB"] = o["p_raw"], o["p"]
                 if task == "val":
@@ -370,9 +411,9 @@ def dev():
     print(json.dumps({k: v for k, v in res.items() if k != "lgb_specs"}, indent=1, default=str))
 
 
-def merge_npy(o, task, years):
-    parts = [pd.read_parquet(RES / f"prospect_99_npy_{task}{y}.parquet") for y in years
-             if (RES / f"prospect_99_npy_{task}{y}.parquet").exists()]
+def merge_npy(o, task, years, tag="99"):
+    parts = [pd.read_parquet(RES / f"prospect_{tag}_npy_{task}{y}.parquet") for y in years
+             if (RES / f"prospect_{tag}_npy_{task}{y}.parquet").exists()]
     if not parts:
         return o
     n = pd.concat(parts)
@@ -460,12 +501,128 @@ def holdout():
     print(json.dumps(res, indent=1, default=str))
 
 
+# ------------------------------------------------------------------ §104 (fixed splits)
+def _old_value_split(S, Y):
+    """§99 value_split, kept only to report the training base rate before the fix."""
+    te = S[(S.snap == "list") & (S.tyear == Y) & (S.event != "debuted_before")]
+    return S[(S.tyear < Y) & (S.event != "debuted_before") & ~S.id.isin(te.id) & (S.tyear <= 2017)]
+
+
+def base_rates(S):
+    """Training-window base rates, §99 split vs §104 split. Training labels only; no test label is read."""
+    r = lambda d: {"n": len(d), "y_arr": round(float(d.y_arr.mean()), 4),             # noqa: E731
+                   "y_val": round(float(d.y_val.mean()), 4), "reach": round(float((d.y_val > 0).mean()), 4)}
+    return {int(Y): {"s99": r(_old_value_split(S, Y)), "s104": r(value_split(S, Y)[0])}
+            for Y in VAL_DEV + VAL104_POSTHOC + VAL104_READ}
+
+
+def _nd(d, c):
+    return np.nanmean([ndcg_at(g, c) for _, g in d.groupby("tyear")])
+
+
+def _pr(d, c):
+    return np.mean([prec_at(g, c) for _, g in d.groupby("tyear")])
+
+
+def val_report(v, cols, ref="B1_ev", n=1000):
+    """Value metrics with player-clustered bootstrap CIs, and each arm minus ref."""
+    out = val_metrics(v, cols)
+    for c in cols:
+        out[c]["ndcg100_ci"] = boot(v, lambda d, c=c: _nd(d, c), n=n)
+        out[c]["prec50_ci"] = boot(v, lambda d, c=c: _pr(d, c), n=n)
+        if c != ref:
+            out[c][f"dndcg_vs_{ref}"] = round(float(_nd(v, c) - _nd(v, ref)), 4)
+            out[c][f"dndcg_vs_{ref}_ci"] = boot(v, lambda d, c=c: _nd(d, c) - _nd(d, ref), n=n)
+            out[c][f"dprec50_pp_vs_{ref}"] = round(float(100 * (_pr(v, c) - _pr(v, ref))), 2)
+            out[c][f"dprec50_pp_vs_{ref}_ci"] = [round(100 * x, 2) for x in boot(v, lambda d, c=c: _pr(d, c) - _pr(d, ref),
+                                                                                 n=n)]
+    out["n"], out["years"] = len(v), sorted(int(y) for y in v.tyear.unique())
+    return out
+
+
+def arr_report(a, cols, ref="B1", n=1000):
+    out = arr_metrics(a, cols)
+    for c in cols:
+        if c != ref:
+            out[c][f"dbrier_vs_{ref}"] = round(brier(a.y_arr, a[c]) - brier(a.y_arr, a[ref]), 5)
+            out[c][f"dbrier_vs_{ref}_ci"] = boot(a, lambda d, c=c: brier(d.y_arr, d[c]) - brier(d.y_arr, d[ref]), n=n)
+    out["n"], out["mean_p"] = len(a), {c: round(float(a[c].mean()), 4) for c in ["y_arr"] + cols}
+    return out
+
+
+def dev104(tasks=("val", "arr")):
+    """§104 dev: value 2015 (clean dev) and 2016-17 (spent in §99f: POST-HOC), arrival 2015-21. B1, v0u, LGB."""
+    S = load()
+    res = {"base_rates_train": base_rates(S)}
+    print(json.dumps(res, indent=1), flush=True)
+    preds = []
+    folds = [("val", Y) for Y in VAL104_DEV + VAL104_POSTHOC] * ("val" in tasks) + \
+            [("arr", Y) for Y in ARR_DEV] * ("arr" in tasks)
+    for task, Y in folds:
+        o, sp = run_fold(S, Y, task, ["B1", "v0u", "LGB"])
+        res.setdefault("lgb_specs", {})[f"{task}{Y}"] = sp
+        preds.append(o.assign(task=task))
+        print(task, Y, len(o), {k: (v or {}).get("fams") for k, v in sp.items()}, flush=True)
+    o = pd.concat(preds)
+    keep = ["id", "as_of", "tyear", "pitcher", "task", "y_arr", "y_val", "list_state", "org_rank"] + \
+        [c for c in o if c.split("_")[0] in ("B1", "v0u", "LGB")]
+    o[keep].to_parquet(RES / "prospect_104_dev_preds.parquet", compression="zstd")
+    v, a = o[o.task == "val"], o[o.task == "arr"]
+    if len(v):
+        res["val_dev_2015"] = val_report(v[v.tyear.isin(VAL104_DEV)], ["B1_ev", "v0u_ev", "LGB_ev"])
+        res["val_posthoc_2016_17"] = val_report(v[v.tyear.isin(VAL104_POSTHOC)], ["B1_ev", "v0u_ev", "LGB_ev"])
+    if len(a):
+        res["arr_dev"] = arr_report(a, ["B1", "v0u", "LGB", "B1_raw", "LGB_raw"])
+    (RES / "prospect_104_dev.json").write_text(json.dumps(res, indent=1, default=str))
+    print(json.dumps({k: v for k, v in res.items() if k != "lgb_specs"}, indent=1, default=str))
+
+
+def npy104():
+    """Add the NUTS NPY arm to the §104 value dev (2015) and post-hoc (2016-17) reports. Not the read."""
+    o = pd.read_parquet(RES / "prospect_104_dev_preds.parquet")
+    v = merge_npy(o[o.task == "val"], "val", VAL104_DEV + VAL104_POSTHOC, tag="104")
+    res = json.loads((RES / "prospect_104_dev.json").read_text())
+    cols = ["B1_ev", "v0u_ev", "LGB_ev", "NPY_ev"]
+    res["val_dev_2015_npy"] = val_report(v[v.tyear.isin(VAL104_DEV) & v.NPY_ev.notna()], cols)
+    res["val_posthoc_2016_17_npy"] = val_report(v[v.tyear.isin(VAL104_POSTHOC) & v.NPY_ev.notna()], cols)
+    (RES / "prospect_104_dev.json").write_text(json.dumps(res, indent=1, default=str))
+    print(json.dumps({k: res[k] for k in ("val_dev_2015_npy", "val_posthoc_2016_17_npy")}, indent=1, default=str))
+
+
+def read104():
+    """§104 value read, ONCE: list 2018 (labels matured, never read for value). Needs the NUTS NPY file."""
+    out = RES / "prospect_104_read.json"
+    assert not out.exists(), "§104 read already done"
+    assert (RES / "prospect_104_npy_val2018.parquet").exists(), "run the NPY (NUTS) fold val:2018 first (GPU_RUN.md)"
+    S = load()
+    o, _ = run_fold(S, 2018, "val", ["B1", "v0u", "LGB"])
+    v = merge_npy(o, "val", VAL104_READ, tag="104")
+    assert v.NPY_ev.notna().all(), "NPY predictions missing for some test rows"
+    res = {"read": val_report(v, ["B1_ev", "v0u_ev", "LGB_ev", "NPY_ev"], n=2000)}
+    res["gate_b"] = {"M": "NPY_ev", "dndcg_vs_B1": res["read"]["NPY_ev"]["dndcg_vs_B1_ev"],
+                     "ci": res["read"]["NPY_ev"]["dndcg_vs_B1_ev_ci"],
+                     "dndcg_vs_LGB": round(float(_nd(v, "NPY_ev") - _nd(v, "LGB_ev")), 4),
+                     "ci_vs_LGB": boot(v, lambda d: _nd(d, "NPY_ev") - _nd(d, "LGB_ev"))}
+    v.to_parquet(RES / "prospect_104_read_preds.parquet", compression="zstd")
+    out.write_text(json.dumps(res, indent=1, default=str))
+    print(json.dumps(res, indent=1, default=str))
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--dev", action="store_true")
     ap.add_argument("--holdout", action="store_true")
     ap.add_argument("--summary", action="store_true")
+    ap.add_argument("--dev104", nargs="*", help="tasks: val arr (default both)")
+    ap.add_argument("--npy104", action="store_true")
+    ap.add_argument("--read104", action="store_true")
     a = ap.parse_args()
+    if a.dev104 is not None:
+        dev104(a.dev104 or ("val", "arr"))
+    if a.npy104:
+        npy104()
+    if a.read104:
+        read104()
     if a.dev:
         dev()
     if a.summary:

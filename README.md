@@ -68,7 +68,7 @@ labelled **descriptive, not a forecast**, or does not ship.
 | Park factors (2B, 3B, HR, SO by hand) | descriptive | §70, §72 |
 | Hitter Marcel projection | display-only baseline with measured ranges | §67 |
 | Minor-league translations (MLEs, AAA/AA → MLB) | tested for AAA hitter K%, BB%, ISO and AA hitter BB%; provisional for AA hitter K% and AAA pitcher K%; the rest descriptive | §88 |
-| Prospect model (point-in-time snapshots, LightGBM + hierarchical Bayes in NumPyro) | value ranking passed its one holdout (NDCG@100 +.076 [+.027, +.121] vs a draft/rank baseline), but a later audit found its training split biased, so that pass is under review; debut probability and the sleeper board failed (post-2020 drift; power); not shown; era recalibration pre-registered for the 2024 list after 2027 | §97, §99f, §99g |
+| Prospect model (point-in-time snapshots, LightGBM + hierarchical Bayes in NumPyro) | value ranking passed its one holdout (NDCG@100 +.076 [+.027, +.121] vs a draft/rank baseline), but a later audit found its training split biased, so that pass is withdrawn and the row stays under review until the §104 re-read (fixed splits, NUTS fit on a cloud GPU, list 2018); debut probability and the sleeper board failed (post-2020 drift; power); not shown; era recalibration pre-registered for the 2024 list after 2027 | §97, §99f, §99g, §104 |
 | Our own xwOBA and xRV | not shipped (failed, diagnosed, re-tests failed) | §68, §71, §77, §78 |
 
 `docs/model-inventory.md` has the full list, including what was tried and

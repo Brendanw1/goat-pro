@@ -3268,7 +3268,7 @@ stints are acute (HBP, hamstring, oblique) with nothing to precede. Handling che
 
 ## §97 Prospect model v0: hierarchical (empirical Bayes) sleeper ranking, pre-registered 2026-10-29 before any outcome read
 
-**Not forward-valid (§103, 2026-10-29).** The split below trained on future list years and removed test players; the lifts
+**Not forward-valid (§104, 2026-10-29).** The split below trained on future list years and removed test players; the lifts
 reported here are not cited.
 
 Owner ask (docs/model-inventory.md queue item 0). Research round, not a ship. `pipeline/prospect_model.py`,
@@ -3978,7 +3978,7 @@ change, so it needs a new pre-registration, not a silent edit.
 **Disposition.** D-40 XBT leg: NOT SHIPPED. The SB/CS leg stays D-40a (Stats API play-by-play ingest). The own-WAR
 baserunning leg continues to carry Savant's runs with attribution. `results/baserunning_SEALED.json` records the read.
 
-## §103 Prospect §99 fixed spec: unbiased splits and coverage, pre-registered 2026-10-29 before any dev or outcome read
+## §104 Prospect §99 fixed spec: unbiased splits and coverage, pre-registered 2026-10-29 before any dev or outcome read (committed as §103 in fd2e2ed; renumbered because ZCode's Stuff v4 also took §103)
 
 Owner go 2026-10-29 after the split audit. The audit (2026-10-29) found that §99's `value_split` and `inner_split` repeat
 the §99h arrival bias: they drop every training row of a player on the test list, so training keeps mostly players who
@@ -3986,7 +3986,7 @@ already debuted or exited. Code: `pipeline/prospect_backtest.py` (`--dev103`, `-
 (NUTS path), `pipeline/GPU_RUN.md`. Results go to `results/prospect_103_*`. The §99 files are left as they were.
 
 **Training base rates, measured before this section (training labels only, no test label read).** Value folds, §99 split →
-§103 split. Debut rate (y_arr): 2015 .148 → .114, 2016 .142 → .105, 2017 .133 → .103, 2018 .128 → .104. Mean control-years
+§104 split. Debut rate (y_arr): 2015 .148 → .114, 2016 .142 → .105, 2017 .133 → .103, 2018 .128 → .104. Mean control-years
 FSE (y_val): .194 → .152, .172 → .135, .160 → .129, .148 → .125. The test lists sit at about .10. The §99 dev years
 2013–14 have no training rows under the fixed rule (no list or eos row has tyear ≤ 2010).
 
@@ -4030,7 +4030,7 @@ FSE (y_val): .194 → .152, .172 → .135, .160 → .129, .148 → .125. The tes
 - (c) sleeper precision@50 is reported. It is gated as in §99d, but one list year (50 picks) cannot have the power to
   clear +5 pp with a CI excluding 0. A fail there is expected and says nothing.
 - NUTS validity: if any global R̂ > 1.05 or divergences exceed 1% of draws, the read is still recorded but cannot pass.
-- Pass → the value rank may be shown after owner review, labelled "forecast, value gate passed (§103)". Fail → no value
+- Pass → the value rank may be shown after owner review, labelled "forecast, value gate passed (§104)". Fail → no value
   rank. In either case the §99f pass is withdrawn as biased. Until the NPY read, the README/docs prospect row stays
   "under review".
 - Power, stated now: one list year (~8.6k rows, NDCG over the top 100) gives a wide CI. The post-hoc 2016–17 numbers sit
@@ -4040,7 +4040,7 @@ FSE (y_val): .194 → .152, .172 → .135, .160 → .129, .148 → .125. The tes
 list row that covers it, each with different features. That over-weights slow, long-listed players. From now on, each
 (player, calendar season) keeps only the latest list row covering it. The 2024-list read uses H_fix with this change and
 otherwise exactly as coded. H_fix's feature families are pinned to their §99h columns (the 2011+ draft family is not used;
-pipeline keeps org_rank/org_list_len), so the §103 family changes do not move it.
+pipeline keeps org_rank/org_list_len), so the §104 family changes do not move it.
 
 **§97 v0.** Its leave-one-list-year-out split trained on future list years and removed test players
 (`prospect_model.py` l.222). Its lifts (ΔAUC +.026, ΔSpearman +.059, sleepers +32 pp) are **not forward-valid** and are not
