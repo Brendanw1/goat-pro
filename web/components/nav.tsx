@@ -164,7 +164,7 @@ export function Nav() {
         <a href={HOOPS_URL}
           className="whitespace-nowrap px-2.5 py-1.5 rounded-full text-[12px] font-semibold text-text-primary/70 border border-border-subtle hover:text-white hover:bg-black/25 transition-colors"
           title="Switch to the basketball site">
-          🏀 Hoops
+          Hoops
         </a>
         <Search />
       </div>
