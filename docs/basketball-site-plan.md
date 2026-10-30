@@ -23,6 +23,17 @@ R2 so the two sports never collide.
 | balldontlie | plays, advanced stats incl. tracking (speed/distance/touches), lineups, **contracts** (terms §6: republication allowed) | advanced + tracking + D-44/D-46 unblock — needs the owner's free `BDL_KEY` |
 | nba.com hosts | PBP, shot detail, tracking | **blocked from this network**; browser-route test pending |
 
+## The owner's spec
+
+`docs/hoops-spec.md` is the requirements document: all regular + per-36 +
+advanced stats per player and team, impact isolation (shot creation,
+playmaking, rim penetration; POA vs help defense), rebounding zones with
+heatmaps and vs-average, team impact with role decomposition (gravity,
+passing, screening), on/off everywhere, then projections/career curves and
+Savant-style percentile cards. The phases below are reordered around it:
+the statistics foundation and the on/off/lineup pipeline come first because
+most of the spec builds on them; projections stay last.
+
 ## Phase 1 — the data spine + first surfaces (current)
 
 1. **ESPN backfill**: the 2025-26 season, day by day (running). ~1,300 games of
