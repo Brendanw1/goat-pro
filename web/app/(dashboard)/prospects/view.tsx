@@ -6,7 +6,6 @@ import { logoUrl } from "@/lib/team-pixel";
 import { sortComparator } from "@/lib/table-sort";
 import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
-export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Prospects" };
 

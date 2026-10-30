@@ -6,7 +6,6 @@ import { TeamCrest } from "@/components/ui/pixel-team-logo";
 import type { PitchType } from "@/types";
 import { fmtIp } from "@/lib/ip";
 
-export const dynamic = "force-dynamic";
 
 /**
  * A game report (R2, wave 10): the box score and everything that happened in
