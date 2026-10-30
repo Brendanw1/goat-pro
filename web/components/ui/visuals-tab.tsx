@@ -16,6 +16,7 @@ import { ReleaseCloud } from "@/components/charts/release-cloud";
 import { LocationSurfaces } from "@/components/charts/location-surfaces";
 import { CountLattice } from "@/components/charts/count-lattice";
 import { PitchExplorer } from "@/components/ui/pitch-explorer";
+import { MovementExplorer } from "@/components/ui/movement-explorer";
 import { PITCH_CONFIG } from "@/lib/constants";
 import type { PitchType } from "@/types";
 
@@ -268,6 +269,12 @@ export function PitcherVisualsTab({ visuals, career, explorer }: { visuals: any 
       <Panel title="Shapes across seasons" note="average break per type, season by season">
         <MovementBySeason career={career} />
       </Panel>
+      {explorer && (career?.seasons?.length ?? 0) > 0 && (
+        <Panel title="Movement explorer" note="every pitch, league behind it (D-10)">
+          <MovementExplorer id={explorer.id} season={explorer.season} level={explorer.level}
+            seasons={(career.seasons as any[]).map((c) => Number(c.s)).filter((s) => Number.isFinite(s))} />
+        </Panel>
+      )}
       <Panel title="Usage by batter hand" note="share of his pitches">
         <UsageVsHand rows={visuals.hand ?? []} />
       </Panel>

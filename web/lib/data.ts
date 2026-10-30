@@ -602,3 +602,13 @@ export const getSwingQAll = cache(async (): Promise<any | null> =>
 /** Two-strike adaptation (pipeline/two_strike.py, RESULTS-MLB §93): {meta, rows: {"id-season": {...}}}. */
 export const getTwoStrikeAll = cache(async (): Promise<any | null> =>
   fetchFromR2<any>("twostrike/twostrike.json", { shared: true }).catch(() => null));
+
+/** League movement density (D-10): a stride sample of every pitch's hb/iv per type and season. */
+export async function getMovementLeague(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "movement_league.json"), { shared: true }).catch(() => null);
+}
+
+/** League medians per season x pitch class (matchup page's VAA / Whiff+ reference chips). */
+export async function getArsenalLeague(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "arsenal_league.json"), { shared: true }).catch(() => null);
+}

@@ -1734,6 +1734,29 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                                  "gyro": site == "SL" and (int(x["id"]), int(x["season"]), "SL") in type_gyro}
                                 for x in top],
             })
+        # D-50 follow-up: the §73 platoon Whiff+ splits ride the class rows too (the
+        # matchup page's Whiff+ L/R column reads them here), and the class-season
+        # league medians become the page's reference chips.
+        _platoon_cls: dict = {}
+        _plf = ROOT / "pipeline" / "results" / "platoon_splits.csv"
+        if level == "mlb" and _plf.exists():
+            for _pl in pd.read_csv(_plf).itertuples():
+                _h = "LHH" if _pl.stand == "L" else "RHH"
+                _platoon_cls.setdefault((int(_pl.pitcher), int(_pl.season), _pl.site), {})[f"stuffVs{_h}"] = f(_pl.grade, 1)
+        for _site, _rows in arsenal_rows.items():
+            for _row in _rows:
+                _row.update(_platoon_cls.get((int(_row["id"]), _row["season"], _site), {}))
+        arsenal_lg: dict = {}
+        for _site, _rows in arsenal_rows.items():
+            for _s in {r["season"] for r in _rows}:
+                _rs = [r for r in _rows if r["season"] == _s]
+                def _med(k, _rs=_rs):
+                    _vs = sorted(float(r[k]) for r in _rs if r.get(k) is not None)
+                    return round(_vs[len(_vs) // 2], 1) if _vs else None
+                arsenal_lg.setdefault(str(_s), {})[_site] = {
+                    "n": len(_rs), "vaa": _med("vaa"), "velo": _med("velo"), "whiffPct": _med("whiffPct"),
+                    "stuffVsLHH": _med("stuffVsLHH"), "stuffVsRHH": _med("stuffVsRHH"),
+                }
         counts["arsenal_rows"] = {site: len(rows) for site, rows in sorted(arsenal_rows.items())}
 
     # ---------------------------------------------- arsenal mix metrics (A2/PP11)
@@ -3717,7 +3740,13 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             SELECT batter AS id, season, stand,
                    ROUND(hc_x - 125.42, 1) AS x, ROUND(198.27 - hc_y, 1) AS y,
                    ROUND(launch_speed, 1) AS ev, ROUND(launch_angle, 1) AS la,
-                   events, bb_type, substr(CAST(game_date AS VARCHAR), 6, 5) AS d
+                   events, bb_type, substr(CAST(game_date AS VARCHAR), 6, 5) AS d,
+                   pitch_type, p_throws,
+                   -- Savant's own per-ball estimates (D-27): hit chance and wOBAcon.
+                   -- xBA is the only value overlay the spray view carries (parity matrix);
+                   -- w is the mean behind the batted-ball table's xwOBACON column.
+                   ROUND(estimated_ba_using_speedangle * 1000) AS ba,
+                   ROUND(estimated_woba_using_speedangle * 1000) AS w
             FROM pitches_all
             WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
               AND hc_x IS NOT NULL AND hc_y IS NOT NULL
@@ -3745,6 +3774,10 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "x": row.x, "y": row.y, "ev": row.ev, "la": row.la,
                 "e": row.events, "t": row.bb_type, "s": row.stand,  # side he batted from (switch hitters)
                 "d": row.d,  # game date MM-DD; balls are in chronological order
+                "pt": SC_TO_SITE.get(row.pitch_type),  # D-27: site pitch code (None = EP/unknown, "other")
+                "ph": row.p_throws,  # pitcher hand (the vs-RHP/vs-LHP rows)
+                "ba": None if row.ba is None or row.ba != row.ba else int(row.ba),
+                "w": None if row.w is None or row.w != row.w else int(row.w),
             })
         n_sp = 0
         for (pid, season), balls in sp_by.items():
@@ -5398,6 +5431,41 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     print(f"[{time.time() - t0:.0f}s] pitches", flush=True)
     if "pitches" in fams:
         counts["pitch_files"] = bake_pitches(con, out, seasons, site_case_sql(), level)
+        # D-10 movement explorer: a stride sample of the league's shapes, per season x type, for
+        # the ghost dots behind a pitcher's movement scatter. Same arm-side hb and tenths of an
+        # inch the per-player files use; ~400 pitches per type-season keeps the file small.
+        mlg: dict = {}
+        for s in seasons:
+            df = con.sql(f"""
+                SELECT {site_case_sql()} AS site,
+                       CASE WHEN p_throws = 'R' THEN -pfx_x ELSE pfx_x END * 12 AS hb,
+                       pfx_z * 12 AS iv,
+                       row_number() OVER (PARTITION BY {site_case_sql()}
+                                          ORDER BY game_date, game_pk, at_bat_number, pitch_number) AS rn,
+                       count(*) OVER (PARTITION BY {site_case_sql()}) AS n
+                FROM pitches_all
+                WHERE game_type = 'R' AND season = {s} AND pitch_type IS NOT NULL
+                  AND pfx_x IS NOT NULL AND pfx_z IS NOT NULL AND p_throws IN ('L','R')
+            """).df()
+            if df.empty:
+                continue
+            mlg[str(s)] = {}
+            for site, g in df.groupby("site"):
+                k = max(1, int(g["n"].iloc[0]) // 400)
+                take = g[g["rn"] % k == 1]
+                mlg[str(s)][str(site)] = {
+                    "n": int(g["n"].iloc[0]),
+                    "hb": [int(round(v * 10)) for v in take["hb"]],
+                    "iv": [int(round(v * 10)) for v in take["iv"]],
+                }
+        jwrite(out / "movement_league.json", {
+            "comment": "Stride sample (<=~400/type/season) of every league pitch's shape: hb arm-side in "
+                       "tenths (RHP flipped to arm-side), iv in tenths — the movement explorer's ghost "
+                       "dots. Raw Statcast pfx, not a model.",
+            "seasons": mlg,
+        }, sort_keys=True)
+        counts["movement_league_types"] = sum(len(v) for v in mlg.values())
+        print(f"movement league sample: {counts['movement_league_types']} season-type cells")
     print(f"[{time.time() - t0:.0f}s] draft", flush=True)
     if "draft" not in fams:
         pass
@@ -5964,6 +6032,11 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         jwrite(out / "arsenal_cards.json", arsenal_cards)
         for site, rows in arsenal_rows.items():
             jwrite(out / "arsenal" / f"{site.lower()}.json", rows)
+        jwrite(out / "arsenal_league.json", {
+            "comment": "League medians per season x pitch class over the class rows (5+ pitches, position "
+                       "players excluded). The matchup page's VAA / Whiff+ L/R reference chips.",
+            "seasons": arsenal_lg,
+        }, sort_keys=True)
         # the mix board (A2): one artifact for the latest season, percentiles vs
         # same-season pitchers with 100+ pitches (bake-side, like the college bake)
         mix_latest = {str(pid): v for (pid, s), v in mix_by_key.items() if s == max(seasons)}

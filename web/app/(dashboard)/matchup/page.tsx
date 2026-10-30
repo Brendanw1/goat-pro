@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getBucketBoard, getGameReport, getHitterProfile, getHitters, getPitchers, getPlaneHitter, getPlanePitchers, getPlayerProfile, getPostseason } from "@/lib/data";
+import { getArsenalLeague, getBucketBoard, getGameReport, getHitterProfile, getHitters, getPitchers, getPlaneHitter, getPlanePitchers, getPlayerProfile, getPostseason } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { gradeColor } from "@/lib/grades";
 import { TeamCrest } from "@/components/ui/pixel-team-logo";
@@ -175,6 +175,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
   }
 
   // ---- pitcher arsenal + where each pitch sits in the league's buckets
+  const lgA = (await getArsenalLeague())?.seasons?.[season] ?? null;
   const arsenal = [...prof.pitches].filter((p: any) => (p.usage ?? 0) >= 3).sort((a: any, b: any) => (b.usage ?? 0) - (a.usage ?? 0));
   const boards = await Promise.all(arsenal.map((p: any) => getBucketBoard(season, p.pitchType)));
   const pitches = arsenal.map((p: any, i: number) => {
@@ -271,10 +272,14 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                 <td className="py-1.5 text-right text-text-secondary">{p.hb == null ? "—" : (throws === "R" ? -p.hb : p.hb).toFixed(1)}</td>
                 <td className="py-1.5 text-right" style={{ color: gradeColor(p.stuffPlus) }}>{p.stuffPlus?.toFixed(0) ?? "—"}</td>
                 <td className="py-1.5 text-right" style={{ color: gradeColor(p.pitchingPlus) }}>{p.pitchingPlus?.toFixed(0) ?? "—"}</td>
-                <td className="py-1.5 text-right text-text-secondary">
+                <td className="py-1.5 text-right text-text-secondary"
+                  title={lgA?.[p.pitchType] ? `league median (${p.pitchType}, ${season}, ${lgA[p.pitchType].n} arms): ${lgA[p.pitchType].stuffVsLHH ?? "—"} vs LHH / ${lgA[p.pitchType].stuffVsRHH ?? "—"} vs RHH` : undefined}>
                   {p.stuffVsLHH?.toFixed(0) ?? "—"} / {p.stuffVsRHH?.toFixed(0) ?? "—"}
                 </td>
-                <td className="py-1.5 text-right text-text-secondary">{p.vaa?.toFixed(1) ?? "—"}°</td>
+                <td className="py-1.5 text-right text-text-secondary"
+                  title={lgA?.[p.pitchType] ? `league median (${p.pitchType}, ${season}): ${lgA[p.pitchType].vaa ?? "—"}°` : undefined}>
+                  {p.vaa?.toFixed(1) ?? "—"}°
+                </td>
                 <td className="py-1.5 text-right text-text-secondary">{p.whiffPct?.toFixed(1) ?? "—"}</td>
                 <td className="px-3 py-1.5 font-sans text-[10px] text-text-dim">
                   {p.bins.length ? p.bins.map((b: any) => `${b.label}${b.lgWhiff != null ? ` (${b.lgWhiff.toFixed(0)}%)` : ""}`).join(" · ") : "no buckets"}
@@ -283,9 +288,18 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
             ))}
           </tbody>
         </table>
+        {(() => {
+          const main = arsenal[0];
+          const lg = lgA?.[main?.pitchType];
+          if (!main || !lg) return null;
+          return (
+            <p className="px-3 py-2 border-t border-white/[0.04] text-[10px] text-text-dim">
+              League medians · {main.pitchType}, {season}, {lg.n} arms: VAA {lg.vaa ?? "—"}° · Whiff+
+              {" "}{lg.stuffVsLHH ?? "—"} vs LHH / {lg.stuffVsRHH ?? "—"} vs RHH · velo {lg.velo ?? "—"} mph. Hover the VAA and Whiff+ L/R cells for each type&apos;s median.
+            </p>
+          );
+        })()}
       </div>
-
-      {/* the lineup */}
       {!hitters.length ? (
         <div className="glass-panel p-6 text-center text-sm text-text-dim">Pick an opponent above, or come from a postseason game&apos;s lineup.</div>
       ) : (

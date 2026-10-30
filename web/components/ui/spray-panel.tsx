@@ -8,12 +8,17 @@
  * (330 ft at the lines, ~383 in the gaps, 400 to centre) with a 15-ft warning track. Dots are tinted by exit velocity;
  * home runs are ringed. Direction splits use thirds of fair territory (|angle| < 15° = centre). The
  * league line is his hand's average spray angle that season. Each ball carries the side he batted from (`s`),
- * so a switch hitter's pull / oppo is counted per ball and he can be filtered to one side. No value overlay: xwOBA per ball is a
- * model the site does not have yet.
+ * so a switch hitter's pull / oppo is counted per ball and he can be filtered to one side. Colour modes
+ * (D-27 spray explorer): exit velocity, result, hit chance and pitch type. Hit chance is Savant's own
+ * per-ball estimated BA off exit velo + launch angle — the one value overlay the parity matrix sanctions
+ * here; per-ball xwOBA of ours stays out (§68/§77: spray makes it more descriptive, less predictive).
+ * Balls also carry the pitch type (`pt`), the pitcher's hand (`ph`) and Savant's per-ball estimates
+ * (`ba`/`w`, x1000), so the view filters by what was thrown and recomputes over the filter.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PITCH_CONFIG } from "@/lib/constants";
 
-interface Ball { x: number; y: number; ev: number | null; la: number | null; e: string | null; t: string | null; s?: "L" | "R"; d?: string }
+interface Ball { x: number; y: number; ev: number | null; la: number | null; e: string | null; t: string | null; s?: "L" | "R" | null; d?: string | null; pt?: string | null; ph?: string | null; ba?: number | null; w?: number | null }
 
 const FT = 2.5;           // feet per Statcast hit-coordinate unit
 const MAX_FT = 470;       // chart radius: room for home runs past the fence
@@ -22,6 +27,12 @@ const HITS = new Set(["single", "double", "triple", "home_run"]);
 const TYPES: [string, string][] = [["all", "All"], ["ground_ball", "GB"], ["line_drive", "LD"], ["fly_ball", "FB"], ["popup", "PU"]];
 const RESULTS: [string, string][] = [["all", "All"], ["hits", "Hits"], ["outs", "Outs"]];
 const EV_BANDS: [number, string, string][] = [[105, "#f5b83d", "105+"], [95, "#e87722", "95–105"], [85, "#7aa5d8", "85–95"], [-1, "#5b6472", "<85"]];
+/** Hit chance (Savant's per-ball estimated BA, x1000 in the file). */
+const HC_BANDS: [number, string, string][] = [[350, "#f5b83d", ".35+"], [250, "#4fd1c5", ".25–.35"], [150, "#7aa5d8", ".15–.25"], [-1, "#5b6472", "<.15"]];
+const GREY = "#8b93a3";
+type By = "ev" | "result" | "hc" | "pitch";
+const BY_LABEL: Record<By, string> = { ev: "Exit velo", result: "Result", hc: "Hit chance", pitch: "Pitch type" };
+const pitchColor = (pt: string | null) => (pt ? PITCH_CONFIG[pt as keyof typeof PITCH_CONFIG]?.color ?? GREY : GREY);
 
 /** feet + spray angle (deg, + = first-base side) -> svg point */
 function pt(ft: number, deg: number): [number, number] {
@@ -42,7 +53,7 @@ const TILT = 46, PERSPECTIVE = 760; // the field's CSS tilt; the flight canvas p
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const dateLabel = (d?: string) => (d ? `${MONTHS[Number(d.slice(0, 2)) - 1]} ${Number(d.slice(3))}` : "");
 
-type Flight = { sx: number; sy: number; ft: number; la: number | null; e: string | null; ev: number | null; d?: string };
+type Flight = { sx: number; sy: number; ft: number; la: number | null; e: string | null; ev: number | null; d?: string | null; pt?: string | null; ba?: number | null };
 
 /**
  * Season replay: each ball in play flies from home plate to where it was fielded, in game order.
@@ -51,21 +62,21 @@ type Flight = { sx: number; sy: number; ft: number; la: number | null; e: string
  * onto an offscreen trail canvas, so a frame costs one blit plus the few balls in the air.
  * Apex height is a parabola at ~2x the drag-free d * tan(LA) / 4 (shape only, not a measured trajectory).
  */
-function FlightCanvas({ balls, byResult, playing, speed, onDate, onDone }: {
-  balls: Flight[]; byResult: boolean; playing: boolean; speed: number;
+function FlightCanvas({ balls, by, playing, speed, onDate, onDone }: {
+  balls: Flight[]; by: By; playing: boolean; speed: number;
   onDate: (d: string) => void; onDone: () => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const st = useRef({ t: 0, last: 0, painted: 0, trail: null as HTMLCanvasElement | null, date: "", dirty: true });
-  const live = useRef({ playing, speed, onDate, onDone, byResult });
-  live.current = { playing, speed, onDate, onDone, byResult };
+  const live = useRef({ playing, speed, onDate, onDone, by });
+  live.current = { playing, speed, onDate, onDone, by };
   // colour switch: repaint the finished flights in the new colours, keep the replay where it is
   useEffect(() => {
     const s = st.current;
     if (!s.trail) return;
     s.trail.getContext("2d")!.clearRect(0, 0, s.trail.width, s.trail.height);
     s.painted = 0; s.dirty = true;
-  }, [byResult]);
+  }, [by]);
 
   useEffect(() => {
     const cv = ref.current!;
@@ -87,7 +98,11 @@ function FlightCanvas({ balls, byResult, playing, speed, onDate, onDone }: {
     // apex ~ 2 x the drag-free d*tan(LA)/4: drag makes real flies peak higher for their carry (a 400-ft,
     // 28-degree home run tops out near 110 ft); ground balls (LA <= 8) stay on the grass
     const apex = (b: Flight) => (b.la == null || b.la <= 8 ? 0 : Math.min(190, (b.ft * Math.tan((Math.min(b.la, 70) * Math.PI) / 180)) / 2));
-    const color = (b: Flight) => (live.current.byResult ? resultColor(b.e) : evColor(b.ev));
+    const color = (b: Flight & { pt?: string | null; ba?: number | null }) =>
+      live.current.by === "result" ? resultColor(b.e)
+      : live.current.by === "hc" ? (b.ba == null ? GREY : HC_BANDS.find(([lo]) => b.ba! >= lo)![1])
+      : live.current.by === "pitch" ? pitchColor(b.pt ?? null)
+      : evColor(b.ev);
     const path = (c: CanvasRenderingContext2D, b: Flight, upto: number) => {
       const a = apex(b), n = Math.max(2, Math.round(24 * upto));
       c.beginPath();
@@ -160,14 +175,23 @@ export function SprayPanel({ data, refs, season, bats }: {
   const [type, setType] = useState("all");
   const [res, setRes] = useState("all");
   const [side, setSide] = useState("all");
+  const [fpt, setFpt] = useState("all");
+  const [lhp, setLhp] = useState("all");
+  const [by, setBy] = useState<By>("ev");
+  const [bigEv, setBigEv] = useState(false);
   const [view, setView] = useState<"dots" | "flight">("dots");
-  const [byResult, setByResult] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [run, setRun] = useState(0); // bump to restart the replay
   const [date, setDate] = useState("");
   const [finished, setFinished] = useState(false);
   const balls: Ball[] = data?.balls ?? [];
+  const ptTypes = useMemo(() => {
+    const s = new Set(balls.map((b) => b.pt ?? (b.pt === null ? "other" : null)).filter((t): t is string => !!t));
+    return s.size ? s : null;
+  }, [balls]);
+  const handsPresent = useMemo(() => new Set(balls.map((b) => b.ph).filter(Boolean)), [balls]);
+  const ptOf = (b: Ball) => b.pt ?? (b.pt === null ? "other" : null);
 
   const all = useMemo(() => balls
     .filter((b) => typeof b.x === "number" && typeof b.y === "number" && (b.x !== 0 || b.y !== 0))
@@ -179,12 +203,35 @@ export function SprayPanel({ data, refs, season, bats }: {
     }), [balls, bats]);
   const switcher = all.some((b) => b.s === "L") && all.some((b) => b.s === "R");
   const shown = all.filter((b) => (type === "all" || b.t === type) && (res === "all" || (res === "hits") === b.hit)
-    && (side === "all" || b.s === side));
+    && (side === "all" || b.s === side)
+    && (fpt === "all" || ptOf(b) === fpt)
+    && (lhp === "all" || b.ph === lhp));
+  const dotColor = (b: (typeof all)[number]) =>
+    by === "result" ? resultColor(b.e)
+    : by === "hc" ? (b.ba == null ? GREY : HC_BANDS.find(([lo]) => b.ba! >= lo)![1])
+    : by === "pitch" ? pitchColor(ptOf(b))
+    : evColor(b.ev);
+  const dotR = (b: (typeof all)[number]) =>
+    bigEv && b.ev != null ? 2 + Math.max(0, Math.min(1, (b.ev - 60) / 50)) * 4.5
+    : b.e === "home_run" ? 3.6 : 2.8;
+  // The filter recomputes (old explorer's side panel): rates over the shown balls only.
+  const rd = useMemo(() => {
+    const n = shown.length;
+    const hits = shown.filter((b) => b.hit).length;
+    const ev = shown.filter((b) => b.ev != null);
+    const la = shown.filter((b) => b.la != null);
+    const ba = shown.filter((b) => b.ba != null);
+    const w = shown.filter((b) => b.w != null);
+    const avg = (arr: (typeof shown)[number][], k: "ev" | "la" | "ba" | "w") =>
+      arr.length ? arr.reduce((s, b) => s + (b[k] as number), 0) / arr.length : null;
+    return { n, hits, babip: n ? hits / n : null,
+      ev: avg(ev, "ev"), la: avg(la, "la"), xba: avg(ba, "ba"), xw: avg(w, "w"), nba: ba.length, nw: w.length };
+  }, [shown]);
   // chronological, opening day to the last game (stable sort keeps the bake's in-game order on a date)
-  const flights = useMemo<Flight[]>(() => shown.map(({ sx, sy, ft, la, e, ev, d }) => ({ sx, sy, ft, la, e, ev, d }))
+  const flights = useMemo<Flight[]>(() => shown.map(({ sx, sy, ft, la, e, ev, d, pt, ba }) => ({ sx, sy, ft, la, e, ev, d, pt, ba }))
     .sort((a, b) => (a.d ?? "").localeCompare(b.d ?? "")),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [all, type, res, side, run]);
+    [all, type, res, side, fpt, lhp, run]);
   const dated = all.some((b) => b.d);
 
   // Pull / centre / oppo by thirds of fair territory, from the side he batted on each ball. The
@@ -210,17 +257,25 @@ export function SprayPanel({ data, refs, season, bats }: {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
         <div>
           <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Spray chart</h2>
-          <p className="text-[10px] text-text-dim">{shown.length} of {all.length} balls in play · tint = {view === "flight" && byResult ? "result" : "exit velocity"}</p>
+          <p className="text-[10px] text-text-dim">{shown.length} of {all.length} balls in play · colour = {BY_LABEL[by]}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-dim">
-          {view === "flight" && byResult
+          {by === "result"
             ? RESULT_COLORS.map(([, c, l]) => (
               <span key={l} className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{l}</span>
+            ))
+            : by === "hc"
+            ? HC_BANDS.map(([, c, l]) => (
+              <span key={l} className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{l}</span>
+            ))
+            : by === "pitch" && ptTypes
+            ? [...ptTypes].sort().map((t) => (
+              <span key={t} className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: pitchColor(t) }} />{PITCH_CONFIG[t as keyof typeof PITCH_CONFIG]?.shortLabel ?? "oth"}</span>
             ))
             : EV_BANDS.map(([, c, l]) => (
               <span key={l} className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{l}</span>
             ))}
-          {view === "dots" && <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full border border-white" />HR</span>}
+          {(by === "ev" || by === "result") && <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full border border-white" />HR</span>}
         </div>
       </div>
 
@@ -236,8 +291,33 @@ export function SprayPanel({ data, refs, season, bats }: {
         <div className="flex gap-1" role="group" aria-label="Result">
           {RESULTS.map(([k, l]) => <button key={k} type="button" aria-pressed={res === k} onClick={() => setRes(k)} className={chip(res === k)}>{l}</button>)}
         </div>
+        {ptTypes && (
+          <div className="flex gap-1" role="group" aria-label="Pitch type">
+            <button type="button" aria-pressed={fpt === "all"} onClick={() => setFpt("all")} className={chip(fpt === "all")}>Any pitch</button>
+            {[...ptTypes].sort().map((t) => (
+              <button key={t} type="button" aria-pressed={fpt === t} onClick={() => setFpt(t)} className={chip(fpt === t)}>
+                {PITCH_CONFIG[t as keyof typeof PITCH_CONFIG]?.shortLabel ?? "oth"}
+              </button>
+            ))}
+          </div>
+        )}
+        {handsPresent.size > 1 && (
+          <div className="flex gap-1" role="group" aria-label="Pitcher hand">
+            {[["all", "Any hand"], ["R", "vs RHP"], ["L", "vs LHP"]].map(([k, l]) => (
+              <button key={k} type="button" aria-pressed={lhp === k} onClick={() => setLhp(k)} className={chip(lhp === k)}>{l}</button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="relative z-10 mb-2 flex flex-wrap items-center gap-2 text-[10px]">
+        <span className="uppercase tracking-wider text-text-dim">Colour</span>
+        <div className="flex gap-1" role="group" aria-label="Colour by">
+          {(Object.keys(BY_LABEL) as By[]).map((k) => (
+            <button key={k} type="button" aria-pressed={by === k} onClick={() => setBy(k)} className={chip(by === k)}>{BY_LABEL[k]}</button>
+          ))}
+        </div>
+        <button type="button" aria-pressed={bigEv} onClick={() => setBigEv((v) => !v)} className={chip(bigEv)}>Size by EV</button>
+        <span className="mx-1 h-3 w-px bg-border-subtle" aria-hidden />
         <div className="flex gap-1" role="group" aria-label="View">
           <button type="button" aria-pressed={view === "dots"} onClick={() => { setView("dots"); setPlaying(false); }} className={chip(view === "dots")}>Dots</button>
           <button type="button" aria-pressed={view === "flight"} onClick={() => { setView("flight"); setFinished(false); setRun((r) => r + 1); setPlaying(true); }} className={chip(view === "flight")}>
@@ -253,10 +333,6 @@ export function SprayPanel({ data, refs, season, bats }: {
             <button type="button" onClick={() => { setFinished(false); setRun((r) => r + 1); setPlaying(true); }} className={chip(false)}>↺ Restart</button>
             <div className="flex gap-1" role="group" aria-label="Speed">
               {[1, 4, 16].map((v) => <button key={v} type="button" aria-pressed={speed === v} onClick={() => setSpeed(v)} className={chip(speed === v)}>{v}×</button>)}
-            </div>
-            <div className="flex gap-1" role="group" aria-label="Colour by">
-              <button type="button" aria-pressed={!byResult} onClick={() => setByResult(false)} className={chip(!byResult)}>EV</button>
-              <button type="button" aria-pressed={byResult} onClick={() => setByResult(true)} className={chip(byResult)}>Result</button>
             </div>
             {dated && date && <span className="font-data text-text-secondary">{dateLabel(date)}</span>}
           </>
@@ -288,26 +364,35 @@ export function SprayPanel({ data, refs, season, bats }: {
         {ref && typeof ref.mean === "number" && <path d={ray(ref.mean)} stroke="rgba(122,165,216,0.6)" strokeDasharray="4 4" />}
         {his != null && <path d={ray(his)} stroke="rgba(232,119,34,0.75)" strokeDasharray="4 3" />}
         {view === "dots" && shown.map((b, i) => (
-          <circle key={i} cx={b.sx} cy={b.sy} r={b.e === "home_run" ? 3.6 : 2.8}
-            fill={evColor(b.ev)} fillOpacity={b.e === "home_run" ? 0.95 : 0.65}
+          <circle key={i} cx={b.sx} cy={b.sy} r={dotR(b)}
+            fill={dotColor(b)} fillOpacity={b.e === "home_run" ? 0.95 : 0.65}
             stroke={b.e === "home_run" ? "#fff" : "none"} strokeWidth="0.9">
-            <title>{`${(b.e ?? "in play").replace(/_/g, " ")} · ${b.ev ?? "?"} mph · ${b.la ?? "?"}° · ${Math.round(b.ft)} ft`}</title>
+            <title>{`${(b.e ?? "in play").replace(/_/g, " ")} · ${b.ev ?? "?"} mph · ${b.la ?? "?"}° · ${Math.round(b.ft)} ft`
+              + `${ptOf(b) ? ` · vs ${b.ph === "L" ? "LHP" : "RHP"} ${PITCH_CONFIG[ptOf(b) as keyof typeof PITCH_CONFIG]?.label ?? "other"}` : ""}`
+              + `${b.ba != null ? ` · hit chance ${(b.ba / 1000).toFixed(3)}` : ""}`}</title>
           </circle>
         ))}
         <text x={8} y={H - 6} fontSize="10" fill="rgba(255,255,255,0.4)">3B side</text>
         <text x={W - 8} y={H - 6} fontSize="10" textAnchor="end" fill="rgba(255,255,255,0.4)">1B side</text>
       </svg>
       {view === "flight" && (
-        <FlightCanvas key={run} balls={flights} byResult={byResult} playing={playing} speed={speed}
+        <FlightCanvas key={run} balls={flights} by={by} playing={playing} speed={speed}
           onDate={setDate} onDone={() => { setPlaying(false); setFinished(true); }} />
       )}
       </div>
 
-      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-        {dirs.map(([l, v]) => (
+      <div className="mt-2 grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
+        {([
+          ["Balls", rd.n != null ? String(rd.n) : "—"],
+          ["BIP hits", rd.n ? `${rd.hits} (${Math.round(100 * (rd.babip ?? 0))}%)` : "—"],
+          ["Avg EV", rd.ev != null ? `${rd.ev.toFixed(1)}` : "—"],
+          ["Avg LA", rd.la != null ? `${rd.la.toFixed(1)}°` : "—"],
+          ["Hit chance", rd.xba != null ? (rd.xba / 1000).toFixed(3).replace(/^0/, "") : "—"],
+          ["xwOBACON", rd.xw != null ? (rd.xw / 1000).toFixed(3).replace(/^0/, "") : "—"],
+        ] as [string, string][]).map(([l, v]) => (
           <div key={l} className="rounded-md border border-border-subtle py-1">
             <div className="text-[10px] text-text-dim">{l}</div>
-            <div className="text-sm font-semibold text-text-secondary">{v == null ? "—" : `${v}%`}</div>
+            <div className="text-sm font-semibold font-data text-text-secondary">{v}</div>
           </div>
         ))}
       </div>
@@ -317,6 +402,8 @@ export function SprayPanel({ data, refs, season, bats }: {
         {his != null && ref ? <>; blue: the league average for {hand === "L" ? "left" : "right"}-handed batters{season ? ` in ${season}` : ""} ({ref.mean}°)</> : null}
         {his != null ? "." : ""}
         {switcher && !hand ? " Switch hitter: pull and oppo are counted from the side he batted on each ball; pick a side for the direction lines." : ""}
+        {by === "hc" || by === "pitch" ? " Hit chance and pitch colour need the ball's pitch recorded; balls without it stay grey." : ""}
+        {rd.xba != null ? ` Hit chance and xwOBACON are means of Savant's per-ball estimates (exit velo + launch angle) over the ${rd.nba} shown balls that carry one — their model, attributed; ours stays out (§68/§77).` : ""}
         {all.length < 50 ? " Thin sample — read the shape, not the percentages." : ""}
       </p>
     </div>

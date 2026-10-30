@@ -25,6 +25,7 @@ import { GameLogPanel } from "@/components/ui/game-log-panel";
 import { SeasonArc } from "@/components/ui/season-arc";
 import { YoYDelta } from "@/components/ui/yoy-delta";
 import { SprayPanel } from "@/components/ui/spray-panel";
+import { BattedBallTable } from "@/components/ui/batted-ball-table";
 import { DongPanel } from "@/components/ui/dong-panel";
 import { ScoutingCard, ZoneGridPanel, CountsPanel } from "@/components/ui/scouting-card";
 import { HitterVisualsTab } from "@/components/ui/visuals-tab";
@@ -352,6 +353,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                 {!faced.length && <p className="px-4 py-3 text-[11px] text-text-dim">No pitch-type data for this season.</p>}
               </div></div>
             </div>
+            <BattedBallTable data={spray} bats={profile.bats} />
           </div>
         ) : (
           <div className="space-y-5">
