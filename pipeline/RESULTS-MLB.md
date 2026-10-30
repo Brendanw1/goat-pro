@@ -4046,6 +4046,30 @@ pipeline keeps org_rank/org_list_len), so the §104 family changes do not move i
 (`prospect_model.py` l.222). Its lifts (ΔAUC +.026, ΔSpearman +.059, sleepers +32 pp) are **not forward-valid** and are not
 cited. No re-run.
 
+### §104 dev results (2026-10-29; `results/prospect_104_dev.json`; NPY pending the GPU run)
+Player-clustered bootstrap, 1,000 draws. Fixed splits, OOF Platt, full draft, health and org coverage fixes.
+
+| value (EV, control-years FSE) | NDCG@100 | Δ vs B1 | Spearman | sleeper p@50 (Δ pp vs B1) |
+|---|---|---|---|---|
+| dev 2015 (8,599 rows): B1 | .509 [.416, .601] | — | .296 | .14 |
+| v0u | .538 [.457, .606] | +.029 [−.042, +.082] | .391 | .28 (+14 [0, +26]) |
+| LGB | .420 [.343, .515] | −.089 [−.191, +.020] | .382 | .30 (+16 [0, +28]) |
+| post-hoc 2016–17 (17,443): B1 | .471 [.410, .543] | — | .279 | .10 |
+| v0u | .507 [.443, .567] | +.036 [−.003, +.072] | .397 | .24 (+14 [+5, +24]) |
+| LGB | .453 [.379, .517] | −.018 [−.087, +.036] | .406 | .21 (+11 [+1, +20]) |
+
+| arrival dev 2015–21 (62,623 rows, base .102) | Brier | Δ vs B1 | ECE | cal. slope | AUC | mean p |
+|---|---|---|---|---|---|---|
+| B1 | .0709 | — | .029 | 1.03 | .828 | .131 |
+| v0u | .0609 | −.0100 [−.0109, −.0090] | .006 | 1.03 | .894 | .107 |
+| LGB | .0604 | −.0105 [−.0116, −.0093] | .009 | 1.06 | .903 | .111 |
+
+- The fixed splits remove the over-prediction: LGB's mean arrival p is .111 against .102 observed (§99f dev: .13–.20 raw),
+  and ECE is .009 against §99f's .032. This is dev only; the arrival read stays §99g/§99h (2024 list, after 2027).
+- Value: no arm beats B1 on NDCG@100 with a CI excluding 0. v0u leads on the point estimate; LGB trails. Sleeper precision
+  favours the models (post-hoc CIs exclude 0, not a gate). LGB value fits were selected on a random 70/30 player split
+  (there is no inner time split for value folds), with no ablation run.
+
 ## §103 Stuff v4: swing-conditional run-value target (D-42), pre-registered 2026-10-29 before any read
 
 **Why.** v3 Whiff+ (§34) targets binary whiff on swings with location+count partialled out. Fouls are a real swing

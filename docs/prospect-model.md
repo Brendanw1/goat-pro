@@ -401,3 +401,15 @@ chain). Scratch scripts kept out of the repo; `pipeline/prospect_bayes_bench.py`
   is calibrated in the large on dev: Brier .0621 vs LGB .0695 and B1 .0828, ECE .021, AUC .901.
 - Entry path, Rule 5 timing and org depth add nothing on dev; the full 2000–26 draft helps a little. Pre-registered
   as §99h (read on the 2024 list after 2027).
+
+## 11. Fixed splits and the re-read (§104, 2026-10-29)
+
+- The split audit found that the §99 value and inner splits dropped test-list players from training, as the arrival split
+  did. The §99f value pass is withdrawn. §104 retrains on tyear ≤ Y − 4 with no player removal, fits Platt on out-of-fold
+  predictions, uses the full 2000–26 draft, sets health to missing before 2021 and keeps org rank only as a fraction of
+  the list length.
+- Training base rates fall to the test level (value folds: debut rate .13–.15 → .10–.11).
+- Dev: arrival LGB is calibrated (ECE .009, Brier −.0105 vs B1). On value, no arm beats B1 on NDCG@100 yet (v0u +.029
+  [−.042, +.082] on 2015).
+- NPY now runs as NUTS on a cloud GPU (`pipeline/GPU_RUN.md`). The one clean read is the 2018 list. Until then the
+  prospect row stays under review.
