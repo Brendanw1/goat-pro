@@ -11,7 +11,7 @@
  * lib/boards/arsenal.ts.
  */
 import { applyFilters, type FilterColumn } from "@/lib/column-filters";
-import { SLOT_BANDS, slotBand } from "@/lib/arm-slot";
+import { SLOT_BANDS, armSideHb, slotBand } from "@/lib/arm-slot";
 import { GRADE_PCT_FLOOR } from "@/lib/percentiles";
 import { MLB_HALF_PITCHER } from "@/lib/measured-mlb-constants";
 import { compareValues } from "@/lib/table-sort";
@@ -50,12 +50,12 @@ export const SLOT_COLS = [
   { key: "ext", label: "Ext", w: "w-[40px]", align: "right", tip: "Extension on this pitch, feet" },
   { key: "fbVelo", label: "FB velo", w: "w-[52px]", align: "right", tip: "Primary fastball (four-seam, sinker or cutter, whichever he throws most)" },
   { key: "fbIvb", label: "FB IVB", w: "w-[50px]", align: "right", tip: "Primary fastball induced vertical break, inches" },
-  { key: "fbHb", label: "FB HB", w: "w-[48px]", align: "right", tip: "Primary fastball horizontal break, inches, pitcher's view" },
+  { key: "fbHb", label: "FB HB", w: "w-[48px]", align: "right", tip: "Primary fastball horizontal break, inches, Statcast pfx_x (catcher's view: a RHP's arm side is negative)" },
   { key: "n_pitches", label: "N", w: "w-[40px]", align: "right" },
   { key: "usage", label: "Usage", w: "w-[48px]", align: "right" },
   { key: "velo", label: "Velo", w: "w-[44px]", align: "right" },
   { key: "ivb", label: "IVB", w: "w-[42px]", align: "right" },
-  { key: "hb", label: "HB", w: "w-[42px]", align: "right", tip: "Horizontal break, inches, pitcher's view" },
+  { key: "hb", label: "HB", w: "w-[42px]", align: "right", tip: "Horizontal break, inches, Statcast pfx_x (catcher's view: a RHP's arm side is negative)" },
   { key: "dIvbSlot", label: "ΔIVB slot", w: "w-[60px]", align: "right", tip: DIVB_SLOT_TIP },
   { key: "dHbSlot", label: "ΔHB slot", w: "w-[60px]", align: "right", tip: DHB_SLOT_TIP },
   { key: "whiffPct", label: "Whiff%", w: "w-[56px]", align: "right" },
@@ -205,7 +205,7 @@ export function enrichArsenal(arsenal: any[], board: SlotBoardFile | null, pitch
     return {
       ...a, age: p?.age ?? null, deceptionPlus: p?.deceptionPlus ?? null,
       band: arm === null ? null : slotBand(arm).key,
-      _hbArm: typeof a.hb === "number" && th ? (th === "R" ? -a.hb : a.hb) : null,
+      _hbArm: armSideHb(a.hb, th),
     };
   });
   const ok = (r: any) => r.band && (r.n_pitches ?? 0) > 0 && typeof r.ivb === "number" && typeof r._hbArm === "number";

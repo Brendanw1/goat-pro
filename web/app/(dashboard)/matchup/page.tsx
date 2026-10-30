@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { armSideHb } from "@/lib/arm-slot";
 import { getArsenalLeague, getBucketBoard, getGameReport, getHitterProfile, getHitters, getPitchers, getPlaneHitter, getPlanePitchers, getPlayerProfile, getPostseason } from "@/lib/data";
 import { PITCH_CONFIG } from "@/lib/constants";
 import { gradeColor } from "@/lib/grades";
@@ -180,7 +181,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
   const boards = await Promise.all(arsenal.map((p: any) => getBucketBoard(season, p.pitchType)));
   const pitches = arsenal.map((p: any, i: number) => {
     const bd = boards[i];
-    const raw: Record<string, number | null> = { v: p.velo ?? null, iv: p.ivb ?? null, hb: p.hb == null ? null : throws === "R" ? -p.hb : p.hb };
+    const raw: Record<string, number | null> = { v: p.velo ?? null, iv: p.ivb ?? null, hb: armSideHb(p.hb, throws) };
     const bins = bd ? AXES.map(([ax, unit], ai) => {
       const x = raw[ax];
       if (x == null || !bd.edges?.[ax]) return null;
@@ -269,7 +270,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                 <td className="py-1.5 text-right text-text-secondary">{p.usageVsLHH?.toFixed(0) ?? "—"} / {p.usageVsRHH?.toFixed(0) ?? "—"}</td>
                 <td className="py-1.5 text-right text-text-primary">{p.velo?.toFixed(1) ?? "—"}</td>
                 <td className="py-1.5 text-right text-text-secondary">{p.ivb?.toFixed(1) ?? "—"}</td>
-                <td className="py-1.5 text-right text-text-secondary">{p.hb == null ? "—" : (throws === "R" ? -p.hb : p.hb).toFixed(1)}</td>
+                <td className="py-1.5 text-right text-text-secondary">{armSideHb(p.hb, throws)?.toFixed(1) ?? "—"}</td>
                 <td className="py-1.5 text-right" style={{ color: gradeColor(p.stuffPlus) }}>{p.stuffPlus?.toFixed(0) ?? "—"}</td>
                 <td className="py-1.5 text-right" style={{ color: gradeColor(p.pitchingPlus) }}>{p.pitchingPlus?.toFixed(0) ?? "—"}</td>
                 <td className="py-1.5 text-right text-text-secondary"

@@ -665,7 +665,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
 
       <ProfileTabPanel role="pitcher" tab={tab}>
       {tab === "visuals" ? (
-          <PitcherVisualsTab visuals={visuals ?? null} career={career} explorer={{ id: String(playerId), season: profile.season, level }} />
+          <PitcherVisualsTab visuals={visuals ?? null} career={career} throws={profile.throws} explorer={{ id: String(playerId), season: profile.season, level }} />
         ) : tab === "fatigue" ? (
           <FatigueTab load={load ?? null} levelLabel={level === "aaa" ? "AAA Statcast" : "MLB"} />
         ) : tab === "gamelog" ? (

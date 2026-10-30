@@ -124,6 +124,13 @@ When a formula changes, update this table and the glossary in the same commit.
 - plusPct on Deception+; slowPct on −batSpeedVsNorm (slower swings rank high); timingPct on timingDisruption (more shift ranks high). All pitcher-good.
 - The baked batSpeedPct is the raw delta's percentile (low = good for the pitcher) and is not displayed.
 
+## Horizontal break convention (web/lib/arm-slot.ts armSideHb; every movement plot)
+
+- Baked `hb`, `expHb`, the movement cloud and the career mix are Statcast pfx_x (·12 = inches), the catcher's view: a RHP's arm side is negative, a LHP's positive. Tables that print raw HB say so.
+- Every movement plot and arm-side number goes through armSideHb: arm-side HB = −hb for RHP, hb for LHP, hand = the pitcher-season's mode p_throws; unknown hand draws nothing. Plots put arm side on the right for both hands (the pitcher's view for a RHP, mirrored for a LHP), so a sinker or changeup sits right and a sweeper left. All layers (his dots, means, slot rings) take the same transform; the bake never pre-flips a position.
+- Slot file deltas dHb / dHbPct are baked arm-side (+ = more arm-side run than his slot's typical, ranked so a high pct = more arm-side). Fixed 2026-10-30: the profile plot and the season-movement plot drew RHP arm side on the "glove side" label, and dHb/dHbPct were in the RHP catcher frame.
+- Guard: web/__tests__/arm-slot.test.ts (Webb SI/SW, Skubal CH/CB).
+
 ## ΔIVB / ΔHB vs slot (web/lib/boards/slot.ts enrichArsenal; /arsenal/[pitch] and the slot board)
 
 - hb_arm = −hb for RHP, hb for LHP (arsenal hb is Statcast pfx_x, catcher's view).
