@@ -1,0 +1,60 @@
+{
+ "section": "\u00a7105 (D-47 removal research)",
+ "cycles": {
+  "2020": 63,
+  "2021": 56,
+  "2022": 59,
+  "2023": 31,
+  "2024": 34,
+  "2025": 39
+ },
+ "n": 5188,
+ "removed": 218,
+ "cv_auc_removed": 0.871,
+ "features": [
+  [
+   "age",
+   "961"
+  ],
+  [
+   "snaps40",
+   "737"
+  ],
+  [
+   "bf",
+   "680"
+  ],
+  [
+   "kPct",
+   "664"
+  ],
+  [
+   "rv100",
+   "434"
+  ],
+  [
+   "woba",
+   "420"
+  ],
+  [
+   "ip",
+   "237"
+  ],
+  [
+   "is_p",
+   "67"
+  ],
+  [
+   "il60",
+   "0"
+  ]
+ ],
+ "removed_vs_traded": {
+  "retained": 6009,
+  "traded": 448,
+  "removed": 282
+ },
+ "holdout_2025_auc": 0.805,
+ "holdout_n": 1047,
+ "verdict": "descriptive"
+}

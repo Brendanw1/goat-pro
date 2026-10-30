@@ -4197,3 +4197,18 @@ reported as held-out AUC. This November's (2026) snapshots extend the population
 **Shipping.** A descriptive read ships on `/rosters` as a context column (removal score beside the name, labelled)
 only if held-out AUC ≥ .70 — below that it is a research note only, because a removal score weaker than that would
 decorate the tracker without informing it.
+
+### §105 result (read once, 2026-10-30): descriptive, and it clears the tracker bar
+
+Five cycles (2020–2024), 5,188 roster players at tender dates, 218 removed: **cross-fit AUC .871.** The held-out
+2025 cycle (1,047 players): **AUC .805** — past the .70 bar the prereg set for a tracker context column. Removed
+players per cycle: 63 / 56 / 59 / 31 / 34 / 39 (2020→2025; the 2022 lockout cycle is the low one, as the prereg
+anticipated flagging). Traded-within-window: 448 — a different decision, kept out of the label.
+
+**Top features, in order:** age (imp 961), seasons-on-40-man among our snapshots (737), workload (680), K% (664),
+RV/100 (434) — the story is "old, tenured, light-workload arms get non-tendered", and 60-day IL carried zero weight
+on top of the rest (imp 0). The two strongest real-world predictors (options, service class) are still unseen; the
+score reads "how a fringe roster looks to its club", not "who will be non-tendered".
+
+**Shipping:** a removal-probability column on `/rosters` (descriptive, §105, held-out AUC .805 named on the
+tooltip), scored through the frozen model for the current snapshot each bake.

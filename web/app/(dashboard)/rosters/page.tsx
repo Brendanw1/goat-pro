@@ -95,16 +95,22 @@ export default async function RostersPage({ searchParams }: {
       <div className="glass-panel overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border-subtle flex flex-wrap items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">{sel.abbr} 40-man ({sel.n})</span>
-          <span className="text-[10px] text-text-dim">positions as the API lists them; linked names have a profile here</span>
+          <span className="text-[10px] text-text-dim">the % is the §105 removal score — the modelled chance he is off a 40-man by spring if this were the tender deadline (descriptive)</span>
         </div>
         <div className="grid gap-x-6 gap-y-0.5 p-3 sm:grid-cols-2 lg:grid-cols-3">
           {sel.players.map((p: any) => (
             <div key={p.id} className="flex items-baseline gap-2 text-xs" style={{ minHeight: "24px" }}>
               <span className="w-7 text-[10px] font-data text-text-dim">{p.p}</span>
-              <span>
+              <span className="flex-1">
                 {playerLink(p)}
                 {p.s ? statusChip(p.s) : null}
               </span>
+              {p.rem != null ? (
+                <span className="font-data text-[10px] text-text-dim"
+                  title="Removal score (§105, descriptive): the modelled probability this player is off a 40-man by spring if this were the tender deadline — a cross-fit model over five cycles (held-out AUC .805), which sees age, tenure, workload, K% and run value. It cannot see options or service class.">
+                  {Math.round(100 * p.rem)}%
+                </span>
+              ) : null}
             </div>
           ))}
         </div>

@@ -5553,6 +5553,12 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             pidxF = out / "player_index.json"
             pidx = set(json.loads(pidxF.read_text())) if pidxF.exists() else set()
             abbr_of = {v: k for k, v in MLB_TEAM_IDS.items()}
+            # §105 removal score: the frozen cross-fit model (pipeline/removal_research.py
+            # saves nothing reusable, so re-fit on the five cycles exactly as the read did)
+            # scores the current snapshot as if it were a tender deadline. Descriptive.
+            rem_f = ROOT / "cache" / "removal_model_scored.parquet"
+            rem_score = (pd.read_parquet(rem_f).set_index("id")["p_removed"].to_dict()
+                         if rem_f.exists() else {})
             teams_out = []
             for tid, gg in cur.groupby("team_id"):
                 abbr = abbr_of.get(int(tid))
@@ -5561,6 +5567,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 players = [{"id": str(int(r.id)), "n": r.name,
                             "p": r.pos,
                             "s": None if r.status_desc == "Active" else r.status_desc,
+                            "rem": round(float(rem_score[int(r.id)]), 3) if int(r.id) in rem_score else None,
                             "lnk": str(int(r.id)) in pidx}
                            for r in gg.sort_values(["pos", "name"]).itertuples()]
                 teams_out.append({"id": int(tid), "abbr": abbr, "n": len(players), "players": players})
