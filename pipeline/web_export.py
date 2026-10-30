@@ -3541,17 +3541,26 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             ORDER BY g.id, g.season, g.game_date, g.game_pk
         """).df()
         pitcher_pop = {(pid, s) for (pid, s) in g.index if keep_row(int(pid), int(s)) and (pid, s) in tot_indexed.index}
+        # D-18: per-game P7 cells (pipeline/p7_games.py) — the outing's mean Whiff+/Pitching+
+        # over graded pitches and Outing+ (100+10z vs the season's 15+ pitch outings). Descriptive.
+        p7g_f = ROOT / "cache" / "p7_games.parquet"
+        p7g = pd.read_parquet(p7g_f) if p7g_f.exists() else None
+        p7_by_key = ({(int(r.mlbam), int(r.season), int(r.game_pk)):
+                      (r.whiff_mean, r.pitching_mean, None if pd.isna(r.outPlus) else r.outPlus)
+                      for r in p7g.itertuples()} if p7g is not None else {})
         gl_by_player = {}
         for row in pg.itertuples():
             key = (int(row.id), int(row.season))
             if key not in pitcher_pop:
                 continue
             ip = row.outs / 3
+            cell = p7_by_key.get((int(row.id), int(row.season), int(row.game_pk)))
             gl_by_player.setdefault(key, []).append({
                 "d": str(row.game_date), "o": row.opp, "ip": f(ip, 1),
                 "h": int(row.h), "r": int(row.runs), "bb": int(row.bb), "k": int(row.k),
                 "hr": int(row.hr), "bf": int(row.pa), "pc": int(row.pitches),
                 "g": int(row.game_pk),  # joins the pa_log file
+                **({"wp": f(cell[0], 1), "pp": f(cell[1], 1), "op": f(cell[2], 1)} if cell else {}),
             })
         n_gl = 0
         for (pid, season), games in gl_by_player.items():

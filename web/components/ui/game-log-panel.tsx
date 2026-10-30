@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { fmtIp } from "@/lib/ip";
+import { gradeColor } from "@/lib/grades";
 
 /**
  * The game-log tab (wave 2c): one measured line per game, both sides. A
@@ -157,6 +158,8 @@ export function GameLogPanel({ data, playerId, season, level }: {
               <div className="w-[36px] text-right">HR</div>
               <div className="w-[36px] text-right">BF</div>
               <div className="w-[44px] text-right">PCH</div>
+              <div className="w-[54px] text-right" title="Outing+ (D-18): this outing's mean Pitching+ vs the season's 15+ pitch outings, 100+10z. Descriptive.">Outing+</div>
+              <div className="w-[54px] text-right" title="The outing's mean Whiff+ over graded pitches (100 = average).">Whf+</div>
             </>
           ) : (
             <>
@@ -207,6 +210,12 @@ export function GameLogPanel({ data, playerId, season, level }: {
                     <div className="w-[36px] text-right text-xs font-data text-text-secondary">{g.hr}</div>
                     <div className="w-[36px] text-right text-xs font-data text-text-dim">{g.bf}</div>
                     <div className="w-[44px] text-right text-xs font-data text-text-dim">{g.pc}</div>
+                    <div className="w-[54px] text-right text-xs font-data font-medium"
+                      style={{ color: typeof g.op === "number" ? gradeColor(g.op) : undefined }}
+                      title={g.op != null ? `Outing+ ${g.op} · mean Pitching+ ${g.pp ?? "—"} · mean Whiff+ ${g.wp ?? "—"}` : "under 15 graded pitches — no Outing+"}>
+                      {g.op ?? "—"}
+                    </div>
+                    <div className="w-[54px] text-right text-xs font-data text-text-secondary">{g.wp ?? "—"}</div>
                   </>
                 ) : (
                   <>
