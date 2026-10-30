@@ -220,3 +220,11 @@ null, no truncated PA). No gate: the inputs are season aggregates, so no within-
 split-half exists — reliability is the reported year-to-year stickiness (Speed Score .708,
 sprint .929, 2020-26). Shown on the Savant tab (profiles) and the /defense board beside the
 range runs, per the §100 finding that speed belongs in decomposition views, not in p.
+
+## Zone chart, Where he swings (web_export.py scouting family → hitter_scouting/{id}-{season}.json.gz `zones`, scouting_league.json `zones`; components/ui/scouting-card.tsx)
+
+- Cells: rows above / high / mid / low / below (thirds of sz_bot..sz_top; above/below = beyond 0.35 ft past the zone), columns inside / center / away at ±0.28 ft, plate_x mirrored by the pitch's batter side so inside is his. Pitches with no zone ("off") are dropped.
+- Splits keyed `<hand><group>`: hand A (all) / R / L = p_throws; group '' (all) / FB / BR / OS = PITCH_FAMILY on SC_TO_SITE codes (FB = FF, SI, CT). Untyped pitches count only in group ''.
+- Per cell [n, swings, whiffs, run value] in ZONE_ORDER (above→below, inside→away); under 15 pitches the cell ships [n] only. Run value = Σ delta_run_exp, batter-positive. `s` = his majority batter side in the split.
+- League: same cells per season × batter side × split; the chart compares a split with the league on side `s`.
+- Display: swing% = swings / n (single-hue scale 0–80%); whiff diff = his whiff% − league's (needs 5+ swings; fewer whiffs = green, cap ±15 pts); RV diff = 100·rv/n − league (green good for the hitter, cap ±6 runs/100). Catcher's view: a RHH's inside column is on the left.
