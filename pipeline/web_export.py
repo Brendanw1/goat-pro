@@ -4048,6 +4048,69 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "hardHitPct": f(100 * row.hard / row.bip, 1) if row.bip else None,
                 "avgEv": f(row.ev, 1),
             })
+
+        # Zone splits (the zone chart's toggles): the same cells by pitcher hand
+        # (A = all, R, L) x pitch group ('' = all, FB/BR/OS from PITCH_FAMILY on
+        # site codes), keyed "<hand><group>" ("A" = the whole grid, "RFB" = fastballs
+        # from RHP). Per cell [n, swings, whiffs, run value (batter +, Statcast
+        # delta_run_exp)]; under ZONE_MIN pitches a cell ships [n] only, so the
+        # chart greys it with its n. "s" = the side he batted from most in that
+        # split (a switch hitter's zone draws on that side; league compares to it).
+        ZONE_MIN = 15
+        fam_code = {"Fastball": "FB", "Breaking": "BR", "Offspeed": "OS"}
+        GRP_SQL = "CASE " + " ".join(
+            f"WHEN pitch_type = '{k}' THEN '{fam_code[PITCH_FAMILY[v]]}'"
+            for k, v in SC_TO_SITE.items() if v in PITCH_FAMILY) + " ELSE 'X' END"
+        ZZ_SQL = f"""CASE WHEN plate_z IS NULL OR sz_top IS NULL OR sz_bot IS NULL OR sz_top <= sz_bot THEN 'off'
+                        WHEN plate_z > sz_top + 0.35 THEN 'above'
+                        WHEN plate_z < sz_bot - 0.35 THEN 'below'
+                        ELSE {CELL_H} END"""
+
+        def zone_split_sql(key: str) -> str:
+            """key = 'id' (per batter) or 'stand' (league per batter side)."""
+            return f"""
+            WITH p AS (
+                SELECT batter AS id, season, stand, p_throws AS h, {GRP_SQL} AS g, {CELL_X} AS zx, {ZZ_SQL} AS zz,
+                       CASE WHEN description IN {SWING} THEN 1 ELSE 0 END AS sw,
+                       CASE WHEN description IN {WHIFF} THEN 1 ELSE 0 END AS wh,
+                       COALESCE(delta_run_exp, 0) AS rv
+                FROM pitches_all
+                WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
+                  AND stand IN ('L','R') AND p_throws IN ('L','R')
+                  AND description IS NOT NULL
+            )
+            SELECT {key}, season, COALESCE(h, 'A') AS h, COALESCE(g, '') AS g, zx, zz,
+                   COUNT(*) AS n, SUM(sw) AS sw, SUM(wh) AS wh, SUM(rv) AS rv,
+                   SUM(CASE WHEN stand = 'R' THEN 1 ELSE 0 END) AS nr
+            FROM p WHERE zz <> 'off'
+            GROUP BY GROUPING SETS (({key}, season, zx, zz, h, g), ({key}, season, zx, zz, h),
+                                    ({key}, season, zx, zz, g), ({key}, season, zx, zz))
+            """
+
+        zs = con.sql(zone_split_sql("id")).df()
+        zs = zs[zs["g"] != "X"]
+        zones_by: dict = {}
+        for row in zs.itertuples():
+            key = (int(row.id), int(row.season))
+            if key not in sc_pop:
+                continue
+            n = int(row.n)
+            sp = zones_by.setdefault(key, {}).setdefault(f"{row.h}{row.g}", {"c": {}, "_n": 0, "_r": 0})
+            sp["c"][f"{row.zz}-{row.zx}"] = [n] if n < ZONE_MIN else [n, int(row.sw), int(row.wh), f(row.rv, 1)]
+            sp["_n"] += n
+            sp["_r"] += int(row.nr)
+        # cells ship as a list in ZONE_ORDER (scouting-card.tsx ZONE_ORDER), [0] = none: ~14% smaller gz than keyed
+        ZONE_ORDER = [f"{zz}-{zx}" for zz in ("above", "high", "mid", "low", "below") for zx in ("inside", "center", "away")]
+        for sps in zones_by.values():
+            for k, sp in sps.items():
+                sps[k] = {"s": "R" if 2 * sp["_r"] >= sp["_n"] else "L", "c": [sp["c"].get(o, [0]) for o in ZONE_ORDER]}
+        lg_zs = con.sql(zone_split_sql("stand")).df()
+        lg_zs = lg_zs[lg_zs["g"] != "X"]
+        lg_zones: dict = {}
+        for t in lg_zs.itertuples():
+            lg_zones.setdefault(int(t.season), {}).setdefault(t.stand, {}).setdefault(f"{t.h}{t.g}", {})[
+                f"{t.zz}-{t.zx}"] = [int(t.n), int(t.sw), int(t.wh), f(t.rv, 1)]
+
         cnt = con.sql(f"""
             SELECT batter AS id, season, balls, strikes,
                    COUNT(*) AS n,
@@ -4123,6 +4186,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             s["counts"][f"{int(t.balls)}-{int(t.strikes)}"] = {
                 "n": int(t.n), "sw": int(t.sw), "wh": int(t.wh), "chase": int(t.chase),
                 "ooz": int(t.ooz), "hard": int(t.hard), "bip": int(t.bip)}
+        for season, z in lg_zones.items():
+            league.setdefault(season, {"cells": {"R": {}, "L": {}}, "counts": {}})["zones"] = z
         jwrite(out / "scouting_league.json", {"seasons": league}, sort_keys=True)
         counts["scouting_league"] = 1
 
@@ -4156,6 +4221,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             jwrite_gz(out / "hitter_scouting" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "season": season,
                 "cells": cells_by[(pid, season)],
+                "zones": zones_by.get((pid, season), {}),
                 "counts": sorted(counts_by.get((pid, season), []), key=lambda r: (r["count"],)),
                 "skill": {"power": power, "contact": contact, "eye": eye, "approach": approach, "type": htype},
             }, sort_keys=True)

@@ -6,6 +6,7 @@ R2_PREFIX namespacing the keys, so the two must agree:
     python pipeline/r2_sync.py                 # upload + prune, prefix goatpro/
     python pipeline/r2_sync.py --dry-run       # list the plan
     python pipeline/r2_sync.py --path aaa      # one subtree (upload + prune inside it only)
+    python pipeline/r2_sync.py --path scouting_league.json   # one file
 
 Credentials come from goat-pro/.env (gitignored): R2_ENDPOINT, R2_BUCKET_NAME,
 R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY. Never printed; a missing key fails the
@@ -81,7 +82,8 @@ def main() -> None:
     base = LOCAL / sub if sub else LOCAL
     if not base.exists():
         sys.exit(f"{base} does not exist — run pipeline/web_export.py first")
-    scope = f"{PREFIX}/{sub}/" if sub else f"{PREFIX}/"
+    # a single file (e.g. scouting_league.json) syncs as itself; a directory as its subtree
+    scope = f"{PREFIX}/{sub}" if base.is_file() else f"{PREFIX}/{sub}/" if sub else f"{PREFIX}/"
 
     s3 = boto3.client(
         "s3",
@@ -96,7 +98,7 @@ def main() -> None:
     # BAKE_LOCK is the concurrent-bake lockfile (web_export.py run_bake), not
     # data — it appears and vanishes mid-sync and its upload race aborts the run.
     local = {f"{PREFIX}/{p.relative_to(LOCAL).as_posix()}": p
-             for p in sorted(base.rglob("*")) if p.is_file() and p.name != "BAKE_LOCK"}
+             for p in ([base] if base.is_file() else sorted(base.rglob("*"))) if p.is_file() and p.name != "BAKE_LOCK"}
     with ThreadPoolExecutor(WORKERS) as ex:
         local_md5 = dict(zip(local, ex.map(md5, local.values())))
     remote = remote_etags(s3, bucket, scope)

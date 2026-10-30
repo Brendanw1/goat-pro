@@ -171,7 +171,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
 {hitter ? (
         <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id} agingStrip={agingStrip}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}
-          scoutingLeague={scoutingLeague} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} running={running} initialTab={tab} level={level} />
+          scoutingLeague={rs && scoutingLeague?.seasons?.[rs] ? { seasons: { [rs]: scoutingLeague.seasons[rs] } } : null} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} running={running} initialTab={tab} level={level} />
       ) : (
         <PlayerProfileView
           profile={profile}
