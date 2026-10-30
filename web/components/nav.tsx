@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/glossary", label: "Glossary" },
   // past the fade: scroll the strip to reach these
   { href: "/reports/projections", label: "Projections" },
+  { href: "/rosters", label: "40-man" },
   { href: "/dong", label: "Would it dong" },
   { href: "/roles", label: "Roles" },
   { href: "/framing", label: "Framing" },
@@ -86,6 +87,11 @@ export function Nav() {
     <nav className="glass-nav sticky top-0 z-50 relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 lg:gap-x-4">
       {/* The lava field the header lives on, clipped in its own layer so the search results can hang below the bar */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden"><LavaNav /></div>
+      {/* Pearl rail: the nav's bottom edge, painted before (under) everything else in the bar, so it never covers the page
+          or the search results; scrolls with the sticky nav; a soft drop shadow lifts the header */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[4px]
+        bg-[linear-gradient(180deg,#fffdf8_0%,#f5efe3_55%,#e9e1d1_100%)]
+        shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_5px_-2px_rgba(15,23,42,0.25)]" />
 
       {/* Logo / Brand — a white shader badge sitting on top of the field:
           the base is a sphere gradient (white top-left into cool grey) so the
@@ -153,10 +159,6 @@ export function Nav() {
         <Search />
       </div>
 
-      {/* Pearl rail under the header: hangs off the sticky nav so it scrolls with it; a soft drop shadow lifts the bar */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-full h-[7px]
-        bg-[linear-gradient(180deg,#fffdf8_0%,#f7f2e7_45%,#ece5d6_100%)]
-        shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_6px_-2px_rgba(15,23,42,0.28)]" />
     </nav>
   );
 }

@@ -112,7 +112,7 @@ LOAD_MIN_PITCHES = 400  # pitches before a fatigue profile bakes (the site's HIG
 
 # Bake families. FAM_NEEDS names the shared aggregate blocks a family's bake
 # touches; the blocks are computed iff any requested family needs them.
-FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging", "mechanism", "deception", "framing", "defense_board", "postseason")
+FAMILIES = ("pitchers", "players", "arsenal", "slot", "vaa", "savant", "hitters", "detail", "scouting", "visuals", "career", "prospects", "swing", "load", "draft", "pitches", "wpa", "aging", "mechanism", "deception", "framing", "defense_board", "postseason", "rosters")
 FAM_NEEDS = {
     "pitchers": {"totals", "fip", "bytype"},   # bytype: per-type percentile pools
     "players": {"totals", "fip", "bytype", "cells", "cloud"},
@@ -137,6 +137,7 @@ FAM_NEEDS = {
     "framing": set(),     # Framing+ board from results/framing_plus.csv (pre-registered, gated vs Savant)
     "defense_board": set(),  # league range board from defense_fielders_v3.csv (§81) + Savant OAA/FRV beside
     "postseason": set(),  # brackets, game reports + lineups, leaders (pipeline/postseason.py; Stats API + F/D/L/W pitches)
+    "rosters": set(),     # D-47 tracker: current 40-man + offseason movement (pipeline/roster40_fetch.py snapshots)
 }
 
 
@@ -1737,6 +1738,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "stuffPlus": f(sg, 1) if sg is not None else None,
                 "nStuffPitches": int(sn), "stuffGradeFrom": None,
                 "pitchingPlus": f(pg, 1) if pg is not None else None,
+                "prevPitch": f(_pv, 1) if (_pv := _pp.get((*key, site), (None,))[0]) is not None else None,  # §101, MLB, n >= 150
                 "confidence": gr["confidence"],
             }
             arsenal_rows.setdefault(site, []).append(row)
@@ -5536,6 +5538,74 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     # MLB debut dates) and per-player roster-move timelines. MLB only; every
     # join is a public-source descriptive read — no model claims.
     print(f"[{time.time() - t0:.0f}s] pitches", flush=True)
+    print(f"[{time.time() - t0:.0f}s] rosters", flush=True)  # per-family timing
+    if "rosters" in fams:
+        # D-47 tracker: the current 40-man per club and this offseason's movement, from the
+        # committed retrospective snapshots (pipeline/roster40_fetch.py). The payload carries
+        # name / position / status only — options and service time are needs-source.
+        r40 = ROOT / "data" / "rosters40"
+        snaps = sorted(r40.glob("snap_*.parquet")) if r40.exists() else []
+        if snaps:
+            cur_f = snaps[-1]
+            cur = pd.read_parquet(cur_f)
+            cur_date = cur_f.stem.replace("snap_", "")
+            pidxF = out / "player_index.json"
+            pidx = set(json.loads(pidxF.read_text())) if pidxF.exists() else set()
+            abbr_of = {v: k for k, v in MLB_TEAM_IDS.items()}
+            teams_out = []
+            for tid, gg in cur.groupby("team_id"):
+                abbr = abbr_of.get(int(tid))
+                if not abbr:
+                    continue
+                players = [{"id": str(int(r.id)), "n": r.name,
+                            "p": r.pos,
+                            "s": None if r.status_desc == "Active" else r.status_desc,
+                            "lnk": str(int(r.id)) in pidx}
+                           for r in gg.sort_values(["pos", "name"]).itertuples()]
+                teams_out.append({"id": int(tid), "abbr": abbr, "n": len(players), "players": players})
+            teams_out.sort(key=lambda t: t["abbr"])
+            jwrite(out / "rosters40" / "teams.json", {
+                "updated": cur_date,
+                "comment": "Current 40-man rosters (Stats API, date-honored query; pipeline/roster40_fetch.py). "
+                           "Status rides the API's roster status (Active / 60-day IL / restricted). "
+                           "Options remaining and service class are not in the payload.",
+                "teams": teams_out,
+            }, sort_keys=True)
+            # offseason movement: today vs the last spring-reporting snapshot
+            import re as _re
+            spring = max((f_ for f_ in snaps if _re.search(r"snap_\d{4}-02-20", f_.name)), default=None)
+            moves_out = []
+            if spring is not None:
+                spr_date = spring.stem.replace("snap_", "")
+                spr = pd.read_parquet(spring)
+                cur_ids = set(cur["id"].astype(int))
+                spr_ids = set(spr["id"].astype(int))
+                name_of = {int(r.id): (r.name, r.pos) for r in cur.itertuples()}
+                name_of.update({int(r.id): (r.name, r.pos) for r in spr.itertuples()})
+                for tid in sorted(set(cur["team_id"]) | set(spr["team_id"])):
+                    abbr = abbr_of.get(int(tid))
+                    if not abbr:
+                        continue
+                    cids = set(cur.loc[cur["team_id"] == tid, "id"].astype(int))
+                    sids = set(spr.loc[spr["team_id"] == tid, "id"].astype(int))
+                    adds = sorted(cids - sids)
+                    removes = sorted(sids - cids)
+                    if adds or removes:
+                        mk = lambda ids: [{"id": str(int(i)), "n": name_of.get(int(i), ("?", ""))[0],
+                                           "p": name_of.get(int(i), ("", "?"))[1],
+                                           "lnk": int(i) in pidx} for i in ids]
+                        moves_out.append({"id": int(tid), "abbr": abbr,
+                                          "adds": mk(adds), "removes": mk(removes)})
+                jwrite(out / "rosters40" / "moves.json", {
+                    "since": spr_date, "updated": cur_date,
+                    "comment": "40-man movement since spring reporting: who each club added or removed "
+                               "across the offseason (Rule 5 protection, tender deadline, trades, DFA).",
+                    "teams": moves_out,
+                })
+            counts["rosters_teams"] = len(teams_out)
+            print(f"rosters: {len(teams_out)} clubs as of {cur_date} (moves vs "
+                  f"{spring.stem.replace('snap_', '') if spring is not None else 'n/a'})")
+
     if "pitches" in fams:
         counts["pitch_files"] = bake_pitches(con, out, seasons, site_case_sql(), level)
         # D-10 movement explorer: a stride sample of the league's shapes, per season x type, for

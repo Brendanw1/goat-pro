@@ -622,3 +622,13 @@ export async function getPitchPlan(id: string, season?: string | number, level: 
 export async function getPitchPlanLeague(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "pitch_plan_league.json"), { shared: true }).catch(() => null);
 }
+
+/** D-47: current 40-man rosters per club (Stats API, date-honored snapshots). */
+export async function getRosters40(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "rosters40/teams.json"), { shared: true }).catch(() => null);
+}
+
+/** D-47: 40-man movement since spring reporting. */
+export async function getRostersMoves(level: Level = "mlb"): Promise<any | null> {
+  return fetchFromR2<any>(lv(level, "rosters40/moves.json"), { shared: true }).catch(() => null);
+}
