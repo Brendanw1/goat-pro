@@ -125,7 +125,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                     <tr key={r.id} className="border-t border-white/[0.04]">
                       <td className="py-1 pr-2 text-right text-[10px] text-text-dim">{i + 1}</td>
                       <td className="py-1 pr-2 font-sans">
-                        <Link href={`/player/${r.id}?season=${bs}`} className="text-text-primary hover:underline">{r.name}</Link>
+                        <Link prefetch={false} href={`/player/${r.id}?season=${bs}`} className="text-text-primary hover:underline">{r.name}</Link>
                         <span className="ml-1 text-[10px] text-text-dim">{r.bats ?? ""}</span>
                       </td>
                       <td className="py-1 pr-3 text-right text-[10px]">{r.pa} PA</td>
@@ -220,7 +220,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-text-primary">
-            <Link href={`/player/${pid}?season=${season}`} className="hover:underline">{prof.name}</Link>
+            <Link prefetch={false} href={`/player/${pid}?season=${season}`} className="hover:underline">{prof.name}</Link>
             <span className="text-text-dim"> vs </span>{source ? (team || "lineup") : "a lineup"}
           </h1>
           <p className="text-xs text-text-dim">
@@ -346,7 +346,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                       <div className="flex items-center gap-1.5">
                         <span className="w-3 text-right font-data text-[10px] text-text-dim">{i + 1}</span>
                         {h?.team ? <TeamCrest team={h.team} size={13} /> : null}
-                        <Link href={`/player/${id}?season=${season}`} className="text-text-primary hover:underline">{h?.name ?? id}</Link>
+                        <Link prefetch={false} href={`/player/${id}?season=${season}`} className="text-text-primary hover:underline">{h?.name ?? id}</Link>
                         <span className="text-[10px] text-text-dim">{h?.bats ?? ""}</span>
                       </div>
                       {h ? (

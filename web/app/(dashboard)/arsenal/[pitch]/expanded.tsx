@@ -208,7 +208,7 @@ export function ArsenalExpanded({
                         title={isName ? value : gradeNote}
                       >
                         {isName ? (
-                          <Link href={`/player/${row.id}?season=${row.season}`} className="hover:underline">
+                          <Link prefetch={false} href={`/player/${row.id}?season=${row.season}`} className="hover:underline">
                             <PixelTeamLogo team={row.team} size={16} className="mr-1.5" />
                             {value}
                             {row.gyro ? <span className="ml-1.5"><GyroTag /></span> : null}

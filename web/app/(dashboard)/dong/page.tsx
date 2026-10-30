@@ -75,7 +75,7 @@ export default async function DongPage({ searchParams }: { searchParams?: Promis
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.id} className="border-t border-white/[0.04]">
-                  <td className="py-1"><Link href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline"><PixelTeamLogo team={r.tm} size={14} />{r.n}</Link></td>
+                  <td className="py-1"><Link prefetch={false} href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline"><PixelTeamLogo team={r.tm} size={14} />{r.n}</Link></td>
                   <td className="py-1 text-right text-text-primary">{r.hr}</td>
                   <td className="py-1 text-right">{r.xhr.toFixed(1)}</td>
                   <td className="py-1 text-right"><Signed v={r.hr - r.xhr} dp={1} /></td>

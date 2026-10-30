@@ -144,7 +144,7 @@ export function SavantTable({ board }: { board: SavantBoard }) {
                     <td key={c.key} title={tip} style={tint}
                       className={`px-1.5 text-xs truncate ${c.align === "right" ? "text-right font-data" : "text-left"} ${isName ? "text-text-primary font-medium" : "text-text-secondary"}`}>
                       {isName && r.id && board.link_players ? (
-                        <Link href={`/player/${r.id}?season=${r.season}`} className="hover:underline">
+                        <Link prefetch={false} href={`/player/${r.id}?season=${r.season}`} className="hover:underline">
                           {isName && typeof r.team === "string" && /^[A-Z]{2,4}$/.test(r.team) ? (
                             <span className="inline-flex items-center gap-1.5">
                               <PixelTeamLogo team={r.team} size={14} />

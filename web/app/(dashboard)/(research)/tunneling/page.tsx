@@ -93,7 +93,7 @@ export default async function TunnelingPage({ searchParams }: { searchParams?: P
               <tr key={`${r.id}-${r.season}`} className="border-b border-white/[0.03]">
                 <td className="px-4 py-1.5 text-text-dim">{i + 1}</td>
                 <td className="px-2 py-1.5 font-sans">
-                  <Link href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
+                  <Link prefetch={false} href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
                 </td>
                 <td className="px-2 py-1.5 text-text-secondary">{r.team ?? "—"}</td>
                 <td className="px-2 py-1.5 text-right text-text-dim">{r.season}</td>

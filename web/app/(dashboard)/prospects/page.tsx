@@ -39,7 +39,7 @@ function RowList({ rows, season }: { rows: any[]; season: number }) {
             <tr key={`${r.id}-${r.rank}`} className="border-b border-white/[0.04]">
               <td className="px-4 py-1.5 text-right text-text-dim w-[44px]">{r.rank}</td>
               <td className="px-2 py-1.5 font-sans">
-                <Link href={`/player/${r.id}?season=${season}`} className="text-text-primary hover:underline">{r.n}</Link>
+                <Link prefetch={false} href={`/player/${r.id}?season=${season}`} className="text-text-primary hover:underline">{r.n}</Link>
                     {r.debut ? <span className="ml-1.5 rounded bg-white/[0.06] px-1 py-0.5 text-[9px] font-data text-text-dim" title={`MLB debut ${r.debut}`}>MLB</span> : null}
               </td>
               <td className="px-2 py-1.5 text-text-secondary">{r.pos ?? "—"}</td>
@@ -256,7 +256,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams?: P
     const moveRow = (r: any, i: number, up: boolean) => (
       <div key={i} className="flex items-baseline gap-2 text-[11px] border-b border-white/[0.03] py-1">
         <span className="font-data shrink-0 w-[92px]" style={{ color: up ? "#5ba88f" : "#e0654f" }}>#{r.from} → #{r.to}</span>
-        <Link href={`/player/${r.id}`} className="font-sans text-text-primary hover:underline flex-1 truncate">{r.name ?? r.id}</Link>
+        <Link prefetch={false} href={`/player/${r.id}`} className="font-sans text-text-primary hover:underline flex-1 truncate">{r.name ?? r.id}</Link>
         {r.debut ? <span className="text-[10px] text-text-dim shrink-0">MLB {r.debut}</span> : null}
       </div>
     );

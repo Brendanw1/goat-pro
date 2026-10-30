@@ -130,7 +130,7 @@ export default async function AgingPage({ searchParams }: { searchParams?: Promi
               {rows.slice(0, 40).map((r) => (
                 <tr key={`${r.id}-${r.season}`} className="border-t border-white/[0.04]">
                   <td className="px-4 py-1.5 font-sans">
-                    <Link href={`/player/${r.id}?season=${r.season}&tab=fatigue`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
+                    <Link prefetch={false} href={`/player/${r.id}?season=${r.season}&tab=fatigue`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
                   </td>
                   <td className="px-2 py-1.5 text-right text-text-dim">{r.season}</td>
                   <td className="px-2 py-1.5 text-right text-text-dim">{r.age}</td>

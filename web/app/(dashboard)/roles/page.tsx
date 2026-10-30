@@ -25,7 +25,7 @@ function Who({ r }: { r: any }) {
     <td className="py-1 px-1.5 font-sans whitespace-nowrap">
       <span className="inline-flex items-center gap-1.5">
         <PixelTeamLogo team={r.team} size={14} />
-        <Link href={`/player/${r.id}?season=2026`} className="text-text-secondary hover:underline">{r.name}</Link>
+        <Link prefetch={false} href={`/player/${r.id}?season=2026`} className="text-text-secondary hover:underline">{r.name}</Link>
         <span className="text-[10px] text-text-dim">{r.throws}HP</span>
       </span>
     </td>

@@ -226,7 +226,7 @@ export function SlotBoard({ meta, initial }: { meta: SlotMeta; initial: SlotPage
                                   ? `Arm-side HB ${row.hbArm} vs ${row.hbSlotPeer} for ${row.band} ${pt}s`
                                   : "tip" in col ? (col as any).tip : undefined}>
                         {isName ? (
-                          <Link href={`/player/${row.id}?season=${row.season}`} className="hover:underline">
+                          <Link prefetch={false} href={`/player/${row.id}?season=${row.season}`} className="hover:underline">
                             <PixelTeamLogo team={row.team} size={16} className="mr-1.5" />
                             {value}
                             {row.gyro ? <span className="ml-1.5"><GyroTag /></span> : null}

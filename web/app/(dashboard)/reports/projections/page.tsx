@@ -91,7 +91,7 @@ export default async function ProjectionsPage({ searchParams }: {
               {rows.map((r: any) => (
                 <tr key={`${r.id}-${r.season}`} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
                   <td className="px-3 py-1.5">
-                    <Link href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name}</Link>
+                    <Link prefetch={false} href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name}</Link>
                     <span className="ml-1.5 text-[10px] text-text-dim">{r.team}</span>
                   </td>
                   <td className="py-1.5 text-right text-text-dim">{(r.battersFaced ?? 0).toLocaleString("en-US")}</td>
@@ -128,7 +128,7 @@ export default async function ProjectionsPage({ searchParams }: {
               {rows.map((r: any) => (
                 <tr key={`${r.id}-${r.season}`} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
                   <td className="px-3 py-1.5">
-                    <Link href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name}</Link>
+                    <Link prefetch={false} href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name}</Link>
                     <span className="ml-1.5 text-[10px] text-text-dim">{r.team}</span>
                   </td>
                   <td className="py-1.5 text-right text-text-dim">{(r.pa ?? 0).toLocaleString("en-US")}</td>

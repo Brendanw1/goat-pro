@@ -130,7 +130,7 @@ export default async function HittersPage({ searchParams }: {
                 {shown.map((r: any) => (
                   <tr key={r.id} className="border-t border-white/[0.04]">
                     <td className="px-4 py-1.5 font-sans">
-                      <Link href={`/player/${r.id}?season=${season}`} className="text-text-primary hover:underline">{r.name}</Link>
+                      <Link prefetch={false} href={`/player/${r.id}?season=${season}`} className="text-text-primary hover:underline">{r.name}</Link>
                     </td>
                     <td className="px-2 py-1.5 font-sans text-text-secondary">{r.team ?? "—"}</td>
                     <td className="px-2 py-1.5 font-sans text-text-secondary">{r.bats ?? "—"}</td>
@@ -218,7 +218,7 @@ export default async function HittersPage({ searchParams }: {
                 {shown.map((r0: any) => (
                   <tr key={r0.id} className="border-t border-white/[0.04]">
                     <td className="px-4 py-1.5 font-sans">
-                      <Link href={`/player/${r0.id}?season=${season}&tab=swing`} className="text-text-primary hover:underline">{r0.name}</Link>
+                      <Link prefetch={false} href={`/player/${r0.id}?season=${season}&tab=swing`} className="text-text-primary hover:underline">{r0.name}</Link>
                     </td>
                     <td className="px-2 py-1.5 font-sans text-text-secondary">{r0.team ?? "—"}</td>
                     <td className="px-2 py-1.5 font-sans text-text-secondary">{r0.bats ?? "—"}</td>

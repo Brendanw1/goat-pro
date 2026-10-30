@@ -146,7 +146,7 @@ function Board({ title, rows, cols, sort, sortBase, dirQ, link }: {
             {sorted.map((r) => (
               <tr key={`${r.id}-${r.season}`} className="border-t border-white/[0.04]">
                 <td className="px-4 py-1.5 font-sans">
-                  <Link href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
+                  <Link prefetch={false} href={`/player/${r.id}?season=${r.season}`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
                 </td>
                 <td className="px-2 py-1.5 text-right text-text-dim">{r.season}</td>
                 {cols.map((c) => (

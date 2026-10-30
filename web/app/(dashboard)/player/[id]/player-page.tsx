@@ -134,7 +134,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
       <SeasonSelector id={id} seasons={career?.seasons ?? null} current={detSeason} level={level} otherSeasons={(await otherCareerP)?.seasons ?? null} />
       {detSeason ? <WpaAbsStrip id={id} season={detSeason} level={level} name={(hitter ?? profile)?.name} team={(hitter ?? profile)?.team} /> : null}
       <div className="no-print flex flex-wrap items-center gap-4">
-        <Link href={`/player/${id}/sheet?season=${detSeason}${level === "aaa" ? "&level=aaa" : ""}`}
+        <Link prefetch={false} href={`/player/${id}/sheet?season=${detSeason}${level === "aaa" ? "&level=aaa" : ""}`}
           className="text-[11px] text-text-dim hover:text-text-secondary underline-offset-2 hover:underline">
           Printable sheet →
         </Link>

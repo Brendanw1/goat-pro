@@ -177,7 +177,7 @@ export default async function ArchetypesPage() {
                 {a.map((x: any) => (
                   <td key={x.id} className="py-1 text-right font-sans">
                     {x.examples.map((e: any, i: number) => (
-                      <span key={i}>{i ? ", " : ""}<Link href={`/player/${e.batter}?season=${e.season}&tab=swing`} className="hover:underline">{e.name}</Link> {e.season}</span>
+                      <span key={i}>{i ? ", " : ""}<Link prefetch={false} href={`/player/${e.batter}?season=${e.season}&tab=swing`} className="hover:underline">{e.name}</Link> {e.season}</span>
                     ))}
                   </td>
                 ))}</tr>

@@ -124,7 +124,7 @@ export default async function TradesPage({ searchParams }: { searchParams?: Prom
                         {t.players.filter((p: any) => p.to === c).map((p: any) => (
                           <tr key={p.id} className="border-t border-white/[0.04]">
                             <td className="py-0.5 font-sans">
-                              <Link href={`/player/${p.id}?season=${season}`} className="text-text-secondary hover:underline">{p.name}</Link>
+                              <Link prefetch={false} href={`/player/${p.id}?season=${season}`} className="text-text-secondary hover:underline">{p.name}</Link>
                               <span className="ml-1 text-[10px] text-text-dim">{p.pos ?? ""}{p.rank ? ` · ${p.rank}` : ""}</span>
                             </td>
                             <td className="py-0.5 text-right text-[10px] text-text-dim">{p.pa ? `${p.pa} PA` : p.bf ? `${p.bf} BF` : p.debut ? `debut ${p.debut}` : "no MLB"}</td>

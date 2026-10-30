@@ -106,7 +106,7 @@ export default async function DefensePage({ searchParams }: { searchParams?: Pro
               {rows.slice(0, 60).map((r) => (
                 <tr key={`${r.id}-${r.pos}`} className="border-t border-white/[0.04]">
                   <td className="px-4 py-1.5 font-sans">
-                    <Link href={`/player/${r.id}?season=${season}&tab=defense`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
+                    <Link prefetch={false} href={`/player/${r.id}?season=${season}&tab=defense`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
                   </td>
                   <td className="px-2 py-1.5 font-sans text-text-dim">{r.pos}</td>
                   {COLS.map((c) => {

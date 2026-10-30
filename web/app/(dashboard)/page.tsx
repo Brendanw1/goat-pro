@@ -60,7 +60,7 @@ function Leaders({ title, rows, metric, fmt, href, note, season, i, sub }: {
             <span className="text-[10px] font-data text-text-dim text-right">{k + 1}</span>
             <Crest team={r.team} />
             <div className="min-w-0">
-              <Link href={`/player/${r.id}?season=${season}`} className="block truncate text-text-primary hover:underline">{r.name ?? r.id}</Link>
+              <Link prefetch={false} href={`/player/${r.id}?season=${season}`} className="block truncate text-text-primary hover:underline">{r.name ?? r.id}</Link>
               <div className="mt-0.5 h-[3px] rounded-full bg-white/[0.05]">
                 <div className="h-full rounded-full bg-usf-gold/70"
                   style={{ width: `${hi > lo ? 25 + (75 * (r[metric] - lo)) / (hi - lo) : 100}%` }} />

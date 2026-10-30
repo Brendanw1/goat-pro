@@ -39,7 +39,7 @@ export default async function RostersPage({ searchParams }: {
     <span className="ml-1.5 rounded border border-usf-gold/40 px-1 py-px text-[9px] uppercase tracking-wide text-usf-gold">{s}</span>
   );
   const playerLink = (p: any) => p.lnk
-    ? <Link href={`/player/${p.id}`} className="text-text-primary hover:underline">{p.n}</Link>
+    ? <Link prefetch={false} href={`/player/${p.id}`} className="text-text-primary hover:underline">{p.n}</Link>
     : <span className="text-text-secondary">{p.n}</span>;
 
   return (

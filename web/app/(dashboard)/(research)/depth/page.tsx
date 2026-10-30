@@ -280,7 +280,7 @@ export default async function DepthPage({ searchParams }: { searchParams?: Promi
           <tbody>
             {lateRows.map((r) => (
               <tr key={r.id} className="border-t border-white/[0.04]">
-                <td className="py-1"><Link href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline">{r.tm && <PixelTeamLogo team={r.tm} size={14} />}{r.name}</Link></td>
+                <td className="py-1"><Link prefetch={false} href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline">{r.tm && <PixelTeamLogo team={r.tm} size={14} />}{r.name}</Link></td>
                 <td className="py-1 text-right text-text-dim">{r.n}</td>
                 <td className="py-1 text-right text-text-primary">{sgn(r.late)}</td>
                 <td className="py-1 text-right text-text-dim">{r.nBip}</td>
@@ -314,7 +314,7 @@ export default async function DepthPage({ searchParams }: { searchParams?: Promi
           <tbody>
             {pitRows.map((r) => (
               <tr key={r.id} className="border-t border-white/[0.04]">
-                <td className="py-1"><Link href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline">{r.tm && <PixelTeamLogo team={r.tm} size={14} />}{r.name}</Link></td>
+                <td className="py-1"><Link prefetch={false} href={`/player/${r.id}`} className="inline-flex items-center gap-1.5 font-sans text-text-secondary hover:underline">{r.tm && <PixelTeamLogo team={r.tm} size={14} />}{r.name}</Link></td>
                 <td className="py-1 text-text-dim">{r.th}HP</td>
                 <td className="py-1 text-right text-text-dim">{r.n}</td>
                 <td className="py-1 text-right">{r.v ?? "—"}</td>

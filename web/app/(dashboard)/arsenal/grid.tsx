@@ -106,6 +106,7 @@ export function ArsenalGrid({ cards }: { cards: ArsenalCardData[] }) {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-text-dim w-4 font-data">{i + 1}</span>
                     <Link
+                      prefetch={false}
                       href={`/player/${pitcher.id}`}
                       className="text-xs text-text-primary hover:underline"
                     >

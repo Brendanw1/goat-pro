@@ -131,7 +131,7 @@ export default async function GameReportPage({ params, searchParams }: {
                   {(g.lineups[side] ?? []).map((b: any) => (
                     <li key={b.id} className={`flex items-baseline gap-2 ${b.sub ? "pl-5 text-text-dim" : ""}`}>
                       {!b.sub ? <span className="w-4 text-right font-data text-text-dim">{b.slot}</span> : null}
-                      <Link href={`/player/${b.id}?season=${season}`} className={b.sub ? "hover:underline" : "text-text-primary hover:underline"}>{b.n}</Link>
+                      <Link prefetch={false} href={`/player/${b.id}?season=${season}`} className={b.sub ? "hover:underline" : "text-text-primary hover:underline"}>{b.n}</Link>
                       <span className="text-[10px] text-text-dim">{b.pos}{b.sub ? " (sub)" : ""}</span>
                     </li>
                   ))}
@@ -179,7 +179,7 @@ export default async function GameReportPage({ params, searchParams }: {
                   <span className="self-center shrink-0"><TeamCrest team={m.half === "Bot" ? wpa.home : wpa.away} size={13} /></span>
                   <span className="font-data text-text-dim shrink-0">{m.half === "Bot" ? "B" : "T"}{m.inning}</span>
                   <span className="text-text-secondary leading-snug flex-1">
-                    <Link href={`/player/${m.batterId}`} className="hover:underline">{m.batter}</Link>
+                    <Link prefetch={false} href={`/player/${m.batterId}`} className="hover:underline">{m.batter}</Link>
                     {" — "}{m.des}
                   </span>
                   <span className="font-data shrink-0" style={{ color: (m.swing ?? 0) > 0 ? "#5ba88f" : "#e0654f" }}>
@@ -208,7 +208,7 @@ export default async function GameReportPage({ params, searchParams }: {
             {(g.p ?? []).map((p: any) => (
               <div key={p.id} className="flex items-center px-4 border-b border-white/[0.025]" style={{ height: "30px" }}>
                 <div className="w-[150px] text-xs">
-                  <Link href={`/player/${p.id}?season=${String(g.d).slice(0, 4)}`} className="text-text-primary hover:underline">{p.n ?? p.id}</Link>
+                  <Link prefetch={false} href={`/player/${p.id}?season=${String(g.d).slice(0, 4)}`} className="text-text-primary hover:underline">{p.n ?? p.id}</Link>
                 </div>
                 <div className="w-[36px] text-right text-xs font-data text-text-dim">{p.tm}</div>
                 <div className="w-[44px] text-right text-xs font-data text-text-primary">{typeof p.ip === "number" ? fmtIp(p.ip) : p.ip}</div>
@@ -235,7 +235,7 @@ export default async function GameReportPage({ params, searchParams }: {
                 {rows.map((b: any) => (
                   <div key={b.id} className="flex items-center px-4 border-b border-white/[0.025]" style={{ height: "30px" }}>
                     <div className="w-[150px] text-xs">
-                      <Link href={`/player/${b.id}?season=${String(g.d).slice(0, 4)}`} className="text-text-primary hover:underline">{b.n ?? b.id}</Link>
+                      <Link prefetch={false} href={`/player/${b.id}?season=${String(g.d).slice(0, 4)}`} className="text-text-primary hover:underline">{b.n ?? b.id}</Link>
                     </div>
                     <div className="w-[36px] text-right text-xs font-data text-text-primary">{b.pa}</div>
                     <div className="w-[32px] text-right text-xs font-data text-text-secondary">{b.h}</div>

@@ -78,7 +78,7 @@ function Leaders({ rows, side, sort }: { rows: any[]; side: "H" | "P"; sort: str
             <td className="py-1 font-sans">
               <span className="inline-flex items-center gap-1.5">
                 <TeamCrest team={r.team} size={13} />
-                <Link href={`/player/${r.id}`} className="text-text-secondary hover:underline">{r.name}</Link>
+                <Link prefetch={false} href={`/player/${r.id}`} className="text-text-secondary hover:underline">{r.name}</Link>
               </span>
             </td>
             <td className="py-1 text-right text-text-dim">{r.g}</td>

@@ -231,7 +231,7 @@ export default async function MinorsPage({ searchParams }: { searchParams?: Prom
               {shown.map((r: any, i: number) => (
                 <tr key={`${r.id}-${r.level}-${i}`} className="border-t border-white/[0.04]">
                   <td className="px-4 py-1.5 font-sans">
-                    <Link href={`/minors/player/${r.id}?season=${seasonShown}`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
+                    <Link prefetch={false} href={`/minors/player/${r.id}?season=${seasonShown}`} className="text-text-primary hover:underline">{r.name ?? r.id}</Link>
                   </td>
                   <td className="px-2 py-1.5 font-sans text-text-secondary">{LEVEL_LABEL[r.level] ?? r.level}</td>
                   <td className="px-2 py-1.5 font-sans text-text-secondary">{r.team ?? "—"}</td>

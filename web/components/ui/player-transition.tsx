@@ -24,7 +24,7 @@ const emit = (s: State | "ready") => listener?.(s);
 /** A Link to /player/[id] that plays the hand-off. Modified clicks (new tab etc.) behave like a plain link. */
 export function PlayerLink({ info, onClick, ...props }: ComponentProps<typeof Link> & { info: PlayerTransitionInfo }) {
   return (
-    <Link {...props} onClick={(e: MouseEvent<HTMLAnchorElement>) => {
+    <Link prefetch={false} {...props} onClick={(e: MouseEvent<HTMLAnchorElement>) => {
       onClick?.(e);
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       emit({ ...info, x: e.clientX, y: e.clientY, at: performance.now() });

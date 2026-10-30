@@ -111,7 +111,7 @@ export default async function FatiguePage({ searchParams }: { searchParams?: Pro
                 return (
                   <tr key={r.id} className="border-t border-white/[0.04]">
                     <td className="px-4 py-1.5 font-sans">
-                      <Link href={`/player/${r.id}?season=${season}&tab=fatigue`} className="text-text-primary hover:underline">{r.name}</Link>
+                      <Link prefetch={false} href={`/player/${r.id}?season=${season}&tab=fatigue`} className="text-text-primary hover:underline">{r.name}</Link>
                     </td>
                     <td className="px-2 py-1.5">
                       <span className="inline-flex items-center gap-1.5 text-text-secondary">

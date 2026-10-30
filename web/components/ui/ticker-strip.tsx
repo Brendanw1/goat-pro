@@ -28,7 +28,7 @@ export function TickerStrip({ ticker }: { ticker: any | null }) {
           <ul className="space-y-1">
             {starts.map((s: any) => (
               <li key={`${s.id}-${s.season}`} className="flex items-baseline justify-between gap-2">
-                <Link href={`/player/${s.id}?season=${s.season}`} className="text-text-primary hover:underline truncate">
+                <Link prefetch={false} href={`/player/${s.id}?season=${s.season}`} className="text-text-primary hover:underline truncate">
                   {s.n ?? s.id}
                 </Link>
                 <span className="font-data text-text-secondary whitespace-nowrap">
@@ -44,7 +44,7 @@ export function TickerStrip({ ticker }: { ticker: any | null }) {
           <ul className="space-y-1">
             {hitting.map((h: any) => (
               <li key={`${h.id}-${h.season}`} className="flex items-baseline justify-between gap-2">
-                <Link href={`/player/${h.id}?season=${h.season}`} className="text-text-primary hover:underline truncate">
+                <Link prefetch={false} href={`/player/${h.id}?season=${h.season}`} className="text-text-primary hover:underline truncate">
                   {h.n ?? h.id}
                 </Link>
                 <span className="font-data text-text-secondary whitespace-nowrap">
@@ -60,7 +60,7 @@ export function TickerStrip({ ticker }: { ticker: any | null }) {
           <ul className="space-y-1">
             {[...up, ...down].slice(0, 5).map((m: any) => (
               <li key={m.id} className="flex items-baseline justify-between gap-2">
-                <Link href={`/player/${m.id}`} className="text-text-primary hover:underline truncate">
+                <Link prefetch={false} href={`/player/${m.id}`} className="text-text-primary hover:underline truncate">
                   {m.n ?? m.id}
                 </Link>
                 <span className="font-data whitespace-nowrap" style={{ color: m.delta > 0 ? "#5ba88f" : "#e0654f" }}>

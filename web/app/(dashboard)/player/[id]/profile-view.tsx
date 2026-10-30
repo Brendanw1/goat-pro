@@ -536,7 +536,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                   <span key={p.pitchType}>
                     {i > 0 && "; "}
                     <span className="font-data text-text-secondary">{p.pitchType}</span> ≈{" "}
-                    <Link href={`/player/${p.twin.id}?season=${p.twin.s}`} className="text-text-secondary hover:underline">
+                    <Link prefetch={false} href={`/player/${p.twin.id}?season=${p.twin.s}`} className="text-text-secondary hover:underline">
                       {p.twin.n}
                     </Link>
                     <span className="text-text-dim">
