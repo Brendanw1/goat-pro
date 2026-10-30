@@ -245,7 +245,7 @@ FIT_SECS = []                                  # wall seconds of each fit done i
 
 
 def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin=5, tree=10, subsample=0,
-             max_minutes=0, est_minutes=60):
+             max_minutes=0, est_minutes=60, roles="hp"):
     """One fold = a hitter fit and a pitcher fit. Each fit is saved as soon as it ends and skipped if its file exists
     (resumable after a kill or preemption). With max_minutes, a fit that would not finish in the budget is not started.
     Returns False when the budget stops the run."""
@@ -253,7 +253,7 @@ def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin
     if (RES / f"{name}.parquet").exists():
         print("skip (done):", name, flush=True)
         return True
-    for pit in (False, True):
+    for pit in [r == "p" for r in roles]:
         part = RES / f"{name}_{'p' if pit else 'h'}.parquet"
         if part.exists():
             print("skip (done):", part.name, flush=True)
@@ -297,6 +297,8 @@ def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin
             f.write(json.dumps({"file": part.name, "task": task, "Y": Y, "devices": str(jax.devices()), "diag": dg},
                                default=str) + "\n")
     parts = [RES / f"{name}_{r}.parquet" for r in ("h", "p")]
+    if not all(x.exists() for x in parts):     # one role only (--roles): merge when the other role's file lands
+        return True
     pd.concat([pd.read_parquet(x) for x in parts]).to_parquet(RES / f"{name}.parquet", compression="zstd")
     for x in parts:
         x.unlink()
@@ -358,6 +360,7 @@ if __name__ == "__main__":
     ap.add_argument("--tree", type=int, default=10)
     ap.add_argument("--subsample", type=int, default=0)
     ap.add_argument("--max-minutes", type=float, default=0, help="stop before a fit that would not finish in time")
+    ap.add_argument("--roles", default="hp", choices=["hp", "h", "p"], help="h hitters, p pitchers")
     ap.add_argument("--est-minutes", type=float, default=60, help="first-fit estimate until one fit has been timed")
     a = ap.parse_args()
     if a.prior_check:
@@ -367,7 +370,7 @@ if __name__ == "__main__":
         for f in a.folds or []:
             task, y = f.split(":")
             if not run_fold(S, task, int(y), a.method, a.warmup, a.samples, a.chains, a.thin, a.tree, a.subsample,
-                            a.max_minutes, a.est_minutes):
+                            a.max_minutes, a.est_minutes, a.roles):
                 break
         if a.nuts:
             nuts_check(S)

@@ -24,9 +24,14 @@ Then `mkdir -p pipeline/results`.
 
 ```
 python3 -m venv ~/venv && . ~/venv/bin/activate
-pip install -U "jax[cuda12]" numpyro pandas pyarrow
+pip install "jax[cuda12]==0.4.38" "numpyro==0.16.1" pandas pyarrow
+export XLA_PYTHON_CLIENT_PREALLOCATE=false
 python -c "import jax; print(jax.devices())"      # must list CudaDevice
 ```
+Thunder Compute (virtual GPU, 2026-10-30): jax 0.12 with cuda12 or cuda13 wheels dies at model init with a bogus
+~137 TB "pinned host staging buffer" (XLA_PJRT_GPU_HOST_MEMORY_LIMIT_GB does not help). jax 0.4.38 + numpyro 0.16.1
+works. L40 bench (val 2017 hitters, 24k entities): 2.0 ms/gradient for one chain, but 2.5 ms per 4-chain leapfrog step
+against 11.8 ms on the laptop CPU, so ≈ 4.7× on the real fit. Two fits run side by side on one GPU.
 
 ## 2. Bench FIRST: go / no-go (≈ 2–3 min, nothing scored)
 
