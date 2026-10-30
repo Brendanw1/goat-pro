@@ -4212,3 +4212,31 @@ score reads "how a fringe roster looks to its club", not "who will be non-tender
 
 **Shipping:** a removal-probability column on `/rosters` (descriptive, §105, held-out AUC .805 named on the
 tooltip), scored through the frozen model for the current snapshot each bake.
+
+## §106 Prospect value: what a top-100 rank returns (D-47 trade-value leg), pre-registered 2026-10-30 before any read
+
+**Why.** The owner asked for a prospect trade-value estimate built on our prospect rankings. The honest currency is
+the site's own §85 WAR — nothing external is republished.
+
+**Panel.** Every MLB Pipeline top-100 prospect 2016–2021 with an id (id-keyed lists; best rank across lists in that
+span), grouped by tier (1–10, 11–25, 26–50, 51–100) and by batter/pitcher. **Value = §85 own-WAR in the seasons
+after listing**, tabulated by years-since-listing (0–4) within the 2020–2024 index window — cohorts 2016–2021 make
+the first-3-seasons column complete for everyone, which is the headline number. Also per tier: share reaching the
+majors (any PA/IP in the window) and share of ≥ 1 career WAR in it.
+
+**Reported, not gated (descriptive):** the tier × years-since table (batters and pitchers apart); reach-MLB and
+≥1-WAR rates; the same table for the 1–10 tier by position group. **A value scale ships on /prospects only as this
+table** — a rank-to-WAR expectation with its spread, not a per-prospect grade, and it is labelled as Pipeline's
+rankings plus our WAR.
+
+## §107 Fringe trades: who gets moved and what they do after (D-47), pre-registered 2026-10-30 before any read
+
+**Population.** The §105 labels: players moved between clubs' 40-mans within the tender window (Nov 22 → Feb 20),
+cycles 2020–2024 — 448 trades — with retained players as the comparison pool.
+
+**Reported, not gated (descriptive).** (1) Who gets moved: traded vs retained by age band, prior-season WAR bucket,
+workload, tenure proxy — the same features §105 could see (no options, no service class; said again). (2) What they
+do after: next-season WAR of traded players vs their own prior-season WAR and vs the matched retained pool (matched
+on age band × prior-WAR bucket), plus the share returning ≥ their prior WAR. (3) The prospect angle: traded players
+who sat on a top-100 list within the prior three years, scored against §106's tier table — did the player's
+post-trade production match what his rank tier returns?
