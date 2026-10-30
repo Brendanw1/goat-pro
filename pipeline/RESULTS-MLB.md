@@ -3790,3 +3790,61 @@ lists are spent and are not used to fit, tune or score anything below.)
 - **Kill.** Fail → no arrival probability ships; P(MLB) stays ETA-only, labelled "descriptive, not a forecast".
 - **Logged now so it cannot move:** map form, era cut (2020), fit years (2015–19 for a, b; 2020–21 for δ), read year (2024),
   pass bar. Any other map tried in dev is logged as exploratory and cannot be the read.
+
+## §99h Arrival diagnosis and a discrete-time hazard model: dev results and pre-registration, written 2026-10-29 before any read
+
+Code: `pipeline/prospect_arrival_diag.py` (`--fetch`, `--diag`, `--dev`). Results: `results/prospect_99h_{diag,dev}.json`.
+Dev arrival years 2015–21 only. The 2022–23 arrival lists are spent: their stored §99f predictions were sliced for
+diagnosis only (labelled post-hoc below) and nothing was fitted, tuned or chosen on them.
+
+**Root cause of the §99f gate (a) failure: handling (ours), not era drift.**
+- *The era premise does not hold.* The k = 4 debut rate of the list cohorts is flat: .094–.107 for every list 2012–23
+  (2022 .094, 2023 .101). 2020 debuts were down (208 vs ~250) and 2022 up (301: 28-man April rosters, the PPI year),
+  but a 4-season window averages them out. The 2022–23 windows close in 2025/2026 and are fully observed: no censoring.
+- *Selection bias in the backtest split.* `arrival_split` drops every training row of a player on the test list. With
+  training lists ≤ Y − 4, the players removed are those still undebuted at Y, so the training set keeps mostly players
+  who already debuted or exited. Training base rate with vs without the removal: 2022 fold .101 → .115, 2023 .100 →
+  .109, dev folds +1.2 to +5.0 pp. Removal is not needed for honesty: training labels close by Y − 1.
+- *Left-truncated draft coverage.* `draft.json` starts in 2011, so "drafted" grows from 0% (2011 list) to 47% (2018)
+  while the full June draft (Stats API 2000–26, now `data/milb/draft_full.parquet`) is a steady 46–53%. "Undrafted"
+  meant pre-2011 draftees early and international signees late (undrafted debut rate .115 → .041). Training windows
+  ≤ Y − 4 sit in the thin-coverage years. The org lists also deepen from 20 to 30 per org in 2015.
+- Consequence: every model's raw mean prediction is too high in every dev year, not only after 2020 (B1 raw .16–.23 and
+  LGB raw .13–.20 against .097–.107 observed). Post-hoc on the spent holdout: B1 .155, LGB .158 vs .098.
+- *Real drift, small.* Post-2020 the drop is confined to listed international and other undrafted players (k4 .47 →
+  .36 and .53 → .38, 2015–20 vs 2021–23 lists). Listed HS and college draftees are flat (.52 → .55, .66 → .63).
+- *Label artifact (flag).* `debut_k4` for the 2024–25 lists (and 2023+ eos rows) is 1.0 wherever non-null: censored
+  zeros are NaN, observed debuts kept. Harmless to every split so far (train ≤ Y − 4), but any window that reaches
+  those rows must use the hazard form below, never `debut_k4`.
+
+**Hazard model (dev).** LightGBM discrete-time hazard on list rows expanded to person-seasons t = 0..3, each kept only
+if the season is observed by the test as-of (≤ Y − 1), so recent censored lists train it. P(debut within 4) = 1 − ∏(1 − h_t).
+Hyperparameters fixed a priori (31 leaves, min child 200, lr .05, 400 rounds, the §99 monotone map); no player removal,
+no recalibration. 62,623 dev rows; player-clustered bootstrap, 1,000 draws.
+
+| model | Brier | log loss | ECE | cal. slope | AUC |
+|---|---|---|---|---|---|
+| B1 (frozen procedure) | .0828 | .334 | .062 | .51 | .775 |
+| LGB (frozen M_arr) | .0695 | .235 | .032 | .80 | .883 |
+| H_base (frozen families) | .0631 | .222 | .021 | .71 | .896 |
+| **H_fix** (2011+ draft cols → full draft) | **.0621** | **.217** | .021 | .73 | **.901** |
+
+- H_fix − LGB −.0074 [−.0084, −.0064]; H_all − B1 −.0204 [−.0219, −.0189]; H_fix − H_base −.0010 [−.0015, −.0005].
+- **Owner hypotheses, added to H_fix one family at a time (ΔBrier, + = worse):** entry path (HS / college / college
+  senior / international, first-season age) +.0005 [+.0001, +.0009]; Rule 5 timing (seasons to exposure, exposed flag)
+  +.0001 [−.0002, +.0004]; org depth ahead (same-role, same-position org players at higher levels, and how many are
+  org-listed) +.0002 [−.0001, +.0005]; all three +.0003 [−.0001, +.0007]. Acquisition cost (full draft pick, round,
+  bonus, bonus/slot) is the one that helps, through coverage: −.0010 above. None of the three new families adds signal
+  beyond level, age-vs-level, Pipeline rank and the draft slot, which already encode them.
+- Not testable point-in-time: 40-man status (transactions start 2019), MLB-level depth weighted by WAR (§85 is 2020+),
+  conference (no school → conference map built), international bonus (not in the public API).
+- ECE .021 sits just above the .02 bar and the slope (.73) says the hazard is over-spread. No map was chosen on dev.
+
+**§99h pre-registration (fixed now).**
+- **Model:** H_fix exactly as coded (`CONFIGS["H_fix"]`, list rows, no removal, no recalibration).
+- **Read once:** the 2024 list after the 2027 season closes its window, trained on lists ≤ 2023 with person-seasons ≤ 2023.
+  Read beside §99g, same rows.
+- **Pass bar (gate (a), unchanged):** vs B1 (frozen procedure) ΔBrier < 0 with the player-clustered CI (2,000 draws)
+  excluding 0, **and** 10-bin ECE ≤ .02, **and** not worse on Brier than §99g's LGB + era map (else the simpler winner).
+- **Kill:** fail → no arrival probability ships; ETA stays descriptive. The §99g era-map read stays as logged, but this
+  diagnosis says its premise (era drift) explains little of the miss.

@@ -388,3 +388,13 @@ chain). Scratch scripts kept out of the repo; `pipeline/prospect_bayes_bench.py`
   (1.0 MB), plus `pipeline/prospect_bayes.py` and `pipeline/prospect_backtest.py`. Public data only.
 - **Next.** The tree depth, not the gradient, is the cost: a reparameterisation of the sd_eta funnel (e.g. marginalising the
   random walk with a Kalman-style likelihood) would do more than hardware. Arrival recalibration is pre-registered as §99g.
+
+## 10. Why arrival failed, and a hazard model (§99h, 2026-10-29)
+
+- The §99f miss was ours, not the 2020 era: cohort debut rates are flat (.094–.107, lists 2012–23). Two handling issues
+  inflated every model in every year: the backtest removed test-list players from training (leaving mostly those who
+  had debuted or exited), and the draft table started in 2011, so "undrafted" changed meaning over time.
+- A discrete-time hazard on person-seasons (`pipeline/prospect_arrival_diag.py`) trains on recent censored lists and
+  is calibrated in the large on dev: Brier .0621 vs LGB .0695 and B1 .0828, ECE .021, AUC .901.
+- Entry path, Rule 5 timing and org depth add nothing on dev; the full 2000–26 draft helps a little. Pre-registered
+  as §99h (read on the 2024 list after 2027).
