@@ -512,6 +512,16 @@ AAA_MODELS_FILE = ROOT / "data" / "export" / "aaa_pitcher_models.json"  # pipeli
 MILB = ROOT / "data" / "milb"  # pipeline/milb_lines.py (MLB Stats API season lines, every level)
 
 
+def prev_pitch_scores() -> dict:
+    """§101 per-pitch Prevention+ (a forecast; prevention_pitch.py --score), MLB, n >= 150 of the type:
+    (mlbam, season, Statcast type) -> (grade, vs LHH, vs RHH). The hand values are descriptive, n >= 100 per hand."""
+    fp = ROOT / "pipeline" / "results" / "prevention_pitch_scores.csv"
+    if not fp.exists():
+        return {}
+    return {(int(x.pitcher), int(x.season), x.pitch_type): (x.prev_plus, x.prev_L, x.prev_R)
+            for x in pd.read_csv(fp).itertuples()}
+
+
 def milb_names(kind: str) -> dict[int, str]:
     """mlbam -> latest name from the minor league lines (AAA players off every MLB roster)."""
     df = pd.read_parquet(MILB / f"{kind}.parquet", columns=["mlbam_id", "player_name", "season"])
@@ -1577,6 +1587,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         tg["type_grade"] = [
             (type_grade.get((int(row.id), int(row.season), row.site), (None,))[0]) for row in tg.itertuples()]
         tg = tg[tg["type_grade"].notna()] if "type_grade" in tg else tg
+        _pp = prev_pitch_scores() if level == "mlb" else {}
+        tg["prev_pitch"] = [_pp.get((int(row.id), int(row.season), row.pitch_type), (None,))[0] for row in tg.itertuples()]
 
         def season_population(season: int | None):
             """(board rows, per-type rows, graded rows) for one season, or pooled."""
@@ -1628,6 +1640,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 q = dense_q(100 * sub["rv"] / sub["n"])
                 if q is not None:
                     block["rv100"] = {"q": q, "n": int(len(sub))}
+                q = dense_q(sub["prev_pitch"].dropna())
+                if q is not None:
+                    block["prevPitch"] = {"q": q, "n": int(sub["prev_pitch"].notna().sum())}
                 if block:
                     dense["per_type"][site] = block
             return {"pitchers": pcts, "pitchers_per_type": per_type}, dense
@@ -1928,6 +1943,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             return {"id": str(src[0]), "n": _names_by_id.get(src[0]), "s": src[1],
                     "d": round(float(d[j]), 2),
                     "dv": [round(velo - src[3], 1), round(ivb - src[4], 1), round(hb - src[5], 1)]}
+        _prev_pt = prev_pitch_scores() if level == "mlb" else {}  # §101 per-pitch Prevention+ (forecast)
         # D-07 (§73, descriptive): Whiff+ per type vs each batter hand, shrunk + CI, and usage by hand
         platoon = {}
         plf = ROOT / "pipeline" / "results" / "platoon_splits.csv"
@@ -2027,6 +2043,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "putawayPct": f(100 * b["n_two_strike_csw"] / b["n_two_strike"], 1) if b["n_two_strike"] else None,
                     "stuffPlus": f(sg, 1) if sg is not None else None,
                     "nStuffPitches": int(sn),
+                    **({"prevPitch": f(_pv[0], 1), "prevVsLHH": f(_pv[1], 1), "prevVsRHH": f(_pv[2], 1)}
+                       if (_pv := _prev_pt.get((pid, season, b["pitch_type"]))) else {}),
                     "stuffGradeFrom": None if (pid, season, site) in type_grade else p_host.get(site),
                     "gyro": site == "SL" and (pid, season, "SL") in type_gyro or None,
                     "twin": twin_of(pid, site, b["velo"], b["ivb"], b["hb"]),

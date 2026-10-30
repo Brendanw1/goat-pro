@@ -269,6 +269,11 @@ function ArmSlotFile({ slot, perTypeBp, season }: { slot: any; perTypeBp?: any; 
   );
 }
 
+const PREV_PITCH_TIP = "Prevention+ (pitch): how many runs this pitch should save next season, judged from how it misses bats, gets chases and called strikes, avoids hard contact, and plays off the fastball. 100 = average, 10 = one SD. A forecast, tested on held-out pitchers (RESULTS-MLB §101). Needs 150+ pitches of the type.";
+const prevPitchTitle = (p: any) => {
+  const h = (["LHH", "RHH"] as const).filter((k) => typeof p[`prevVs${k}`] === "number").map((k) => `vs ${k} ${Math.round(p[`prevVs${k}`])}`);
+  return h.length ? `${PREV_PITCH_TIP} By batter hand (descriptive, 100+ pitches vs that hand): ${h.join(", ")}.` : PREV_PITCH_TIP;
+};
 const PLATOON_TIP = "Whiff+ of this pitch vs left- / right-handed hitters (shrunk toward its overall grade), with usage vs that hand. Both hands share one scale, so the usual same-side edge shows. Descriptive: the observed whiff split forecast next season's split better than this one (RESULTS-MLB §73).";
 
 /** Shrunk per-hand Whiff+ over usage vs that hand; neutral colour, since §73 did not confirm it as a forecast. */
@@ -426,6 +431,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
             <div className="w-[48px] text-right">Zone%</div>
             <div className="w-[52px] text-right">Chase%</div>
             <div className="w-[100px] text-right text-usf-gold" title={STUFF_TIP}>Whiff+</div>
+            <div className="w-[84px] text-right" title={PREV_PITCH_TIP}>Prev+</div>
             {!compact && <div className="w-[84px] text-right" title={PITCHING_TIP}>Pitching+</div>}
             {!compact && <div className="w-[54px] text-right" title={RV100_TIP}>RV/100</div>}
             {!compact && <div className="w-[54px] text-right" title="xRV/100 (D-03): expected run value per 100 pitches of this type, cross-fit model (§71/§78). Descriptive; 30+ pitches.">xRV/100</div>}
@@ -482,6 +488,9 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                 <div className="w-[100px] text-right text-xs font-data leading-tight"
                   title={pitch.classRank ? `${STUFF_TIP} League rank this season among qualified ${pitch.pitchType} seasons: whiff #${pitch.classRank.whiff ?? "—"} of ${pitch.classRank.n}, velo #${pitch.classRank.velo ?? "—"}, RV/100 #${pitch.classRank.rv ?? "—"}.` : STUFF_TIP}>
                   {gradeCell(pitch.stuffPlus, "stuffPlus")}
+                </div>
+                <div className="w-[84px] text-right text-xs font-data leading-tight" title={prevPitchTitle(pitch)}>
+                  {gradeCell(pitch.prevPitch, "prevPitch")}
                 </div>
                 {!compact && (
                   <div className="w-[84px] text-right text-xs font-data leading-tight" title={PITCHING_TIP}>

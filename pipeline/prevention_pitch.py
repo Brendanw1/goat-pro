@@ -4,6 +4,7 @@
     nice -n 10 python pipeline/prevention_pitch.py --dev    # nested CV on dev pitchers, freeze the spec
     nice -n 10 python pipeline/prevention_pitch.py --seal   # read the sealed 20% once on the frozen spec
     python pipeline/prevention_pitch.py --demo        # self-check of the shrink baseline and the bootstrap deltas
+    nice -n 10 python pipeline/prevention_pitch.py --score  # site grades: frozen spec fit on ALL pitchers -> results/prevention_pitch_scores.csv
 
 Unit: pitcher x season x Statcast pitch type, MLB regular season. Target: RV/100 of that type in S+1
 (100 x mean(-delta_run_exp), pitcher-positive), n >= 150 of the type in S and S+1, S = 2020..2025.
@@ -412,6 +413,26 @@ def run_seal():
     print(json.dumps(res, indent=1, default=str))
 
 
+def run_score():
+    """Ship step (seal spent): the frozen spec refit on every pitcher's pairs, scored on every 2020-26 season row
+    with n >= 150 on the frozen scale; per-hand values (n >= 100 vs that hand) are descriptive."""
+    a, d = load()
+    fz = json.loads(SPEC_FILE.read_text())
+    spec, scale = fz["spec"], fz["scale"]
+    X = cols(spec["families"])
+    model = fit_spec(d, spec)
+    g = lambda rows: (100 + 10 * (model.predict(rows[X]) - scale["mean"]) / scale["sd"]).round(1)  # noqa: E731
+    cur = a[a["n"] >= MIN_N].copy()
+    cur["prev_plus"] = g(cur)
+    hand = with_platoon_from(agg(("stand",)), a)
+    hand = hand[hand["n"] >= MIN_HAND].copy()
+    hand["g"] = g(hand)
+    hp = hand.pivot_table(index=KEY, columns="stand", values="g").rename(columns={"L": "prev_L", "R": "prev_R"})
+    out = cur[KEY + ["n", "prev_plus"]].merge(hp.reset_index(), on=KEY, how="left")
+    out.to_csv(RES / "prevention_pitch_scores.csv", index=False)
+    print(f"{len(out)} rows, {out['pitcher'].nunique()} pitchers, seasons {sorted(out['season'].unique())}")
+
+
 def demo():
     y = np.array([1.0, 2.0, 3.0, 4.0])
     w = np.ones((1, 4))
@@ -423,4 +444,4 @@ def demo():
 
 
 if __name__ == "__main__":
-    {"--make-seal": make_seal, "--dev": run_dev, "--seal": run_seal, "--demo": demo}[sys.argv[1]]()
+    {"--make-seal": make_seal, "--dev": run_dev, "--seal": run_seal, "--demo": demo, "--score": run_score}[sys.argv[1]]()

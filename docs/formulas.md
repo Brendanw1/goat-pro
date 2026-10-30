@@ -159,6 +159,14 @@ When a formula changes, update this table and the glossary in the same commit.
 - Map = first two principal components of z (x shown flipped: right = longer, faster, pull). Comps = 5 nearest hitter-seasons by
   Euclidean distance in z, other hitters only. Aging = same hitter's S → S+1 change in bat speed and length by type × age band (age_bat).
 
+## Prevention+ per pitch (pipeline/prevention_pitch.py --score → results/prevention_pitch_scores.csv → players/ arsenal rows; RESULTS-MLB §101)
+
+- Unit: pitcher × season × Statcast type, 150+ pitches of the type. Target the spec was frozen on: next-season RV/100 of that type (100 × mean −delta_run_exp).
+- ŷ = RidgeCV (median impute, standardize) on the frozen families: swing-miss (whiff/swing, CSW%), context (other-pitch RV/100, primary-FB velo and
+  ΔVelo/ΔIVB/ΔHB vs it, # types, K%, BB%), location (zone, heart, edge, chase, z-swing, called-strike, ball %), contact (GB%, LA, xwOBAcon, hard-hit%),
+  Whiff+ per pitch, usage, shape, putaway, + type one-hots and season. Site fit = all pitchers' 2020→25 pairs (the seal is spent).
+- Grade = 100 + 10·(ŷ − .0530) / .4665 (frozen dev scale). vs LHH / vs RHH: the same model on that hand's rows (100+ pitches), descriptive.
+
 ## Swing Quality (pipeline/swing_quality.py → swingq/swingq.json; RESULTS-MLB §98)
 
 - Per tracked ball in play: ŷ = Ridge(α 1) on SplineTransformer(6 knots, degree 3) of §91's features (bat speed, swing length, attack angle,
