@@ -33,7 +33,7 @@ Rule: **one outcome read spends a row** for every claim that reads it. A re-test
 | Source | Seasons / levels on disk | Status | Notes |
 |---|---|---|---|
 | MLB Statcast per pitch (mart `pitches`) | 2020–2026 | **SPENT** for every pitch-level model: 2023–26 selection pairs (§4, §30–§47), 2021–22 confirm (§37), 2020 (§42 "no untouched season remains"), 2026 read by §68–§108 | `savant_mart/mart.py FULL_SEASONS` starts at 2020 |
-| **MLB Statcast per pitch 2015–2019** | **not on disk** | **UNSPENT: never fetched or read** by any model (no file in `Waterval_stuff_research/data/raw/savant`, prop-engine checkpoints or the mart; no fetch code in `pipeline/`; no RESULTS § reads it) | TrackMan era, not Hawk-Eye: needs a frozen feature-only harmonization recipe (like §44 for AAA) before any read. 2015 EV coverage weak; 2017–19 cleanest. No bat tracking. 2019→20 pair is 60 games. ~3.5M pitches, 4 clean pairs (2015→16 … 2018→19) |
+| **MLB Statcast per pitch 2015–2019** | `cache/sealed/statcast/{2015..2019}.parquet` (fetched 2026-10-30, regular season, mart 2020 schema, zstd; `SEAL.json` + handling `checks.json`) | **SEALED, UNSPENT: fetched, never opened** — no outcome column computed or printed. `pipeline/statcast_sealed_fetch.py`; `savant_mart/mart.py` refuses seasons < 2020 or sealed paths | TrackMan era, not Hawk-Eye: needs a frozen feature-only harmonization recipe (like §44 for AAA) before any read. Rows 702k/716k/725k/724k/735k, 0 dup keys; SEAL.json sha256 356fa922…. TrackMan-era input gaps: `spin_axis` absent 2015 (served 2016+), `arm_angle` and bat tracking absent all years, `sv_id` (PITCHf/x id string 2015–16) nulled by the mart schema cast, spin rate null 7–8% 2015–16 vs 2–3% 2017–19, tracking nulls ~0.1% 2015 vs ~0.9% 2017–19. 2015 EV coverage weak; 2017–19 cleanest. No bat tracking. 2019→20 pair is 60 games. 4 clean pairs (2015→16 … 2018→19) |
 | MLB 2027 (forward) | — | **UNSPENT**; already promised to: xCS v2 confirm (§108a-v2), §88 provisional stats, SQ (§91b/§98a), §99g/§99h (2024 list), Deception+ | Plan every 2027 claim now so it is read once, together |
 | Pitcher-hash seals | P7 `crc32("p7:"+id)%5==0`; §101 `rng(101)` 20% | **SPENT** (§50–§57, §82 cascade, §83–§84 sealed FF; §101) | A new random pitcher split is a **weak seal**: those pitchers' seasons were read in aggregate |
 | AAA Statcast (mart `pitches_aaa`) | 2023–2026 | **SPENT for pitcher grades** (§27, §44–§49 seal opened, §64, §66). **Unread for hitter-side / xRV / xwOBA / Decision+ models** (their code never loads `pitches_aaa`; `hitter_proj.py`, `hitter_depth.py` display AAA lines — verify no target was inspected) | Transfer holdout for hitter models. `bat_speed` column present in AAA schema; coverage unknown — verify |
@@ -45,7 +45,7 @@ Rule: **one outcome read spends a row** for every claim that reads it. A re-test
 | Bat tracking | 2024–26 (2023 partial) | **SPENT** (§91 dev 24→25, §91b 25→26, §98a both) | Next clean: 2026→2027 |
 
 **Headline:** every MLB season on disk is spent for pitch-level models; the only clean banks are **MLB 2015–2019
-(never fetched)**, **2027**, **AAA for hitter-side models**, and **pre-2020 MiLB→MLB pairs** for translations.
+(sealed, never opened)**, **2027**, **AAA for hitter-side models**, and **pre-2020 MiLB→MLB pairs** for translations.
 
 ## 3. TOP 8 attack order
 
