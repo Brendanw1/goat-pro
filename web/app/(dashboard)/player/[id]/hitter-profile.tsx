@@ -297,7 +297,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
           </PercentilePanel>
         ) : tab === "scouting" ? (
           <div className="space-y-5">
-            <ZoneGridPanel data={scouting} league={scoutingLeague?.seasons?.[String(profile.season)]?.zgrid ?? null} />
+            <ZoneGridPanel data={scouting} league={scoutingLeague?.seasons?.[String(profile.season)]?.zgrid ?? null} level={level} />
             <CountsPanel data={scouting} league={scoutingLeague?.seasons?.[String(profile.season)]?.counts ?? null} />
           </div>
         ) : tab === "approach" ? (

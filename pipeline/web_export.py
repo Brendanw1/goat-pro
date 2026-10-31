@@ -4237,6 +4237,89 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         for season, z in lg_zones.items():
             league.setdefault(season, {"cells": {"R": {}, "L": {}}, "counts": {}})["zgrid"] = z
         jwrite(out / "scouting_league.json", {"seasons": league}, sort_keys=True)
+
+        # Smooth zone view (zone_hex/, lazy-loaded via /api/data/zone-hex): RAW
+        # pitch counts per hexagon, the smoothing is the browser's (adjustable
+        # bandwidth). Pointy-top hex lattice, centres HEX_S = 0.1 ft apart in a
+        # row, rows HEX_DY apart, odd rows shifted half a hex: x = -1.5 +
+        # i*HEX_S (+ HEX_S/2 on odd rows), z = 0.5 + j*HEX_DY; index = j*HEX_NX + i
+        # (web/lib/zone-hex.ts mirrors this). x is the batter frame (+ = his
+        # inside); z is normalized to a standard zone, z' = 1.5 + 2*(plate_z -
+        # sz_bot)/(sz_top - sz_bot), so every hitter's zone is 1.5-3.5. Pitches
+        # outside x ±1.5 / z' 0.5-4.5 drop. Stored sparse, per pitcher hand x
+        # exact site type ('X' = untyped): the browser sums types into groups
+        # and all. Columns n, sw, wh, rv, bip, xw, hd as in zgrid.
+        HEX_S = 0.1
+        HEX_DY = HEX_S * 3 ** 0.5 / 2
+        HEX_NX, HEX_NY = 31, int(4.0 / HEX_DY) + 1
+
+        def hex_index(x: np.ndarray, z: np.ndarray) -> np.ndarray:
+            jf = np.floor((z - 0.5) / HEX_DY)
+            best, bd = np.full(len(x), -1, dtype=np.int64), np.full(len(x), np.inf)
+            for j in (jf, jf + 1):
+                off = np.where(j % 2 == 1, HEX_S / 2, 0.0)
+                i = np.round((x + 1.5 - off) / HEX_S)
+                d = (x - (-1.5 + off + i * HEX_S)) ** 2 + (z - (0.5 + j * HEX_DY)) ** 2
+                ok = (j >= 0) & (j < HEX_NY) & (i >= 0) & (i < HEX_NX) & (d < bd)
+                best = np.where(ok, (j * HEX_NX + i).astype(np.int64), best)
+                bd = np.where(ok, d, bd)
+            return best
+
+        HEX_COLS = ("n", "sw", "wh", "rv", "bip", "xw", "hd")
+        hex_league: dict = {}
+        n_hex = 0
+        for season in seasons:
+            px = con.sql(f"""
+                SELECT batter AS id, stand, p_throws AS h, {TYPE_SQL} AS t,
+                       plate_x * (CASE WHEN stand = 'R' THEN -1 ELSE 1 END) AS x,
+                       1.5 + 2 * (plate_z - sz_bot) / (sz_top - sz_bot) AS z,
+                       CASE WHEN description IN {SWING} THEN 1 ELSE 0 END AS sw,
+                       CASE WHEN description IN {WHIFF} THEN 1 ELSE 0 END AS wh,
+                       COALESCE(delta_run_exp, 0) AS rv,
+                       CASE WHEN bb_type IS NOT NULL AND launch_speed IS NOT NULL
+                                 AND estimated_woba_using_speedangle IS NOT NULL THEN 1 ELSE 0 END AS bip,
+                       CASE WHEN bb_type IS NOT NULL AND launch_speed IS NOT NULL
+                            THEN COALESCE(estimated_woba_using_speedangle, 0) ELSE 0 END AS xw,
+                       CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95
+                                 AND estimated_woba_using_speedangle IS NOT NULL THEN 1 ELSE 0 END AS hd
+                FROM pitches_all
+                WHERE game_type = 'R' AND season = {int(season)} AND batter IS NOT NULL
+                  AND stand IN ('L','R') AND p_throws IN ('L','R') AND description IS NOT NULL
+                  AND plate_x IS NOT NULL AND plate_z IS NOT NULL AND sz_top > sz_bot
+            """).df()
+            if px.empty:
+                continue
+            px["k"] = hex_index(px["x"].to_numpy(), px["z"].to_numpy())
+            px = px[px["k"] >= 0]
+            px["n"] = 1
+            agg = {c: "sum" for c in HEX_COLS}
+
+            def cols(g) -> dict:
+                g = g.sort_values("k")
+                return {"i": g["k"].astype(int).tolist(),
+                        **{c: [f(v, 2) + 0.0 if c in ("rv", "xw") else int(v) for v in g[c]] for c in HEX_COLS}}
+
+            lg = px.groupby(["stand", "h", "t", "k"], as_index=False).agg(agg)
+            hex_league[season] = {
+                st: {h: {t: cols(g3) for t, g3 in g2.groupby("t")} for h, g2 in g1.groupby("h")}
+                for st, g1 in lg.groupby("stand")}
+            side = px.groupby(["id", "h", "stand"]).size()
+            pl = px.groupby(["id", "h", "t", "k"], as_index=False).agg(agg)
+            for pid, g1 in pl.groupby("id"):
+                if (int(pid), int(season)) not in sc_pop:
+                    continue
+                s = {h: ("R" if side.get((pid, h, "R"), 0) * 2 >= side.get((pid, h, "R"), 0) + side.get((pid, h, "L"), 0) else "L")
+                     for h in ("R", "L") if (pid, h, "R") in side.index or (pid, h, "L") in side.index}
+                jwrite_gz(out / "zone_hex" / f"{int(pid)}-{int(season)}.json.gz", {
+                    "id": str(int(pid)), "season": int(season), "s": s,
+                    "h": {h: {t: cols(g3) for t, g3 in g2.groupby("t")} for h, g2 in g1.groupby("h")},
+                }, sort_keys=True)
+                n_hex += 1
+            del px, pl, lg
+        for season, d in hex_league.items():
+            jwrite_gz(out / "zone_hex" / f"league-{int(season)}.json.gz", {"season": int(season), "st": d}, sort_keys=True)
+        counts["zone_hex_files"] = n_hex
+        print(f"zone hex files: {n_hex}")
         counts["scouting_league"] = 1
 
         # The league-wide skill board (H9 view): the same grades the per-player
