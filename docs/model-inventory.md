@@ -42,6 +42,8 @@ tables below are the original plan and are kept as written.
 | **Service time / team control (D-44 v1 ESTIMATOR)** | shipped 2026-10-30 on /rosters: unofficial service (years.days), status (pre-arb / arb-n / 6+, Super Two flag), control-through, option years, from Stats API transactions walked from opening-day 40-man seeds 2010–2026; uncertain rows marked `~`. **Not contract data**; salaries, options, NTC link out to Spotrac / Cot's. Validation in the method note | `docs/service-time-method.md` |
 | Pitch decay / buyback, usage optimizer, count policy, predictability | research only: decay confirmed, the rest no edge | §59–§63 |
 
+ML hardening plan for every model (template, sealed-data bank, top-8 attack order): `docs/ml-hardening-plan.md`.
+
 In progress (owner, 2026-10-29): MiLB → MLB translation (§88), role conversion
 (§87), would-it-dong across 30 parks (§86), postseason + matchup view, and the
 MLB-unique stats audit for college (`docs/college-port-audit.md`).
