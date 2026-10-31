@@ -75,6 +75,14 @@ isotonic recalibration or shallower trees).
 **§108a-v2 read 2026-10-30:** shallower trees + isotonic + prior pickoffs + pitcher lead gained passed G1-G6 on
 leave-one-season-out (decile gap .013); SHIP labelled LOSO-unconfirmed, 2027 confirm read; site switch awaits the owner.
 
+**§108c read 2026-10-30 (sealed 2016-19 opened once, cf29858):** frozen v2 ranks pre-2020 attempts well (log loss −13%
+vs league, CS above xCS vs Savant r .962) but under-predicts CS by .037 on average (era shift; G2 decile gap .058):
+"failed pre-2020 holdout on calibration level, ranking confirmed". Joint catcher/pitcher/runner random-effects model
+fails (catcher YTY .404 vs v2 .419; pitcher .083): not shipped. Deterrence (P(attempt) per PA × lead runner) passes on
+LOSO (YTY .318, pop r −.231) but is worth ~0.2 runs sd per catcher-season; pre-2020 blocked (no pitch mart). Throwing
+runs (CS above xCS + deterrence, site RE24) agree with Savant r .911. 2016-19 now spent; 2027 is the forward read
+(frozen v2 sha256 c5a36b45…, forecast in `results/catcher_2027_forecast.json`). Site unchanged.
+
 ## Out of scope here
 
 Embedding video, pitch-clock / disengagement modelling, and catcher game-calling (sequencing credit) — the last one

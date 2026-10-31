@@ -1,0 +1,110 @@
+{
+ "prereg": "RESULTS-MLB \u00a7108c (671ea06)",
+ "opened_by_commit": "cf29858",
+ "date": "2026-10-30",
+ "frozen_v2_sha256": "c5a36b458d010a50e410eaefd26b208ce6deec7f32fc5401ca10507b7156cf49",
+ "v2": {
+  "n": 10055,
+  "loglos": {
+   "model": 0.49595,
+   "league": 0.57034,
+   "catcher_only": 0.57143
+  },
+  "g1_rel_vs_league": 0.1304,
+  "g1_pass": true,
+  "decile_gap": 0.0581,
+  "g2_pass": false,
+  "calibration_in_the_large": {
+   "2016": -0.0158,
+   "2017": -0.0256,
+   "2018": -0.0574,
+   "2019": -0.05
+  },
+  "decile_table": {
+   "0": [
+    0.0124,
+    0.0169
+   ],
+   "1": [
+    0.0355,
+    0.0766
+   ],
+   "2": [
+    0.0779,
+    0.1272
+   ],
+   "3": [
+    0.1262,
+    0.1562
+   ],
+   "4": [
+    0.1573,
+    0.1968
+   ],
+   "5": [
+    0.2225,
+    0.2726
+   ],
+   "6": [
+    0.2812,
+    0.3114
+   ],
+   "7": [
+    0.3358,
+    0.3688
+   ],
+   "8": [
+    0.4486,
+    0.4796
+   ],
+   "9": [
+    0.5463,
+    0.6044
+   ]
+  },
+  "g3_n": 147,
+  "g3_r": 0.962,
+  "g3_per_season": {
+   "2016": 0.978,
+   "2017": 0.98,
+   "2018": 0.952,
+   "2019": 0.962
+  },
+  "g3_pass": true,
+  "g4_reported_yty_ours": 0.464,
+  "g4_reported_yty_savant": 0.464,
+  "g4_pairs": 69,
+  "g5_reported_pop_r": -0.535,
+  "per_season_logloss": {
+   "2016": 0.4958,
+   "2017": 0.4912,
+   "2018": 0.5113,
+   "2019": 0.4842
+  },
+  "lead_gain_other_season_coverage": 1.0,
+  "verdict": "NOT CONFIRMED"
+ },
+ "joint": {
+  "j1_pairs": 69,
+  "j1_joint_yty": 0.422,
+  "j1_v2_yty_same_pairs": 0.464,
+  "j1_bar": 0.514,
+  "j1_pass": false,
+  "j2_pairs": 23,
+  "j2_pitcher_yty": 0.3,
+  "j2_pass": false,
+  "j3_logloss_joint": 0.49184,
+  "j3_logloss_v2": 0.49595,
+  "j3_pass": true,
+  "rhat_max_effect": 1.0051,
+  "rhat_max_sigma": 1.0097,
+  "verdict": "FAIL"
+ },
+ "runs_2019": {
+  "n": 30,
+  "r_csaa_runs_vs_savant_2019": 0.965,
+  "note": "deterrence has no pre-2020 data (blocked), so this is CS-above-xCS runs only",
+  "r1_pass": true
+ },
+ "deterrence": "blocked: no pre-2020 pitch-level mart"
+}

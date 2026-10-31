@@ -40,7 +40,7 @@ Rule: **one outcome read spends a row** for every claim that reads it. A re-test
 | AAA pre-2023 / Single-A FSL Hawk-Eye | not on disk | unknown — verify availability on Savant minors search | Would add pitcher-grade transfer pairs |
 | MiLB Stats API lines | `data/milb/hist_*` (pre-2021) + 2021–26 | §88 MLE gate read 2023–25 level seasons (fit 2021–25). Pre-2020 level→MLB pairs **unread by the MLE gate** (used as prospect-model features) — verify years | 2020 has no MiLB season |
 | Savant leaderboards 2015–2019 | sprint 2015–19, OAA 2016–19, catch prob 2016–19, jump 2016–19, framing/catcher-throwing 2019 (`savant_mart/data/leaderboards`) | fetched; no RESULTS § gates on them — verify | External references for a pre-2020 range/framing read |
-| Savant catcher drill-downs, pitcher running board | throwing 2020–26, blocking 2021–26, running 2016+ | spent for §108 (2026 read; LOSO 2020–26) | Pre-2020 drill-downs unknown — verify (owned by §108c) |
+| Savant catcher drill-downs, pitcher running board | throwing 2016–26, blocking 2018–19 + 2021–26, running/pickoffs 2016–26 (none served 2015) | **SPENT**: 2020–26 by §108/§108a-v2/§108c LOSO; 2016–19 sealed then opened once by §108c H-pre (cf29858, 2026-10-30); blocking 2018–19 fetched, unread | Pre-2020 deterrence needs a pre-2020 pitch mart |
 | Prospect lists | 2011–2026 | arrival 2022–23 **spent**, value 2016–17 **spent** (§99f); 2024 list reserved for §99g/§99h after 2027 | 2018–21 value lists: maturity unknown — verify |
 | Bat tracking | 2024–26 (2023 partial) | **SPENT** (§91 dev 24→25, §91b 25→26, §98a both) | Next clean: 2026→2027 |
 
@@ -204,7 +204,7 @@ Legend: **CV** current validation · **Spent** · **Unseen** · **Risks** · **M
 - **Ideas:** (1) Mixed model p(cs) with catcher + pitcher + umpire REs; gate YoY ≥ Savant's .57 on 2016–19. Effort M / low-medium.
 
 ### Catcher xCS% and expected WP+PB — §108 / §108a-v2 / §108c (another agent owns these files)
-- WP+PB: 2026 holdout read once, shipped. xCS: LOSO 2020–26, ship "unconfirmed until 2027". **Unseen:** 2027; pre-2020 drill-downs unknown — verify. No action here.
+- WP+PB: 2026 holdout read once, shipped. xCS v2: LOSO ship; §108c H-pre 2016–19 read once: ranking confirmed, calibration level failed (era, −.037). Joint RE credit failed; deterrence + throwing runs pass on LOSO. **Unseen:** 2027 only (frozen v2 hash + per-catcher forecast committed); blocking 2018–19 unread (WP+PB pre-2020 holdout available).
 
 ### WAR — shipped (§85)
 - **CV:** nothing fitted; external gates vs bWAR (r .92/.81). Components inherit their own status.

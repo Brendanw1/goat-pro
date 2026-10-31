@@ -4595,3 +4595,68 @@ runs + deterrence runs.**
 the data allow (deterrence: LOSO-only until a backfill, labelled so). A fail gets a data / handling / modeling
 diagnosis. Each is run once; results sealed to `results/catcher_108c_{joint,deter,runs}_SEALED.json`. Order: the H-pre
 v2 read first (it needs only the frozen model), then the three upgrades on LOSO, then their H-pre reads.
+
+### §108c result (read once, 2026-10-30): throwing runs and deterrence pass, the joint model fails, v2 fails pre-2020 calibration
+
+Code: `pipeline/catcher_108c.py` (+ `catcher_joint.py`, NumPyro in `~/.venvs/goat-bayes`), written after the
+pre-registration (671ea06). The 2020-26 read and the frozen v2 were committed as cf29858 **before** the seal was opened.
+Frozen v2 (fit once on all 18,856 attempts in 2020-26) sha256 `c5a36b45…cf49` (`results/catcher_v2_frozen.json`).
+The 2027 forecast was written at the same time (`results/catcher_2027_forecast.json`, 78 catchers, k = 60).
+`--hpre` then ran once at cf29858 and marked `SEAL.json` "opened" (2026-10-30, by cf29858) before touching any outcome.
+Sealed results: `results/catcher_108c_loso_SEALED.json` and `results/catcher_108c_hpre_SEALED.json`. Nothing was re-fit after a read.
+The step-0 table above says 10,056 sealed attempts; the true count is 10,055 (a summing slip, no row changed).
+
+**Probability floor (v2, LOSO, reference only).** 552 attempts sat outside [.005, .995] before clipping. LOSO log loss
+went from .4411 to .4396 with the floor; the decile gap stayed at .013. The §108a-v2 verdict stands.
+
+| piece | gate | bar | LOSO 2020-26 | H-pre 2016-19 |
+|---|---|---|---|---|
+| v2 xCS | G1 log loss vs league (season × base, holdout's own rate) / catcher-only | ≥ 3% better / better | (§108a-v2 PASS) | **.4960 vs .5703 (−13.0%) / .5714: PASS** |
+| | G2 max decile gap | ≤ .03 | (.013) | **.058: FAIL** |
+| | calibration-in-the-large (mean p − observed) | reported | — | 2016 −.016, 2017 −.026, 2018 −.057, 2019 −.050 (pooled −.037) |
+| | G3 CS above xCS vs Savant `cs_aa`, 147 catcher-seasons ≥ 30 | r ≥ .80 | (.947) | **.962 (each season .952-.980): PASS** |
+| | G4 / G5 (reported) | — | — | YTY .464 vs Savant .464 (69 pairs); pop r −.535 |
+| joint RE | J1 catcher YTY vs v2 + .05, same pairs | ≥ v2 + .05 | **.404 vs .469 (148 pairs): FAIL** | **.422 vs .514 (69): FAIL** |
+| | J2 pitcher effect YTY (≥ 15 att.) | ≥ .30 | **.083 (49 pairs): FAIL** | **.300 (just under .30 before rounding; 23 pairs): FAIL** |
+| | J3 log loss vs v2 (floored) | not worse | **.4356 vs .4396: PASS** | **.4918 vs .4960: PASS** |
+| | convergence (max R-hat) | ≤ 1.01 | sigma 1.0111 (pooled fit), 1.0105 (2021); effects ≤ 1.0065 | sigma 1.0097, effects 1.0051 |
+| deterrence | D1 YTY, catchers ≥ 2,000 pitches with a runner on both years | ≥ .30 | **.318 (208 pairs): PASS** | blocked (no pre-2020 pitches) |
+| | D2 deterrence vs pop time (332 catcher-seasons) | r < 0 | **−.231: PASS** | blocked |
+| | D3 log loss vs league by season × base state | better | **.1413 vs .1642: PASS** | blocked |
+| throwing runs | R1 vs Savant `catcher_stealing_runs` (266 catcher-seasons) | r ≥ .70 | **.911 (CS-above-xCS runs alone .922): PASS** | 2019 only, CS-above-xCS runs: **.965 (30): PASS** |
+
+**Verdicts.**
+- **v2 xCS on 2016-19: NOT CONFIRMED (G2).** v2 stays shipped on LOSO, now labelled "failed the pre-2020 holdout on
+  calibration level; ranking confirmed". *Diagnosis: data (era), not modeling.* The decile misses are all on the same
+  side: observed minus predicted is +.005 to +.058, mean +.037, which equals the pooled calibration-in-the-large. That is
+  the pre-registered signature of an era shift. Pre-2020 catchers threw out more runners at the same runner and lead
+  (smaller bases, no disengagement limit, and TrackMan-era lead measurement). v2 can only score those seasons as "2020"
+  (its season feature has no split below 2020), so it predicts too few CS. G1 (−13%) and G3 (.962) show the ranking holds
+  and that CS above xCS still agrees with Savant's. Savant's YTY is matched exactly (.464). Could this be our error? The
+  lead-gained feature covered 100% of attempts, the pickoff join was 100%, and the shift is in the predicted direction
+  for a pre-shift era, so we see no handling error. Not fixed in place. A season-level intercept would need its own
+  pre-registration and a new holdout; 2016-19 is now spent.
+- **Joint catcher/pitcher/runner model: FAIL (J1, J2 on both reads). Does not ship.** It beats v2 on log loss (J3), so
+  pitcher and runner effects carry real signal. But the catcher's effect is no stickier than v2's simple CS above xCS
+  per attempt (.404 vs .419), and the pitcher's effect on CS once a runner goes barely repeats (.083). *Diagnosis:
+  modeling.* What a pitcher contributes to the running game is mostly already in v2's lead-gained feature and in whether
+  runners go at all (deterrence). Conditional on an attempt, what is left is noise. The R-hat overshoot (1.0105-1.0111 on
+  one sigma in two fits) is reported as a convergence fail, not a verdict. The gated per-season fits are otherwise
+  ≤ 1.0081, and J1/J2 miss their bars by far more than that could move.
+- **Deterrence: PASS on LOSO, labelled "LOSO-only".** The pre-2020 read is blocked until a pitch-level mart backfill.
+  Handling notes:
+  - The pitch-level attempt mapping was 88.3% < 95%, so the pre-registered fallback unit applied: plate appearance ×
+    lead runner, 438,313 opportunities, attempt rate 4.27%, 99.97% of attempts covered. The ≥ 2,000 threshold is
+    counted in pitches seen with the runner on.
+  - The [.005, .995] floor binds on 27.6% of opportunities (states where runners almost never go).
+  - D1 clears its bar by .018.
+  - In runs, deterrence is almost nothing. The league run value of an attempt is −.008 to +.033 runs per season (base
+    stealers run at about break-even), so deterrence runs have sd 0.21 per catcher-season against 2.04 for CS above xCS.
+- **Throwing runs: PASS** (LOSO .911; 2019 .965 on CS-above-xCS runs, since deterrence has no pre-2020 data).
+  - Base-out state comes from the mart pitch at or before `play_init_seq`. It was consistent for 70.5% of attempts. The
+    rest used the season × base league-mean run swing, as pre-registered.
+  - Savant's runs are linear in their CS above average (r = 1.00), so they contain no deterrence. Our total is CS-above-xCS
+    runs plus a small deterrence term.
+
+The site is unchanged (owner call). 2016-19 is now **spent** for xCS and catcher throwing. 2027 stays the clean forward
+read for v2 (H-2027, frozen hash above), and it is now also the only out-of-sample confirmation left for deterrence.
