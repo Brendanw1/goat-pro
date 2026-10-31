@@ -4445,3 +4445,153 @@ changed yet (owner call). 2027 is the confirm read: the model fit on 2020-26 sco
 Caveat seen at the read, not fixed in place: the isotonic map (clipped to [0,1] as pre-registered) gives **p = 0 for 488
 attempts** (83% held throws); one of them was a CS, which costs ~.002 of log loss and does not change G1. Before any site
 display, a probability floor would need its own note: 0% xCS should not be shown as a literal value.
+
+## §108c Catcher judging: sealed pre-2020 holdout, a 2027 forward read, and three model upgrades: pre-registered 2026-10-30 before any fit or read
+
+Why: §108a-v2 passed G1-G6 on leave-one-season-out 2020-26, so every season it can be scored on has now been seen.
+This section (1) seals data no decision has touched, (2) freezes v2 for a forward read, and (3) pre-registers three
+upgrades to how a catcher is judged. **Nothing below has been fitted, scored or read.** No model was fit for this
+section, and no outcome (`is_runner_cs`, `exp_cs`, `cs_aa`, `is_runner_pbwp`, `x_runner_pbwp`, SB/CS/PK counts) was
+computed or printed from any pre-2020 row. The only things looked at are row counts, column presence, null rates of
+feature columns and join coverage (handling checks).
+
+### Step 0: the sealed pre-2020 data (fetched 2026-10-30)
+
+**Probe** (one catcher-season, Realmuto, or one board / one team request per season; row count and columns only):
+
+| source | 2015 | 2016 | 2017 | 2018 | 2019 |
+|---|---|---|---|---|---|
+| catcher-throwing drill-down (SB attempts) | none | served | served | served | served |
+| catcher-blocking drill-down (runner-on pitches) | none | none | none | served | served |
+| pitcher-running-game board (lead gained) | 0 rows | served | served | served | served |
+| pitcher-running-game team drill-down by `prior_pk` | none | served | served | served | served |
+
+**Fetch:** `python pipeline/catcher_fetch.py --sealed` → `cache/catcher/sealed/` (same polite pacing: one request at a
+time, 1.5 s apart, receipts in `sealed/done.json`). The mart starts in 2020, so the catcher list comes from Savant's
+pop-time board (`leaderboard/poptime`, every catcher with a tracked throw; ids only, the board has no CS outcomes),
+cached as `sealed/catchers_{season}.json`. One known gap: a catcher whose every attempt that season was a held throw
+is not on the pop-time board and is missed (2020+ used 300+ pitches caught from the mart).
+`sealed/SEAL.json` holds file names, row counts, sha256 and "not opened". Mart tables `lb_catcher_throwing_2019` and
+any pre-2020 Savant board read for an outcome are under the same seal: nothing in §108c reads them before the H-pre read.
+
+| season | throwing rows (catchers fetched) | v2-filtered attempts (catchers) | pickoff-drill rows | running board pitchers | blocking rows |
+|---|---|---|---|---|---|
+| 2016 | 2,639 (101) | 2,608 (96) | 3,063 | 730 | not served |
+| 2017 | 2,616 (109) | 2,598 (103) | 2,982 | 749 | not served |
+| 2018 | 2,597 (114) | 2,572 (108) | 2,936 | 790 | 191,239 (114 catchers) |
+| 2019 | 2,288 (111) | 2,277 (104) | 2,529 | 818 | 192,244 (111 catchers) |
+
+14 parquet files, 10,056 attempts after the v2 filter. `SEAL.json` sha256
+`d195705a0800dcf62e24e59286e752f2e75f590eeaede3b82ca76a3441dd06bc` (per-file sha256 inside it).
+
+**Handling checks (no outcome touched).** Every v2 column is present in every season. Null rates of feature columns: sprint speed .000-.002,
+primary lead, target base, pitch hand, delayed flag, play_id, runner_id, pitcher_id all .000; pop time .34-.36 (held
+and untracked throws; pop is descriptive only, used in G5). Prior-pickoff join by (play_id, runner_id): **100.0% every
+season**, no conflicting duplicates; mix 0/1/2/3 = 57-59% / 24-25% / 11-13% / 6-7% (2020-26: 62 / 29 / 8 / 1.5%, the
+pre-limit era throws over more). Pitcher board: 100% of attempts have a same-season board row; 92.5% (2016),
+98.5-99.2% (2017-19) have at least one other board season in 2016-26 for the lead-gained feature. Blocking 2018-19:
+zero nulls in every kept column, but the rows carry no runner, base state or count.
+
+**Era.** 2016-19 is pre-shift: 2023 brought 18-inch bases (2B is 4.5 in closer), the two-disengagement limit and the
+pitch clock, so attempts and success rates rose sharply. Tracking also changed: 2016-19 is TrackMan radar + optical,
+2020+ is Hawk-Eye, so leads and sprint speeds are measured by a different system. v2 has `season` as a numeric
+feature; trees send any season below their lowest split (≥ 2020) down the 2020 branch, so 2016-19 are scored as
+"2020-like". That is extrapolation by construction, which is why calibration-in-the-large is reported on its own.
+Before 2023 there was no disengagement limit, so the `prior_pk` mix will differ too (reported, not adjusted).
+
+### Probability floor (applies to v2 everywhere from now on)
+
+The pre-registered v2 isotonic map (clipped to [0,1]) gave p = 0 on 488 attempts. From now on, every v2 probability
+is **clipped to [.005, .995]** after the isotonic map: in H-pre, in H-2027, in the §108c comparisons and on any site
+display. The LOSO 2020-26 numbers are re-reported with the floor once, as a reference and not re-judged (the §108a-v2
+verdict stands as read).
+
+### H-pre: the frozen v2 scored once on 2016-19
+
+- *Model:* `fit_cal` exactly as in `pipeline/catcher_models.py` at f9aa4d0 (blob e4043b6: shallow LightGBM
+  PARAMS_V2 + isotonic fitted on inner 5-fold catcher-grouped OOF predictions), fit **once on all 2020-26 attempts**
+  (18,856), floor applied. Training rows' `lead_gain` = the pitcher's board lead gained over 2020-26 seasons other than
+  his own, k = 300 (v2's rule with no test season). Scored rows' `lead_gain` = his board over **2016-26** seasons
+  other than the scored season, k = 300, league mean of the same seasons (board leads are distances, not outcomes).
+  The model's sha256 (booster text + isotonic thresholds) is committed before any sealed row is scored.
+- *Population:* sealed throwing rows 2016-19, the v2 filter (pitchouts out, 2B/3B, dedup on
+  game_pk/at_bat_number/play_init_seq/runner_id), `prior_pk` from the sealed pickoff drill-down by (play_id, runner_id).
+- *Baselines:* (i) league CS rate by season × base **from the holdout season's own rows** (an in-sample league rate,
+  so it is a stronger bar than v2's prior-season baseline); (ii) catcher-only: his CS rate in all seasons 2016-26
+  other than the scored one, shrunk to that holdout season's league rate with k = 30.
+- *Gates:* **G1** pooled 2016-19 log loss beats both baselines, ≥ 3% relative over (i). **G2** max decile gap ≤ .03;
+  separately reported (not gated): calibration-in-the-large per season, mean p − observed rate (the era shift).
+  **G3** CS above xCS per catcher-season (≥ 30 attempts) vs Savant's CS above average (sum of the per-play `cs_aa` on
+  the sealed rows, the board's own number per §108): r ≥ .80 pooled. Also reported, not gated: G4 YTY on 2016-19
+  pairs, G5 pop-time r, per-season numbers.
+- *Verdict:* G1-G3 pass → **CONFIRMED out of sample** (the "LOSO, unconfirmed" label drops to "confirmed pre-2020;
+  2027 pending"). Any fail → v2 stays shipped on LOSO but labelled "failed pre-2020 holdout", with the data / handling
+  / modeling diagnosis; a G2-only miss whose decile curve is a uniform shift equal to the calibration-in-the-large
+  gap is diagnosed *data (era)*, not modeling. Read once; sealed to `results/catcher_xcs_v2_hpre_SEALED.json`.
+
+### H-2027: forward holdout
+
+- *Frozen now:* code f9aa4d0 (`catcher_models.py` blob e4043b6) + the floor above; 2020-26 inputs
+  (`throwing_*`, `pickoffs_*`, `pitcher_running_*` 2020-26, 21 files) sha256-of-sha256s
+  `eef1bdf80e214d25768f251ad47b49f6d2bfd787ded1006346051cb790030c26`. The model is the same 2020-26 fit as H-pre
+  (same hash).
+- *Published before 2027 Opening Day* (committed `results/catcher_2027_forecast.json`): per catcher with ≥ 30
+  attempts in 2025-26 combined, predicted 2027 CS above xCS per attempt = his 2025-26 attempt-weighted CS above xCS
+  per attempt (v2 LOSO predictions, floored) shrunk to 0 with **k = 60 attempts** (n/(n+60); set from v2's YTY .419 at
+  typical 30-80 attempt samples).
+- *Read once after the 2027 regular season:* the frozen model scores 2027 (lead_gain from 2020-26 boards, k = 300).
+  Gates: v2's G1-G6 on 2027 (G1 baselines from 2026 league rates, as LOSO); plus **forecast r** (predicted vs actual
+  2027 CS above xCS per attempt, catchers ≥ 30 attempts in 2027) ≥ .30. All pass → v2 confirmed forward.
+
+### §108c model upgrades (each gated vs v2 on LOSO 2020-26, then the H-pre read where data allow)
+
+**(1) Joint credit model.** Logit P(CS | attempt) = logit(v2 xCS, floored) as **offset** + u_catcher + v_pitcher +
+w_runner, crossed random effects, each N(0, σ²), σ ~ HalfNormal(.5). NumPyro NUTS in `~/.venvs/goat-bayes` (never pip
+into /opt/anaconda3): 2 chains, 1,000 warmup + 1,000 draws, seed 7; posterior means are the effects; any R-hat > 1.01
+is reported as a convergence fail, not a model verdict. Offset = the v2 LOSO prediction for that attempt (no attempt's
+offset comes from a fit that saw it).
+- *YTY:* fit separately per season 2020-26; catcher credit in season s = Σ over his attempts of
+  [σ(η + u_c) − σ(η)] (CS added), per attempt and in runs (× ΔRE of CS vs SB, step (3)).
+- *Out-of-fold:* LOSO, effects fit on seasons ≠ t (pooled), applied to t; an entity unseen in training gets 0.
+- *Gates:* **J1** catcher effect YTY r ≥ v2's CS-above-xCS-per-attempt YTY + .05 on the same pairs (≥ 30 attempts
+  both years; v2 was .419 on 148 pairs at the §108a-v2 read, recomputed with the floor). **J2** pitcher effect YTY
+  r ≥ .30 (≥ 15 attempts both years). **J3** pooled LOSO log loss ≤ v2's (floored). H-pre: J3 on 2016-19 with effects
+  from 2020-26 plus J1/J2 YTY on 2016-19 pairs, reported and gated with the same bars.
+
+**(2) Deterrence: P(attempt | opportunity).**
+- *Opportunity set:* every regular-season pitch with a runner on 1B and 2B open, or on 2B and 3B open (lead runner),
+  catcher = `fielder_2`. The mart's runner-on pitches carry base state, outs, count, inning and score; Savant's
+  blocking rows (the runner-on pitch set with `catcher_id`) have no base state, runner or count and no shared key with
+  the mart (the mart has no `play_id`), so they are a per-catcher-season count cross-check only (mart vs blocking
+  opportunities, reported). Label: an SB attempt by the lead runner on that pitch, from the throwing rows on
+  (game_pk, at_bat_number, pitch_number = play_init_seq). **Handling check before any fit:** if < 95% of attempts map
+  to an opportunity pitch with the same catcher, the unit becomes the plate appearance × lead runner (label: any
+  attempt in the PA; count dropped, pitches seen with the runner on as log exposure).
+- *Features (fixed effects only, no catcher):* runner seasonal sprint speed (`lb_sprint_speed`), base state, outs,
+  balls/strikes, inning, score difference, pitcher hand, pitcher lead gained (other seasons, k = 300, as v2),
+  pitcher's prior pickoffs not available per pitch (left out), season. Model: the v2 recipe (PARAMS_V2 LightGBM +
+  inner-OOF isotonic, floor) with label = attempt, LOSO grouped by catcher.
+- *Catcher deterrence* = expected − actual attempts over his opportunities, in runs = (expected − actual) × league
+  run value of an attempt in that season (p_SB × ΔRE_SB + p_CS × ΔRE_CS from step (3), league average).
+- *Gates:* **D1** YTY r ≥ .30 on catchers with ≥ 2,000 opportunities in both years; **D2** deterrence per opportunity
+  vs mean pop time r < 0 (strong arms deter); **D3** LOSO log loss beats league attempt rate by season × base state.
+- *H-pre:* **blocked.** The mart has no pre-2020 pitches, and the sealed blocking rows (2018-19 only) lack base state
+  and runner. Deterrence on 2018-19 is read only after a pre-2020 pitch-level mart backfill, same gates; if never
+  backfilled, deterrence stays LOSO-only. Note: 2020 blocking rows were never fetched (FIRST = 2021) although Savant
+  serves 2018+; 2020 mart pitches cover the LOSO opportunity set regardless.
+
+**(3) Run value.** Base-out run expectancy by season from the site's RE24 (`re_table` in
+`pipeline/baserunning_runs.py`: mean runs to end of half-inning by base-out state at PA start, regular season, per
+season 2020-26). Attempt state from the mart pitch at (game_pk, at_bat_number, pitch_number ≤ play_init_seq, latest);
+unmatched attempts get the season's league-mean ΔRE for that target base. ΔRE_CS, ΔRE_SB = RE(after) − RE(before) for
+the runner retired / advanced. CS-above-xCS runs = Σ (CS − xCS) × (ΔRE_SB − ΔRE_CS). **Throwing runs = CS-above-xCS
+runs + deterrence runs.**
+- *Gate:* **R1** vs Savant's `catcher_stealing_runs` (`lb_catcher_throwing_{season}`) per catcher-season (≥ 30
+  attempts), 2020-26: r ≥ .70. Agreement sanity, not a target. Savant's runs exclude deterrence, so CS-above-xCS runs
+  alone vs theirs is also reported. H-pre: R1 on 2019 only (the only pre-2020 board in the mart), ΔRE from 2020-22
+  (pre-shift) league means per target base, because there is no pre-2020 RE table.
+
+**Verdict rules (as §108).** Each upgrade ships only if all its gates pass on LOSO **and** its H-pre gates pass where
+the data allow (deterrence: LOSO-only until a backfill, labelled so). A fail gets a data / handling / modeling
+diagnosis. Each is run once; results sealed to `results/catcher_108c_{joint,deter,runs}_SEALED.json`. Order: the H-pre
+v2 read first (it needs only the frozen model), then the three upgrades on LOSO, then their H-pre reads.
