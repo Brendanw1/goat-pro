@@ -1,0 +1,102 @@
+{
+ "prereg": "RESULTS-MLB \u00a7108c (671ea06, before any fit or read)",
+ "date": "2026-10-30",
+ "floor": {
+  "n_at_floor_or_ceiling": 552,
+  "loso_logloss_unfloored": 0.44114,
+  "loso_logloss_floored": 0.43964,
+  "decile_gap_floored": 0.0128
+ },
+ "joint": {
+  "j1_pairs": 148,
+  "j1_joint_yty": 0.404,
+  "j1_v2_yty_same_pairs": 0.419,
+  "j1_bar": 0.469,
+  "j1_pass": false,
+  "j2_pairs": 49,
+  "j2_pitcher_yty": 0.083,
+  "j2_pass": false,
+  "j3_loso_logloss_joint": 0.43556,
+  "j3_loso_logloss_v2_floored": 0.43964,
+  "j3_pass": true,
+  "rhat_max_effect": 1.0065,
+  "rhat_max_sigma": 1.0111,
+  "convergence_pass": false,
+  "sigma_per_season": {
+   "2020": {
+    "catcher": 0.491,
+    "pitcher_id": 0.3994,
+    "runner_id": 0.2701
+   },
+   "2021": {
+    "catcher": 0.349,
+    "pitcher_id": 0.4805,
+    "runner_id": 0.3065
+   },
+   "2022": {
+    "catcher": 0.3851,
+    "pitcher_id": 0.1237,
+    "runner_id": 0.2997
+   },
+   "2023": {
+    "catcher": 0.4357,
+    "pitcher_id": 0.2531,
+    "runner_id": 0.2557
+   },
+   "2024": {
+    "catcher": 0.4592,
+    "pitcher_id": 0.1618,
+    "runner_id": 0.395
+   },
+   "2025": {
+    "catcher": 0.4344,
+    "pitcher_id": 0.2734,
+    "runner_id": 0.2738
+   },
+   "2026": {
+    "catcher": 0.4176,
+    "pitcher_id": 0.1025,
+    "runner_id": 0.1738
+   }
+  },
+  "verdict_loso": "FAIL"
+ },
+ "deterrence": {
+  "unit": "PA x lead runner (pitch-level attempt mapping 88.3% < 95%)",
+  "n_opportunities": 438313,
+  "attempt_coverage_by_opportunities": 0.9997,
+  "attempt_rate": 0.0427,
+  "share_at_floor": 0.2764,
+  "d3_logloss_model": 0.14127,
+  "d3_logloss_league": 0.16417,
+  "d3_pass": true,
+  "d1_pairs": 208,
+  "d1_yty": 0.318,
+  "d1_pass": true,
+  "d2_n": 332,
+  "d2_pop_r": -0.231,
+  "d2_pass": true,
+  "run_value_per_attempt_by_season": {
+   "2020": -0.0083,
+   "2021": 0.0024,
+   "2022": 0.0119,
+   "2023": 0.0333,
+   "2024": 0.0184,
+   "2025": 0.0047,
+   "2026": 0.012
+  },
+  "catcher_seasons_2000_pitches": 332,
+  "verdict_loso": "PASS"
+ },
+ "runs": {
+  "n_catcher_seasons": 266,
+  "r1_throw_runs_vs_savant": 0.911,
+  "csaa_runs_alone_vs_savant": 0.922,
+  "r1_pass": true,
+  "sd_csaa_runs": 2.04,
+  "sd_det_runs": 0.21,
+  "verdict_loso": "PASS",
+  "attempt_state_match": 0.7046,
+  "re_source": "baserunning_runs.re_table per season 2020-26 (site RE24, mart, regular season)"
+ }
+}

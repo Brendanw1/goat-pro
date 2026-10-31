@@ -1,0 +1,20 @@
+{
+ "sha256": "c5a36b458d010a50e410eaefd26b208ce6deec7f32fc5401ca10507b7156cf49",
+ "n_train": 18856,
+ "features": [
+  "seasonal_sprint_speed",
+  "r_primary_lead",
+  "base3",
+  "lhp",
+  "is_sba_delayed",
+  "prior_pk",
+  "season",
+  "lead_gain"
+ ],
+ "floor": [
+  0.005,
+  0.995
+ ],
+ "date": "2026-10-30",
+ "lead_gain_train": "pitcher board 2020-26 seasons other than his own, k = 300"
+}
