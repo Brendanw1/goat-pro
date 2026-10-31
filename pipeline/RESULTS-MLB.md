@@ -4341,3 +4341,83 @@ slow runners on short leads, where the boosted trees grow overconfident on 15.6k
 is .476). The bottom decile is mostly held throws (61%) and is fine. Pitch type / location / count stayed out: the
 pitch join matched 88.1% < 95% (decided before the read). Not fixed in place: a recalibrated or shallower re-test is a
 new pre-registration (queued as §108a-v2). Until then the running-game views use Savant's expected CS, labelled theirs.
+
+## §108a-v2 xCS% re-test (shallower trees + isotonic, pitcher lead gained, working pickoff count): pre-registered 2026-10-30 before any fit or read
+
+Re-test of §108a after its G2 (calibration) failure. Nothing below has been fitted, and no v2 prediction or v2 gate
+number has been computed or read. The only things looked at are handling checks (definitions, missingness, join
+coverage) and the step-1 measurement check below, which is not a model fit.
+
+**Step 1: leak check on `time_to_target` / `generic_time_to_target` (decided before any fit).** Verdict: **excluded,
+both as a raw input and as "runner jump" = time_to_target − generic.** Evidence (18,856 attempts, pitchouts out, 2B/3B):
+- *What it times.* `start_distance_to_target` is the primary lead re-expressed (start distance + lead = 88.5 ft to 2B,
+  89.5 ft to 3B, sd .15-.37 in every outcome class, r = −.999), so the start point is the pitcher's first move. But
+  start distance / time_to_target averages 32.8-34.7 ft/s against seasonal sprint speeds of ~28 ft/s, which no runner
+  can do from a lead: the clock starts later in the play (most likely the catcher's receipt, the pop-time clock; MLB's
+  public write-ups describe Savant's model as using the runner's distance when the catcher catches the ball; Savant
+  publishes no glossary entry for this field), and stops when the runner reaches the bag. So it is the runner's half of the race after the pitch, not a pre-throw state.
+- *It shares the throw's clock and moves with it.* Within 2B attempts, r(time_to_target, catcher pop time) = .46 on
+  SB-with-throw and .63 on CS; r(generic, pop) = .09 / .16. The race margin time_to_target − pop is +.131 s (sd .100)
+  on CS and −.003 s on SB: the input and the label are the same race.
+- *Measurement depends on the outcome.* Jump (time_to_target − generic) means: CS +.094 s, SB-with-throw −.012 s,
+  held throws −.111 s (sd .240). Within CS, jump vs −pop r = −.65 (vs −.46 on SB): the earlier the ball beats him, the
+  "slower" the runner's time, consistent with runners pulling up or being tagged short of the bag. Held throws carry
+  physically impossible values (min time .09 s, start distance down to 1.5 ft, 2.4% above 40 ft/s; 6.4% of held rows
+  start < 50 ft from the bag vs 0% of CS): the clock is unreliable exactly when no throw is made.
+- `generic_time_to_target` alone is a function of start distance (= lead) and sprint speed (residual sd .09 s after
+  those two), both already in the frozen set; it adds nothing pre-throw.
+The runner's jump stays unmeasured pre-throw; the lead (primary) and the pitcher's lead-gained term below stand in.
+
+**Step 2: pickoff count.** §108a's `N_prior_pickoffs_with_reset` was NaN on every row. Cause: Savant serves that field
+as `null` in the catcher-throwing drill-down (raw response checked, Realmuto 2024: 57/57 null; the field name is
+right, and the drill-down ignores a `prior_pk` filter). Fix (`catcher_fetch.py --running`): the pitcher-running-game
+team drill-down does honour `prior_pk` (0, 1, 2, 3 = the board's buckets), so each running event's prior pickoffs
+(with reset) come from 4 requests per team-season, joined to the throwing rows on `play_id`. The dead column is dropped
+from the catcher fetch's KEEP list. Coverage: 18,856 of 18,856 attempts
+(100.0%, every season) get a prior-pickoff count by (play_id, runner_id), no conflicting duplicates; mix 0: 61.9%,
+1: 29.0%, 2: 7.6%, 3 (top bucket): 1.5%. Fetched 2026-10-30, 840 polite requests, receipts in `done.json`.
+
+**Step 3: pitcher lead gained.** Savant's pitcher-running-game board (CSV `leaderboard/pitcher-running-game?...&n=1
+&csv=true`, every pitcher with 1+ pitch, 2016+) gives, per pitcher-season, `r_sec_minus_prim_lead`: mean ground the
+runner gains between the pitcher's first move and release, over all runner-on opportunities (`n_init`), i.e. the
+public stand-in for time to plate. A per-play drill-down exists (`leaderboard/services/pitcher-running-game/{id}`)
+but covers running events only (SB/CS/PK/BK/FB), so the per-attempt value would be on the attempt itself; it is not
+used as a feature. Cached as `cache/catcher/pitcher_running_{season}.parquet`. Coverage of our attempts by
+(pitcher_id, season): 100.0% have the same-season board row; 97.2% have at least one other season for the
+leave-season-out feature (2020 95.9%, 2026 91.4%, 2021-25 98-99%); the rest get the league mean.
+
+**Pre-registration.**
+- *Population:* as §108a (regular-season SB attempts 2020-26, pitchouts out, target 2B/3B, held throws in,
+  dedup on game_pk/at_bat_number/play_init_seq/runner_id). *Label:* `is_runner_cs`.
+- *Features:* the frozen §108a set (seasonal sprint speed, primary lead, target base, pitcher hand, delayed flag,
+  season) + **prior pickoffs** (0-3 from step 2; unmatched rows left missing, LightGBM's native handling) +
+  **pitcher lead gained, other seasons**: for an attempt in season s in an outer fold whose test season is t, the
+  pitcher's `r_sec_minus_prim_lead` averaged over his seasons in 2020-26 other than s and t, weighted by `n_init`, and
+  shrunk to the league mean of the same seasons with **k = 300 opportunities**: (Σ n·x + 300·league) / (Σ n + 300);
+  a pitcher with no other season gets the league mean. Built from lead distances only, never outcomes. **No runner
+  jump** (step 1). Pitch type / location / count stay out (the §108 join was 88.1% < 95%).
+- *Model:* LightGBM, shallower: num_leaves 7, max_depth 3, n_estimators 200, learning_rate .05,
+  min_child_samples 200, random_state 7. **Isotonic calibration fitted on out-of-fold predictions only**: inside each
+  outer fold, the training seasons get inner OOF raw predictions (5-fold grouped by catcher), the isotonic map
+  (increasing, clipped to [0,1]) is fitted on those, then applied to the outer fold's raw predictions. No isotonic
+  map ever sees a row it scores.
+- *Validation:* **2026 is spent** (read once by §108), so **no clean holdout until 2027**. Leave-one-season-out on
+  2020-26, grouped by catcher: for test season t, its catchers are split into 5 groups; each group is scored by a
+  model fit on seasons ≠ t with that group's catchers removed from every season (no catcher in his own fit, no season
+  in its own fit). Every number below is pooled over the 7 outer folds. **2027 is the confirm read**: the model fit on
+  2020-26 scores 2027 once, same gates; a ship from this re-test stays labelled "LOSO, unconfirmed" until then.
+- *Baselines (per outer fold):* (i) league CS rate by target base from the nearest training season (t−1; for 2020,
+  2021); (ii) catcher-only: his CS rate in seasons ≠ t, shrunk to the fold's league rate with k = 30.
+- *Gates (bars as §108):* **G1** pooled LOSO log loss beats both baselines, ≥ 3% relative over (i); **G2** pooled
+  LOSO (calibrated) max decile gap ≤ .03; **G3** per catcher-season CS above xCS (≥ 30 attempts) vs Savant's
+  `caught_stealing_above_average`: pooled r ≥ .80, every season ≥ .70; **G4** YTY of CS above xCS per attempt
+  (≥ 30 attempts both years) ≥ .75 × Savant's on the same pairs; **G5** CS above xCS per attempt vs mean pop time
+  r ≤ −.40; **G6 (new)** pitcher credit year-to-year r ≥ .30 on pitchers with ≥ 15 attempts in both years. Pitcher
+  credit per attempt = p(attempt with his **same-season** board lead gained) − p(same attempt with the league-mean lead
+  gained), from the fold's calibrated model, averaged over his attempts (positive = he holds runners). Same-season
+  value here, not the other-seasons feature, because a YTY test on a leave-season-out average would be correlated by
+  construction (seasons s and s+1 share most of their "other seasons"). The board value is a pre-throw lead
+  distance, not an outcome.
+- *Verdict:* as §108: SHIP (our xCS, CS above xCS, and the pitcher lead credit) only if G1-G6 all pass; otherwise the
+  running-game views stay descriptive with Savant's numbers labelled, and each failed gate gets a data / handling /
+  modeling diagnosis. Run once; results sealed to `results/catcher_xcs_v2_SEALED.json`.

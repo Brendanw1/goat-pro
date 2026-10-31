@@ -31,6 +31,9 @@ pitches that season, so backups are covered, not just the qualified board.
   (`r_primary_lead` per attempt), attempts per opportunity, and his CS above average. Stated on the page.
 - Pickoffs, balks and pickoff throws are on the pitcher-running-game CSV, not on catcher rows; the catcher view
   shows SB/CS only.
+- Prior pickoffs per attempt: Savant serves `N_prior_pickoffs_with_reset` null on the catcher rows, so
+  `catcher_fetch.py --running` takes it from the pitcher-running-game team drill-down (`prior_pk` 0-3, 100% of attempts
+  matched) and caches the board's per-pitcher lead gained (`pitcher_running_{season}.parquet`). Used by §108a-v2.
 - Pre-2020: the pitch mart starts 2020, throws 2020, blocking 2021. 2026 is ABS-era (challenge system): framing
   splits for 2026 are labelled.
 - No per-pitch catcher setup / glove target (not public).
