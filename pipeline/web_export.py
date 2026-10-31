@@ -4070,67 +4070,94 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "avgEv": f(row.ev, 1),
             })
 
-        # Zone splits (the zone chart's toggles): the same cells by pitcher hand
-        # (A = all, R, L) x pitch group ('' = all, FB/BR/OS from PITCH_FAMILY on
-        # site codes), keyed "<hand><group>" ("A" = the whole grid, "RFB" = fastballs
-        # from RHP). Per cell [n, swings, whiffs, run value (batter +, Statcast
-        # delta_run_exp)]; under ZONE_MIN pitches a cell ships [n] only, so the
-        # chart greys it with its n. "s" = the side he batted from most in that
-        # split (a switch hitter's zone draws on that side; league compares to it).
-        ZONE_MIN = 15
+        # Zone chart (`zgrid`, components/ui/scouting-card.tsx): a 5x5 over the
+        # plate — the inner 3x3 is the rulebook zone (|x| <= 0.83 ft, ball radius
+        # in; sz_bot..sz_top) in thirds, the outer ring every pitch outside it on
+        # that side (shadow + chase). x is mirrored by the pitch's batter side so
+        # + = his inside. Splits keyed "<hand><group|type>": hand A / R / L
+        # (p_throws); '' (all) / FB BR OS (PITCH_FAMILY) / the site codes
+        # (SC_TO_SITE); a player's exact-type split ships only past ZONE_TYPE_MIN
+        # pitches. Cell = [n, swings, whiffs, rv, bip, xw, hard] in ZGRID_ORDER:
+        # rv = Σ delta_run_exp (batter +), bip = balls in play with EV and
+        # xwOBA, xw = Σ Statcast xwOBA on them, hard = 95+ mph among them. No thin-cell
+        # cut: an empty cell is [0], one without balls in play stops at bip; the
+        # chart prints n in every cell. "s" = his majority batter side.
+        ZONE_MIN, ZONE_BIP_MIN, ZONE_TYPE_MIN = 1, 1, 50  # owner: every cell shows, n beside it
         fam_code = {"Fastball": "FB", "Breaking": "BR", "Offspeed": "OS"}
         GRP_SQL = "CASE " + " ".join(
             f"WHEN pitch_type = '{k}' THEN '{fam_code[PITCH_FAMILY[v]]}'"
             for k, v in SC_TO_SITE.items() if v in PITCH_FAMILY) + " ELSE 'X' END"
-        ZZ_SQL = f"""CASE WHEN plate_z IS NULL OR sz_top IS NULL OR sz_bot IS NULL OR sz_top <= sz_bot THEN 'off'
-                        WHEN plate_z > sz_top + 0.35 THEN 'above'
-                        WHEN plate_z < sz_bot - 0.35 THEN 'below'
-                        ELSE {CELL_H} END"""
+        TYPE_SQL = "CASE " + " ".join(f"WHEN pitch_type = '{k}' THEN '{v}'" for k, v in SC_TO_SITE.items()) + " ELSE 'X' END"
+        site_types = set(SITE_TYPES)
+        X5 = """CASE WHEN bx > 0.83 THEN 'xin' WHEN bx > 0.277 THEN 'in' WHEN bx >= -0.277 THEN 'mid'
+                     WHEN bx >= -0.83 THEN 'out' ELSE 'xout' END"""
+        Z5 = """CASE WHEN plate_z > sz_top THEN 'above'
+                     WHEN plate_z > sz_bot + 2 * (sz_top - sz_bot) / 3 THEN 'high'
+                     WHEN plate_z > sz_bot + (sz_top - sz_bot) / 3 THEN 'mid'
+                     WHEN plate_z >= sz_bot THEN 'low' ELSE 'below' END"""
+        ZGRID_ORDER = [f"{zz}-{zx}" for zz in ("above", "high", "mid", "low", "below")
+                       for zx in ("xin", "in", "mid", "out", "xout")]
+        zidx = {k: i for i, k in enumerate(ZGRID_ORDER)}
 
-        def zone_split_sql(key: str) -> str:
+        def zgrid_sql(key: str) -> str:
             """key = 'id' (per batter) or 'stand' (league per batter side)."""
             return f"""
-            WITH p AS (
-                SELECT batter AS id, season, stand, p_throws AS h, {GRP_SQL} AS g, {CELL_X} AS zx, {ZZ_SQL} AS zz,
+            WITH p0 AS (
+                SELECT batter AS id, season, stand, p_throws AS h, {GRP_SQL} AS g, {TYPE_SQL} AS t,
+                       plate_x * (CASE WHEN stand = 'R' THEN -1 ELSE 1 END) AS bx, plate_z, sz_top, sz_bot,
                        CASE WHEN description IN {SWING} THEN 1 ELSE 0 END AS sw,
                        CASE WHEN description IN {WHIFF} THEN 1 ELSE 0 END AS wh,
-                       COALESCE(delta_run_exp, 0) AS rv
+                       COALESCE(delta_run_exp, 0) AS rv,
+                       CASE WHEN bb_type IS NOT NULL AND launch_speed IS NOT NULL
+                                 AND estimated_woba_using_speedangle IS NOT NULL THEN 1 ELSE 0 END AS bip,
+                       CASE WHEN bb_type IS NOT NULL AND launch_speed IS NOT NULL
+                            THEN estimated_woba_using_speedangle END AS xw,
+                       CASE WHEN bb_type IS NOT NULL AND launch_speed >= 95
+                                 AND estimated_woba_using_speedangle IS NOT NULL THEN 1 ELSE 0 END AS hard
                 FROM pitches_all
                 WHERE game_type = 'R' AND season IN ({season_list}) AND batter IS NOT NULL
-                  AND stand IN ('L','R') AND p_throws IN ('L','R')
-                  AND description IS NOT NULL
-            )
-            SELECT {key}, season, COALESCE(h, 'A') AS h, COALESCE(g, '') AS g, zx, zz,
+                  AND stand IN ('L','R') AND p_throws IN ('L','R') AND description IS NOT NULL
+                  AND plate_x IS NOT NULL AND plate_z IS NOT NULL AND sz_top > sz_bot
+            ), p AS (SELECT *, {X5} AS zx, {Z5} AS zz FROM p0)
+            SELECT {key}, season, COALESCE(h, 'A') AS h, COALESCE(t, g, '') AS g, zx, zz,
                    COUNT(*) AS n, SUM(sw) AS sw, SUM(wh) AS wh, SUM(rv) AS rv,
+                   SUM(bip) AS bip, COALESCE(SUM(xw), 0) AS xw, SUM(hard) AS hard,
                    SUM(CASE WHEN stand = 'R' THEN 1 ELSE 0 END) AS nr
-            FROM p WHERE zz <> 'off'
+            FROM p
             GROUP BY GROUPING SETS (({key}, season, zx, zz, h, g), ({key}, season, zx, zz, h),
-                                    ({key}, season, zx, zz, g), ({key}, season, zx, zz))
+                                    ({key}, season, zx, zz, g), ({key}, season, zx, zz),
+                                    ({key}, season, zx, zz, h, t), ({key}, season, zx, zz, t))
             """
 
-        zs = con.sql(zone_split_sql("id")).df()
+        def zcell(r, full: bool = False) -> list:
+            n, bip = int(r.n), int(r.bip)
+            if not full and n < ZONE_MIN:
+                return [n]
+            c = [n, int(r.sw), int(r.wh), f(r.rv, 1) + 0.0, bip]  # + 0.0: no "-0.0"
+            return c + [f(r.xw, 2), int(r.hard)] if full or bip >= ZONE_BIP_MIN else c
+
+        zs = con.sql(zgrid_sql("id")).df()
         zs = zs[zs["g"] != "X"]
         zones_by: dict = {}
         for row in zs.itertuples():
             key = (int(row.id), int(row.season))
             if key not in sc_pop:
                 continue
-            n = int(row.n)
-            sp = zones_by.setdefault(key, {}).setdefault(f"{row.h}{row.g}", {"c": {}, "_n": 0, "_r": 0})
-            sp["c"][f"{row.zz}-{row.zx}"] = [n] if n < ZONE_MIN else [n, int(row.sw), int(row.wh), f(row.rv, 1)]
-            sp["_n"] += n
+            sp = zones_by.setdefault(key, {}).setdefault(f"{row.h}{row.g}", {"c": [[0]] * len(ZGRID_ORDER), "_n": 0, "_r": 0})
+            sp["c"][zidx[f"{row.zz}-{row.zx}"]] = zcell(row)
+            sp["_n"] += int(row.n)
             sp["_r"] += int(row.nr)
-        # cells ship as a list in ZONE_ORDER (scouting-card.tsx ZONE_ORDER), [0] = none: ~14% smaller gz than keyed
-        ZONE_ORDER = [f"{zz}-{zx}" for zz in ("above", "high", "mid", "low", "below") for zx in ("inside", "center", "away")]
         for sps in zones_by.values():
+            for k in [k for k, sp in sps.items() if k[1:] in site_types and sp["_n"] < ZONE_TYPE_MIN]:
+                del sps[k]
             for k, sp in sps.items():
-                sps[k] = {"s": "R" if 2 * sp["_r"] >= sp["_n"] else "L", "c": [sp["c"].get(o, [0]) for o in ZONE_ORDER]}
-        lg_zs = con.sql(zone_split_sql("stand")).df()
+                sps[k] = {"s": "R" if 2 * sp["_r"] >= sp["_n"] else "L", "c": sp["c"]}
+        lg_zs = con.sql(zgrid_sql("stand")).df()
         lg_zs = lg_zs[lg_zs["g"] != "X"]
         lg_zones: dict = {}
         for t in lg_zs.itertuples():
-            lg_zones.setdefault(int(t.season), {}).setdefault(t.stand, {}).setdefault(f"{t.h}{t.g}", {})[
-                f"{t.zz}-{t.zx}"] = [int(t.n), int(t.sw), int(t.wh), f(t.rv, 1)]
+            lg_zones.setdefault(int(t.season), {}).setdefault(t.stand, {}).setdefault(
+                f"{t.h}{t.g}", [[0]] * len(ZGRID_ORDER))[zidx[f"{t.zz}-{t.zx}"]] = zcell(t, full=True)
 
         cnt = con.sql(f"""
             SELECT batter AS id, season, balls, strikes,
@@ -4208,7 +4235,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "n": int(t.n), "sw": int(t.sw), "wh": int(t.wh), "chase": int(t.chase),
                 "ooz": int(t.ooz), "hard": int(t.hard), "bip": int(t.bip)}
         for season, z in lg_zones.items():
-            league.setdefault(season, {"cells": {"R": {}, "L": {}}, "counts": {}})["zones"] = z
+            league.setdefault(season, {"cells": {"R": {}, "L": {}}, "counts": {}})["zgrid"] = z
         jwrite(out / "scouting_league.json", {"seasons": league}, sort_keys=True)
         counts["scouting_league"] = 1
 
@@ -4241,8 +4268,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             approach = grade_of(season, "swingPct", float(s0["swingPct"]), invert=False) if not srow.empty else None
             jwrite_gz(out / "hitter_scouting" / f"{pid}-{season}.json.gz", {
                 "id": str(pid), "season": season,
-                "cells": cells_by[(pid, season)],
-                "zones": zones_by.get((pid, season), {}),
+                "zgrid": zones_by.get((pid, season), {}),
                 "counts": sorted(counts_by.get((pid, season), []), key=lambda r: (r["count"],)),
                 "skill": {"power": power, "contact": contact, "eye": eye, "approach": approach, "type": htype},
             }, sort_keys=True)

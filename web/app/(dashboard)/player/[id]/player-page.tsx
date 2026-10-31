@@ -12,6 +12,15 @@ import Link from "next/link";
 import { WpaAbsStrip } from "@/components/ui/wpa-abs-strip";
 
 /** The profile page body for one level: MLB at /player/[id], AAA Statcast at /minors/player/[id]. */
+/** The scouting league the client needs: this season's count rows and only the zone splits he has, on his sides. */
+function leagueSlice(lg: any, rs: string, zones: Record<string, { s: string }> | undefined) {
+  const s = rs ? lg?.seasons?.[rs] : null;
+  if (!s) return null;
+  const z: Record<string, Record<string, unknown>> = {};
+  for (const [k, sp] of Object.entries(zones ?? {})) (z[sp.s] ??= {})[k] = s.zgrid?.[sp.s]?.[k];
+  return { seasons: { [rs]: { counts: s.counts, zgrid: z } } };
+}
+
 export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
   id: string; season?: string; tab?: string; level?: Level; extra?: React.ReactNode;
 }) {
@@ -174,7 +183,7 @@ export async function PlayerPage({ id, season, tab, level = "mlb", extra }: {
 {hitter ? (
         <HitterProfileView profile={hitter} percentiles={percentiles} playerId={id} agingStrip={agingStrip}
           gameLog={gameLog} spray={spray} sprayRefs={sprayRefs} scouting={scouting}
-          scoutingLeague={rs && scoutingLeague?.seasons?.[rs] ? { seasons: { [rs]: scoutingLeague.seasons[rs] } } : null} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} running={running} initialTab={tab} level={level} />
+          scoutingLeague={leagueSlice(scoutingLeague, rs, scouting?.zgrid)} benchmarks={splitBench} career={career} visuals={visuals} swing={swing} running={running} initialTab={tab} level={level} />
       ) : (
         <PlayerProfileView
           profile={profile}

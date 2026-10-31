@@ -3,22 +3,15 @@
 /**
  * Hitter scouting card (H10) + skill grades (H9), wave 3. The zone chart is
  * where he swings and what happens there, drawn in the catcher's view over the
- * plate, split by pitcher hand and pitch group (baked `zones`); the count
+ * plate (5x5: zone 3x3 + shadow/chase ring), vs RHP and vs LHP side by side, by pitch group or exact type (baked `zgrid`); the count
  * rows are his approach by situation. The 20-80 estimates are computed in
  * the bake from this season's percentiles (rank -> normal z -> 50+10z,
  * rounded to 5) — labelled estimates, never a model output, and nothing
  * here predicts next season.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { percentileRamp } from "@/lib/percentiles";
 import { signedFixed } from "@/components/ui/shared-ui";
-
-const ROWS = ["above", "high", "mid", "low", "below"] as const;
-const COLS = ["inside", "center", "away"] as const;
-const ROW_LABEL: Record<string, string> = {
-  above: "Above zone", high: "Upper third", mid: "Middle", low: "Lower third", below: "Below zone",
-};
-const COL_LABEL: Record<string, string> = { inside: "Inside", center: "Middle", away: "Away" };
 
 const gradeColor = (g: number): string => {
   // the site's descriptive ramp compressed to the 30-80 grade range
@@ -80,26 +73,61 @@ export function ScoutingCard({ data }: { data: any | null }) {
 
 const f1 = (v: number) => Math.round(v * 10) / 10;
 
-/** Cell order of the baked `zones[split].c` lists (web_export.py ZONE_ORDER). */
-const ZONE_ORDER = ROWS.flatMap((zz) => COLS.map((zx) => `${zz}-${zx}`));
-const HANDS = [["A", "All"], ["R", "vs RHP"], ["L", "vs LHP"]] as const;
+/* ----------------------------------------------------------- zone chart (zgrid) */
+/** 5x5 cell order of the baked `zgrid[split].c` lists (web_export.py ZGRID_ORDER). */
+const ZR = ["above", "high", "mid", "low", "below"] as const;
+const ZC = ["xin", "in", "mid", "out", "xout"] as const;
+const ZGRID_ORDER = ZR.flatMap((zz) => ZC.map((zx) => `${zz}-${zx}`));
+const ZR_LABEL: Record<string, string> = { above: "Above zone", high: "Upper third", mid: "Middle", low: "Lower third", below: "Below zone" };
+const ZC_LABEL: Record<string, string> = { xin: "Off inside", in: "Inside", mid: "Middle", out: "Away", xout: "Off away" };
+const ZC_HEAD: Record<string, string> = { xin: "off", in: "In", mid: "Mid", out: "Away", xout: "off" };
 const GROUPS = [["", "All pitches"], ["FB", "Fastballs"], ["BR", "Breaking"], ["OS", "Offspeed"]] as const;
-const METRICS = [["swing", "Swing%"], ["whiff", "Whiff% vs lg"], ["rv", "RV/100 vs lg"]] as const;
-type Metric = (typeof METRICS)[number][0];
-/** Diverging caps: a cell this far from league in its own split saturates. */
-const CAP = { whiff: 15, rv: 6 } as const;
-/** Swing% scale top: a fixed domain so splits compare at a glance. */
-const SWING_MAX = 80;
-/** Sequential swing-rate ramp: one hue (blue), lightness carries the value — clear of the green/red good-bad colours. */
+/** Exact site pitch types (SC_TO_SITE codes); the bake ships a type only past 50 pitches of it from that hand. */
+const TYPES = [["FF", "4-seam"], ["SI", "Sinker"], ["CT", "Cutter"], ["SL", "Slider"], ["SW", "Sweeper"],
+  ["CB", "Curve"], ["CH", "Change"], ["FS", "Splitter"]] as const;
+
+/**
+ * Cell = [n, swings, whiffs, rv, bip, xwSum, hard]. No thin-cell floor (owner rule): every cell with
+ * a denominator gets its raw value and prints its n, so the viewer judges the sample.
+ */
+type Cell = number[];
+const base = {
+  swing: (c: Cell) => (c[0] > 0 && c.length > 1 ? (100 * c[1]) / c[0] : null),
+  whiff: (c: Cell) => (c.length > 1 && c[1] > 0 ? (100 * c[2]) / c[1] : null),
+  rv: (c: Cell) => (c[0] > 0 && c.length > 1 ? (100 * c[3]) / c[0] : null),
+  xw: (c: Cell) => (c.length > 5 && c[4] > 0 ? c[5] / c[4] : null),
+  hard: (c: Cell) => (c.length > 5 && c[4] > 0 ? (100 * c[6]) / c[4] : null),
+};
+/** The sample behind a metric: pitches, swings (whiff) or balls in play (contact). */
+const sampleOf = (b: Base, c: Cell) => (b === "whiff" ? `${c[1] ?? 0} sw` : b === "xw" || b === "hard" ? `${c[4] ?? 0} BIP` : `n=${c[0]}`);
+type Base = keyof typeof base;
+const pctFmt = (v: number) => `${Math.round(v)}%`;
+const xwFmt = (v: number) => v.toFixed(3).replace(/^(-?)0\./, "$1.");
+const xwSigned = (v: number) => (Math.abs(v) < 0.0005 ? ".000" : (v > 0 ? "+" : "−") + xwFmt(Math.abs(v)));
+/**
+ * The fill modes. seq = a level on the one-hue scale (lo..hi); div = a signed stat on the site's
+ * good/bad ramp, grey at 0, green when good for the hitter (lowerGood flips it), saturating at cap.
+ */
+const METRICS: { key: string; label: string; b: Base; vsLg: boolean; kind: "seq" | "div"; lo?: number; hi?: number;
+  cap?: number; lowerGood?: boolean; fmt: (v: number) => string; what: string }[] = [
+  { key: "swing", label: "Swing%", b: "swing", vsLg: false, kind: "seq", lo: 0, hi: 80, fmt: pctFmt, what: "swing rate" },
+  { key: "whiff", label: "Whiff%", b: "whiff", vsLg: false, kind: "seq", lo: 0, hi: 60, fmt: pctFmt, what: "whiffs per swing" },
+  { key: "whiffD", label: "Whiff% vs lg", b: "whiff", vsLg: true, kind: "div", cap: 15, lowerGood: true, fmt: (v) => signedFixed(v, 0), what: "whiff rate minus league's" },
+  { key: "xw", label: "xwOBACON", b: "xw", vsLg: false, kind: "seq", lo: 0.2, hi: 0.6, fmt: xwFmt, what: "xwOBA on contact (balls in play)" },
+  { key: "xwD", label: "xwOBACON vs lg", b: "xw", vsLg: true, kind: "div", cap: 0.1, fmt: xwSigned, what: "xwOBA on contact minus league's" },
+  { key: "hard", label: "Hard-hit%", b: "hard", vsLg: false, kind: "seq", lo: 0, hi: 70, fmt: pctFmt, what: "95+ mph share of balls in play" },
+  { key: "rv", label: "RV/100", b: "rv", vsLg: false, kind: "div", cap: 6, fmt: (v) => signedFixed(v, 1), what: "run value per 100 pitches" },
+  { key: "rvD", label: "RV/100 vs lg", b: "rv", vsLg: true, kind: "div", cap: 6, fmt: (v) => signedFixed(v, 1), what: "run value per 100 pitches minus league's" },
+];
+/** Sequential ramp: one hue (blue), lightness carries the value — clear of the green/red good-bad colours. */
 const SEQ_LO = "#1c2a35", SEQ_HI = "#8fd0f5";
 const seqColor = (t: number) => `color-mix(in oklab, ${SEQ_HI} ${Math.round(100 * Math.max(0, Math.min(1, t)))}%, ${SEQ_LO})`;
-/** Diverging: the site's good/bad ramp (grey at league, green good for the hitter, red bad). */
 const divColor = (d: number, cap: number) => percentileRamp(0.5 + Math.max(-1, Math.min(1, d / cap)) / 2);
 
 const SEG = "rounded-full px-2.5 py-0.5 text-[10px] transition-colors";
 function Seg<T extends string>({ value, set, opts }: { value: T; set: (v: T) => void; opts: readonly (readonly [T, string])[] }) {
   return (
-    <div className="inline-flex gap-0.5 rounded-full border border-border-subtle p-0.5">
+    <div className="inline-flex flex-wrap gap-0.5 rounded-2xl border border-border-subtle p-0.5">
       {opts.map(([k, label]) => (
         <button key={k} type="button" aria-pressed={value === k} onClick={() => set(k)}
           className={`${SEG} ${value === k ? "bg-white/10 text-text-primary" : "text-text-dim hover:text-text-secondary"}`}>{label}</button>
@@ -108,23 +136,106 @@ function Seg<T extends string>({ value, set, opts }: { value: T; set: (v: T) => 
   );
 }
 
-const pct = (a: number, b: number) => (b ? (100 * a) / b : null);
+function ZonePlot({ title, split, lg, metric, note }: {
+  title: string; split: { s: string; c: Cell[] } | null; lg: Cell[] | null; metric: (typeof METRICS)[number]; note: string;
+}) {
+  if (!split) {
+    return (
+      <div className="rounded-lg border border-border-subtle p-3">
+        <div className="text-[11px] font-semibold text-text-primary">{title}</div>
+        <p className="mt-6 mb-6 text-center text-[11px] text-text-dim">{note}</p>
+      </div>
+    );
+  }
+  const side: "R" | "L" = split.s === "L" ? "L" : "R";
+  // Catcher's view: a RHH stands on the left (3B side), so his inside columns are the left ones.
+  const cols = side === "R" ? ZC : [...ZC].reverse();
+  const OW = 38, IW = 50, OH = 32, IH = 40, G = 3, BOX = 30;
+  const X0 = side === "R" ? BOX + 12 : 6, Y0 = 18;
+  const colX: number[] = [], colW = cols.map((c) => (c === "xin" || c === "xout" ? OW : IW));
+  for (let i = 0, x = X0; i < cols.length; x += colW[i] + G, i++) colX.push(x);
+  const rowH = ZR.map((r) => (r === "above" || r === "below" ? OH : IH));
+  const rowY: number[] = [];
+  for (let i = 0, y = Y0; i < ZR.length; y += rowH[i] + G, i++) rowY.push(y);
+  const zx0 = colX[1] - G / 2, zx1 = colX[4] - G / 2, zy0 = rowY[1] - G / 2, zy1 = rowY[4] - G / 2;
+  const gridR = colX[4] + colW[4], plateY = rowY[4] + OH + 12;
+  const W = side === "R" ? gridR + 6 : gridR + BOX + 12, H = plateY + 26;
+  const boxX = side === "R" ? 4 : gridR + 8;
+
+  return (
+    <div className="rounded-lg border border-border-subtle p-3">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[11px] font-semibold text-text-primary">{title}</span>
+        <span className="text-[9px] text-text-dim">bats {side} here</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full max-w-[330px] h-auto" role="img"
+        aria-label={`${title}: zone chart, catcher's view, ${side === "R" ? "right" : "left"}-handed batter`}>
+        {cols.map((zx, i) => (
+          <text key={zx} x={colX[i] + colW[i] / 2} y={Y0 - 6} textAnchor="middle" className="fill-text-dim" fontSize={8}>{ZC_HEAD[zx]}</text>
+        ))}
+        {ZR.map((zz, ri) => cols.map((zx, ci) => {
+          const key = `${zz}-${zx}`;
+          const c = split.c[ZGRID_ORDER.indexOf(key)] ?? [0];
+          const l = lg?.[ZGRID_ORDER.indexOf(key)] ?? null;
+          const own = base[metric.b](c), lgv = l ? base[metric.b](l) : null;
+          const v = metric.vsLg ? (own != null && lgv != null ? own - lgv : null) : own;
+          let fill = "rgba(127,127,127,0.06)", dark = false;
+          if (v != null && metric.kind === "seq") {
+            const t = (v - metric.lo!) / (metric.hi! - metric.lo!);
+            fill = seqColor(t); dark = t > 0.55;
+          } else if (v != null) {
+            fill = divColor(metric.lowerGood ? -v : v, metric.cap!);
+          }
+          const ln = (b: Base, label: string, fmt: (x: number) => string, dfmt: (x: number) => string, extra = "") => {
+            const a = base[b](c), g = l ? base[b](l) : null;
+            return a == null ? null : `${label} ${fmt(a)}${extra}${g != null ? ` (league ${fmt(g)}, ${dfmt(a - g)})` : ""}`;
+          };
+          const tip = [
+            `${title} · ${ZR_LABEL[zz]}, ${ZC_LABEL[zx].toLowerCase()} · ${c[0]} pitches`,
+            ln("swing", "swung", (x) => `${f1(x)}%`, (x) => signedFixed(x, 1)),
+            ln("whiff", "whiff", (x) => `${f1(x)}%`, (x) => signedFixed(x, 1), " of swings"),
+            c.length > 4 && c[4] === 0 ? "no balls in play" : null,
+            ln("xw", "xwOBACON", xwFmt, xwSigned, c.length > 4 ? ` on ${c[4]} BIP` : ""),
+            ln("hard", "hard-hit", (x) => `${f1(x)}%`, (x) => signedFixed(x, 1)),
+            ln("rv", "run value", (x) => `${signedFixed(x, 1)}/100`, (x) => signedFixed(x, 1)),
+          ].filter(Boolean).join("\n");
+          const x = colX[ci], y = rowY[ri], w = colW[ci], h = rowH[ri];
+          const txt = v != null ? metric.fmt(v) : "·";
+          return (
+            <g key={key}>
+              <rect x={x} y={y} width={w} height={h} rx={3} fill={fill}>
+                <title>{tip}</title>
+              </rect>
+              <text x={x + w / 2} y={y + h / 2} textAnchor="middle" fontSize={w < 40 ? 8.5 : 10.5}
+                className={`font-data pointer-events-none ${v != null ? (dark ? "fill-[#0c1218]" : "fill-text-primary") : "fill-text-dim"}`}>{txt}</text>
+              <text x={x + w / 2} y={y + h / 2 + 11} textAnchor="middle" fontSize={7} fillOpacity={0.65}
+                className={`font-data pointer-events-none ${dark ? "fill-[#0c1218]" : "fill-text-primary"}`}>
+                {sampleOf(metric.b, c)}
+              </text>
+            </g>
+          );
+        }))}
+        {/* rulebook strike zone around the inner 3x3 */}
+        <rect x={zx0} y={zy0} width={zx1 - zx0} height={zy1 - zy0} fill="none" stroke="currentColor" strokeOpacity={0.75}
+          strokeWidth={1.5} className="text-text-primary" />
+        {/* home plate under the zone; catcher's view, the point toward the catcher */}
+        <path d={`M ${zx0} ${plateY} H ${zx1} V ${plateY + 7} L ${(zx0 + zx1) / 2} ${plateY + 17} L ${zx0} ${plateY + 7} Z`}
+          fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.55} className="text-text-primary" />
+        <rect x={boxX} y={zy0} width={BOX} height={zy1 - zy0} rx={2} fill="none" stroke="currentColor" strokeOpacity={0.3}
+          strokeDasharray="4 3" className="text-text-dim" />
+        <text x={boxX + BOX / 2} y={(zy0 + zy1) / 2 + 3} textAnchor="middle" fontSize={9} className="fill-text-secondary font-data">{side}HH</text>
+      </svg>
+    </div>
+  );
+}
 
 export function ZoneGridPanel({ data, league }: { data: any | null; league?: any | null }) {
-  const [hand, setHand] = useState<"A" | "R" | "L">("A");
-  const [grp, setGrp] = useState<"" | "FB" | "BR" | "OS">("");
-  const [metric, setMetric] = useState<Metric>("swing");
-  const zones = data?.zones ?? null;
-  const split = zones?.[`${hand}${grp}`] ?? null;
-  // A switch hitter's sides differ by pitcher hand; each split draws on the side he batted from most in it.
-  const switchHitter = zones?.R?.s && zones?.L?.s && zones.R.s !== zones.L.s;
-  const ev = useMemo(() => {
-    const m = new Map<string, any>();
-    for (const c of data?.cells ?? []) m.set(`${c.zz}-${c.zx}`, c);
-    return m;
-  }, [data]);
-
-  if (!zones || !split) {
+  const [view, setView] = useState<"hand" | "all">("hand");
+  const [pick, setPick] = useState<string>("");
+  const [mkey, setMkey] = useState<string>("swing");
+  const metric = METRICS.find((m) => m.key === mkey) ?? METRICS[0];
+  const zg = data?.zgrid ?? null;
+  if (!zg?.A) {
     return (
       <div className="glass-panel p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-2">Where he swings</h2>
@@ -132,56 +243,18 @@ export function ZoneGridPanel({ data, league }: { data: any | null; league?: any
       </div>
     );
   }
-  const side: "R" | "L" = split.s === "L" ? "L" : "R";
-  const lgSplit = league?.[side]?.[`${hand}${grp}`] ?? {};
-
-  // Geometry (SVG units). Catcher's view: a RHH stands on the left (3B side), so his inside column is the left one.
-  const CW = 56, ZH = 46, BH = 30, X0 = 70, Y0 = 22;
-  const cols = side === "R" ? COLS : [...COLS].reverse();
-  const rowY: Record<string, [number, number]> = {
-    above: [Y0, BH], high: [Y0 + BH + 4, ZH], mid: [Y0 + BH + 4 + ZH, ZH], low: [Y0 + BH + 4 + 2 * ZH, ZH],
-    below: [Y0 + BH + 8 + 3 * ZH, BH],
-  };
-  const zoneTop = rowY.high[0], zoneBot = rowY.low[0] + ZH, gx1 = X0 + 3 * CW;
-  const plateY = rowY.below[0] + BH + 14, W = gx1 + 70, H = plateY + 34;
-  const boxX = side === "R" ? 8 : gx1 + 22;
-
-  const cellsOut = ZONE_ORDER.map((key, i) => {
-    const [zz, zx] = key.split("-");
-    const [n = 0, sw, wh, rv] = (split.c?.[i] ?? [0]) as number[];
-    const ok = sw != null;
-    const lg = lgSplit[key] as number[] | undefined;
-    const swing = ok ? pct(sw, n) : null;
-    const whiff = ok && sw >= 5 ? pct(wh, sw) : null;
-    const rv100 = ok ? (100 * rv) / n : null;
-    const lgSwing = lg ? pct(lg[1], lg[0]) : null;
-    const lgWhiff = lg ? pct(lg[2], lg[1]) : null;
-    const lgRv = lg && lg[0] ? (100 * lg[3]) / lg[0] : null;
-    const dWhiff = whiff != null && lgWhiff != null ? whiff - lgWhiff : null;
-    const dRv = rv100 != null && lgRv != null ? rv100 - lgRv : null;
-    let fill = "rgba(127,127,127,0.06)", label = "—";
-    if (metric === "swing" && swing != null) { fill = seqColor(swing / SWING_MAX); label = `${Math.round(swing)}%`; }
-    if (metric === "whiff" && dWhiff != null) { fill = divColor(-dWhiff, CAP.whiff); label = signedFixed(dWhiff, 0); }
-    if (metric === "rv" && dRv != null) { fill = divColor(dRv, CAP.rv); label = signedFixed(dRv, 1); }
-    const dark = metric === "swing" && swing != null && swing / SWING_MAX > 0.55;
-    const e = hand === "A" && grp === "" ? ev.get(key) : null;
-    const tip = [
-      `${ROW_LABEL[zz]}, ${COL_LABEL[zx].toLowerCase()} · ${n} pitches${ok ? "" : ` — under 15, too thin to rate`}`,
-      swing != null && `swung ${f1(swing)}%${lgSwing != null ? ` (league ${f1(lgSwing)}%)` : ""}`,
-      whiff != null && `whiff ${f1(whiff)}% of swings${lgWhiff != null ? ` (league ${f1(lgWhiff)}%, ${signedFixed(dWhiff, 1)})` : ""}`,
-      rv100 != null && `run value ${signedFixed(rv100, 1)}/100 pitches${lgRv != null ? ` (league ${signedFixed(lgRv, 1)}, ${signedFixed(dRv, 1)})` : ""}`,
-      e?.avgEv && `${e.avgEv} mph avg EV · ${e.hardHitPct ?? "—"}% hard-hit`,
-    ].filter(Boolean).join("\n");
-    const x = X0 + cols.indexOf(zx as any) * CW, [y, h] = rowY[zz];
-    return { key, x, y, h, fill, label, n, ok, dark, tip };
-  });
-
-  const legend = metric === "swing"
-    ? { bg: `linear-gradient(to right, ${SEQ_LO}, ${SEQ_HI})`, lo: "0%", mid: `${SWING_MAX / 2}%`, hi: `${SWING_MAX}%+` }
+  const hands = view === "hand" ? (["R", "L"] as const) : (["A"] as const);
+  const types = TYPES.filter(([t]) => hands.some((h) => zg[`${h}${t}`]));
+  const grp = TYPES.some(([t]) => t === pick) && !types.some(([t]) => t === pick) ? "" : pick;
+  const typeLabel = ({ FF: "four-seamers", SI: "sinkers", CT: "cutters", SL: "sliders", SW: "sweepers", CB: "curveballs",
+    CH: "changeups", FS: "splitters", FB: "fastballs", BR: "breaking balls", OS: "offspeed pitches" } as Record<string, string>)[grp] ?? "";
+  const switchHitter = zg.R?.s && zg.L?.s && zg.R.s !== zg.L.s;
+  const m = metric;
+  const legend = m.kind === "seq"
+    ? { bg: `linear-gradient(to right, ${SEQ_LO}, ${SEQ_HI})`, lo: m.fmt(m.lo!), mid: m.fmt((m.lo! + m.hi!) / 2), hi: `${m.fmt(m.hi!)}+` }
     : {
         bg: `linear-gradient(to right, ${[0, 0.25, 0.5, 0.75, 1].map((t) => percentileRamp(t)).join(", ")})`,
-        lo: metric === "whiff" ? `+${CAP.whiff} more whiffs` : `−${CAP.rv} runs`, mid: "league",
-        hi: metric === "whiff" ? `−${CAP.whiff} fewer` : `+${CAP.rv} runs`,
+        lo: m.fmt(m.lowerGood ? m.cap! : -m.cap!), mid: m.vsLg ? "league" : "0", hi: m.fmt(m.lowerGood ? -m.cap! : m.cap!),
       };
 
   return (
@@ -189,77 +262,49 @@ export function ZoneGridPanel({ data, league }: { data: any | null; league?: any
       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
         <div>
           <h2 className="text-[10px] font-semibold uppercase tracking-wider text-text-dim">Where he swings</h2>
-          <p className="text-[10px] text-text-dim">
-            {metric === "swing" ? "fill = swing rate" : metric === "whiff" ? "fill = whiff rate vs league, same cell and split" : "fill = run value per 100 pitches vs league, same cell and split"} · hover for n, whiff and damage
-          </p>
+          <p className="text-[10px] text-text-dim">fill = {m.what}{m.vsLg ? ", same side, split and cell" : ""} · hover any cell for all of it</p>
         </div>
         <span className="text-[10px] text-text-dim">{data.season} · catcher&apos;s view</span>
       </div>
-      <div className="flex flex-wrap gap-2 mb-3">
-        <Seg value={hand} set={setHand} opts={HANDS} />
-        <Seg value={grp} set={setGrp} opts={GROUPS} />
-        <Seg value={metric} set={setMetric} opts={METRICS} />
-      </div>
-      <div className="flex flex-col gap-3">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[340px] h-auto" role="img"
-          aria-label={`Zone chart, catcher's view, ${side === "R" ? "right" : "left"}-handed batter`}>
-          {/* column heads */}
-          {cols.map((zx, i) => (
-            <text key={zx} x={X0 + i * CW + CW / 2} y={Y0 - 8} textAnchor="middle" className="fill-text-dim" fontSize={9}>{COL_LABEL[zx]}</text>
-          ))}
-          {cellsOut.map((c) => (
-            <g key={c.key}>
-              <rect x={c.x + 1} y={c.y} width={CW - 2} height={c.h} rx={3} fill={c.fill}
-                stroke={c.ok ? "none" : "currentColor"} strokeOpacity={0.12} strokeDasharray={c.ok ? undefined : "3 3"}>
-                <title>{c.tip}</title>
-              </rect>
-              <text x={c.x + CW / 2} y={c.y + c.h / 2 + (c.h > 36 ? 0 : 3)} textAnchor="middle" fontSize={11}
-                className={`font-data pointer-events-none ${c.ok ? (c.dark ? "fill-[#0c1218]" : "fill-text-primary") : "fill-text-dim"}`}>
-                {c.ok ? c.label : c.n ? `n=${c.n}` : "·"}
-              </text>
-              {c.ok && c.h > 36 && (
-                <text x={c.x + CW / 2} y={c.y + c.h / 2 + 13} textAnchor="middle" fontSize={8}
-                  fillOpacity={0.7} className={`font-data pointer-events-none ${c.dark ? "fill-[#0c1218]" : "fill-text-primary"}`}>n={c.n}</text>
-              )}
-            </g>
-          ))}
-          {/* strike zone outline around the inner 3x3 */}
-          <rect x={X0} y={zoneTop - 2} width={3 * CW} height={zoneBot - zoneTop + 4} fill="none"
-            stroke="currentColor" strokeOpacity={0.7} strokeWidth={1.5} className="text-text-primary" />
-          {/* home plate, catcher's view: the point faces the catcher (down) */}
-          <path d={`M ${X0} ${plateY} H ${gx1} V ${plateY + 9} L ${X0 + 1.5 * CW} ${plateY + 22} L ${X0} ${plateY + 9} Z`}
-            fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.55} className="text-text-primary" />
-          {/* batter's box + hand */}
-          <rect x={boxX} y={zoneTop} width={40} height={zoneBot - zoneTop} rx={2} fill="none"
-            stroke="currentColor" strokeOpacity={0.3} strokeDasharray="4 3" className="text-text-dim" />
-          <text x={boxX + 20} y={(zoneTop + zoneBot) / 2} textAnchor="middle" fontSize={10} className="fill-text-secondary font-data">
-            {side}HH
-          </text>
-          <text x={side === "R" ? 4 : W - 4} y={plateY + 18} textAnchor={side === "R" ? "start" : "end"} fontSize={8} className="fill-text-dim">
-            {side === "R" ? "3B side" : "1B side"}
-          </text>
-        </svg>
-        <div className="w-full max-w-[340px]">
-          <div className="h-2 rounded-full" style={{ background: legend.bg }} />
-          <div className="mt-1 flex justify-between text-[9px] text-text-dim font-data">
-            <span>{legend.lo}</span><span>{legend.mid}</span><span>{legend.hi}</span>
-          </div>
-          {metric !== "swing" && (
-            <p className="mt-1 text-[9px] text-text-dim">green = good for the hitter, red = bad</p>
-          )}
-          {switchHitter && (
-            <p className="mt-2 text-[10px] text-text-secondary">
-              Switch hitter: each split draws from the side he batted from most in it (here {side === "R" ? "right" : "left"}-handed).
-            </p>
-          )}
+      <div className="flex flex-col gap-2 mb-3">
+        <div className="flex flex-wrap gap-2">
+          <Seg value={view} set={setView} opts={[["hand", "vs RHP | vs LHP"], ["all", "All pitchers"]] as const} />
+          <Seg value={grp} set={setPick} opts={GROUPS} />
         </div>
+        {types.length > 0 && <div><Seg value={grp} set={setPick} opts={types} /></div>}
+        <div><Seg value={mkey} set={setMkey} opts={METRICS.map((x) => [x.key, x.label] as const)} /></div>
       </div>
+      <div className={`grid gap-3 ${hands.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 max-w-[360px]"}`}>
+        {hands.map((h) => {
+          const key = `${h}${grp}`;
+          const sp = zg[key] ?? null;
+          return (
+            <ZonePlot key={h} title={h === "A" ? "All pitchers" : h === "R" ? "vs RHP" : "vs LHP"} split={sp}
+              lg={sp ? league?.[sp.s]?.[key] ?? null : null} metric={m}
+              note={`Under 50 ${typeLabel || "pitches"} from ${h === "R" ? "righties" : h === "L" ? "lefties" : "anyone"} — no chart.`} />
+          );
+        })}
+      </div>
+      <div className="mt-3 w-full max-w-[340px]">
+        <div className="h-2 rounded-full" style={{ background: legend.bg }} />
+        <div className="mt-1 flex justify-between text-[9px] text-text-dim font-data">
+          <span>{legend.lo}</span><span>{legend.mid}</span><span>{legend.hi}</span>
+        </div>
+        <p className="mt-1 text-[9px] text-text-dim">
+          {m.kind === "seq" ? "a level, not a verdict" : m.lowerGood ? "green = fewer whiffs than league (good for the hitter), red = more" : "green = good for the hitter, red = bad"}
+        </p>
+      </div>
+      {switchHitter && (
+        <p className="mt-2 text-[10px] text-text-secondary">Switch hitter: each panel is drawn from the side he batted from most in it.</p>
+      )}
       <p className="mt-3 text-[10px] leading-relaxed text-text-dim">
-        Catcher&apos;s view: a right-handed batter stands on the left. Inside/away are his inside/away (each pitch is
-        placed by the side he batted from), and those columns run on past the plate edge; the top and bottom thirds
-        reach 0.35 ft past the zone, and the rows above and below the box are the chase band beyond that. Cells under 15 pitches show only their n (dashed). League = every hitter on the same
-        side in the same season, split and cell. Run value is Statcast&apos;s change in run expectancy per pitch, from the
-        hitter&apos;s side.
+        Catcher&apos;s view: a right-handed batter stands on the left. The outlined 3x3 is the rulebook zone in thirds
+        (plate width with the ball&apos;s radius, ±0.83 ft; his own top and bottom); the outer ring is every pitch outside
+        it on that side, shadow and chase together. Inside/away are his (each pitch placed by the side he batted from).
+        Every cell is coloured by its raw value with its sample under it (pitches; swings for whiff; balls in play for
+        xwOBACON and hard-hit%) — a value on three pitches is three pitches, so read the n. Hard-hit% stands in for
+        EV90, which a cell of a few balls cannot hold. League = every hitter on the same side in the same season, split and cell. Run value is Statcast&apos;s
+        change in run expectancy per pitch, hitter-positive.
       </p>
     </div>
   );
