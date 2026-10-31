@@ -2,13 +2,15 @@
 
 /**
  * Catcher defense depth (docs/catcher-defense-plan.md), under the §76 framing card on the Defense tab.
- * Framing splits come from the site's §76 called-strike model; blocking and throwing are descriptive from Savant's
- * per-play rows, with Savant's expectations (xPBWP, exp CS) labelled as theirs. Locations are the catcher's view.
+ * Framing splits come from the site's §76 called-strike model; blocking is priced by our §108b expected WP+PB and
+ * throwing by our §108a-v2 xCS (floored) with §108c throwing + deterrence runs, Savant's expectations (xPBWP, exp CS,
+ * CS above average, throwing runs) beside them, labelled as theirs. Locations are the catcher's view.
  * Video: "Watch" opens Savant's own page for that play — linked, never embedded.
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PctChip, Signed, signedFixed, GOOD, BAD } from "@/components/ui/shared-ui";
+import { SortableTable, SortTh } from "@/components/ui/sortable-table";
 
 const VIDEO = "https://baseballsavant.mlb.com/sporty-videos?playId=";
 type Split = { k: string | number; n: number; v: number; runs: number; name?: string | null };
@@ -183,7 +185,8 @@ export function CatcherPanel({ playerId, season }: { playerId: string; season: n
       <div className="flex flex-wrap gap-2">
         {fr && <Tile label="Framing" value={<span>{signedFixed(fr.per100, 2)}</span>} sub={`strikes / 100 taken vs §76 model · ${fr.taken.toLocaleString("en-US")} taken`} pct={fr.pct} />}
         {bl && <Tile label="Blocking" value={<Signed v={bl.aa} dp={1} />} sub={`WP+PB prevented vs our expected (§108b) · ${bl.dirt} in the dirt`} pct={bl.pct} />}
-        {tw && <Tile label="Throwing" value={<Signed v={tw.csaa} dp={1} />} sub={`CS above Savant's expected · ${tw.att} attempts`} pct={tw.pct} />}
+        {tw && <Tile label="Throwing" value={<Signed v={tw.ours?.csax ?? tw.csaa} dp={1} />} sub={tw.ours ? `CS above our xCS · ${tw.ours.att} attempts · Savant ${signedFixed(tw.csaa, 1)}` : `CS above Savant's expected · ${tw.att} attempts`} pct={tw.pct} />}
+        {tw?.ours?.runs != null && <Tile label="Throwing runs" value={<Signed v={tw.ours.runs} dp={1} />} sub={`ours (CS + deterrence) · Savant ${tw.savant?.runs != null ? signedFixed(tw.savant.runs, 1) : "—"}`} />}
         {tw && <Tile label="Run deterrence" value={f(tw.att100, 2)} sub={`attempts per 100 chances (${(tw.opps ?? 0).toLocaleString("en-US")} pitches with a base open)`} pct={tw.pctRate} />}
       </div>
 
@@ -260,12 +263,19 @@ export function CatcherPanel({ playerId, season }: { playerId: string; season: n
       )}
 
       {tw && (
-        <Section title="Running game · throwing (descriptive; expected CS is Savant's)"
-          why="how often runners go on him and how often he gets them. CS above expected credits him for outs beyond what the runner's speed and lead predict; pop time (catch to the fielder's glove), exchange and arm show why. Pitcher time to plate is not public, so a pitcher's share shows as the lead runners take off him and how often they go.">
+        <Section title="Running game · throwing (site xCS, §108a-v2 / §108c; Savant's beside)"
+          why="how often runners go on him and how often he gets them. Our xCS is each attempt's chance of a caught stealing from the runner's speed and lead, the base, pitcher hand, pickoff throws and the lead that pitcher usually allows, scored by a model that never saw that season; CS above xCS is the outs he got beyond it. Throwing runs price those outs with base-out run expectancy and add deterrence: attempts runners did not make that a typical catcher would have drawn, times what an attempt is worth. Pop time (catch to the fielder's glove), exchange and arm show why. Savant's expected CS, CS above average and throwing runs are theirs, labelled.">
+          <div className="flex flex-wrap gap-2 text-[10px]">
+            <span className="rounded-md border border-border-subtle px-2 py-0.5 text-text-secondary">xCS: {tw.ours?.status ?? "ranking confirmed pre-2020; level era-specific; 2027 confirm pending"}</span>
+            <span className="rounded-md border border-border-subtle px-2 py-0.5 text-text-secondary">Deterrence: {tw.ours?.deterStatus ?? "passes 2020-26 only, small (about 0.2 runs sd)"}</span>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Tile label="Attempts" value={tw.att} sub={`${tw.sb} SB · ${tw.cs} CS`} />
-            <Tile label="CS%" value={f(tw.csPct)} sub={`Savant expected ${f(tw.xcs)} CS`} />
-            <Tile label="CS above exp." value={<Signed v={tw.csaa} dp={1} />} pct={tw.pct} />
+            <Tile label="CS%" value={f(tw.csPct)} sub={tw.ours ? `our xCS ${f(tw.ours.xcsPct)}% · ${tw.ours.att} to 2B/3B` : undefined} />
+            {tw.ours && <Tile label="CS above xCS" value={<Signed v={tw.ours.csax} dp={1} />} pct={tw.pct} sub={`ours · ${signedFixed(tw.ours.csaxPer, 3)} per attempt`} />}
+            {tw.ours?.runs != null && <Tile label="Throwing runs" value={<Signed v={tw.ours.runs} dp={1} />} sub={`ours: ${signedFixed(tw.ours.runsCS, 1)} CS + ${signedFixed(tw.ours.runsDeter, 2)} deterrence`} />}
+            {tw.ours?.deter && <Tile label="Attempts vs expected" value={<Signed v={tw.ours.deter.below} dp={1} />} sub={`ours: ${tw.ours.deter.att} made, ${f(tw.ours.deter.exp)} expected (+ = fewer)`} />}
+            <Tile label="Savant" value={<Signed v={tw.csaa} dp={1} />} pct={tw.pctSav} sub={`their CS above avg · exp CS ${f(tw.xcs)}${tw.savant?.runs != null ? ` · ${signedFixed(tw.savant.runs, 1)} runs` : ""}`} />
             <Tile label="Pop time" value={f(tw.pop, 2)} sub="s, on his throws" />
             <Tile label="Exchange" value={f(tw.exchange, 2)} sub="s" />
             <Tile label="Arm" value={f(tw.arm, 1)} sub="mph" />
@@ -273,18 +283,19 @@ export function CatcherPanel({ playerId, season }: { playerId: string; season: n
           <div className="grid gap-4 md:grid-cols-[320px_1fr]">
           <ThrowScatter events={events} />
           <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-[11px]">
+            <SortableTable className="w-full min-w-max text-[11px]">
               <thead><tr className="text-[10px] uppercase tracking-wider text-text-dim">
-                <th className="px-2 py-1 text-left font-semibold">Pitcher (click to filter plays)</th><th className={th}>Chances</th><th className={th}>Att</th><th className={th}>Att/100</th>
-                <th className={th}>SB</th><th className={th}>CS</th><th className={th}>Lead ft</th><th className={th}>Runner spd</th><th className={th}>CS vs exp</th></tr></thead>
+                <SortTh className="px-2 py-1 text-left font-semibold">Pitcher (click to filter plays)</SortTh><SortTh className={th}>Chances</SortTh><SortTh className={th}>Att</SortTh><SortTh className={th}>Att/100</SortTh>
+                <SortTh className={th}>SB</SortTh><SortTh className={th}>CS</SortTh><SortTh className={th}>Lead ft</SortTh><SortTh className={th}>Runner spd</SortTh><SortTh className={th} title="CS above our xCS (2B/3B attempts)">CS vs xCS</SortTh><SortTh className={th} title="CS above Savant's expected">vs Savant</SortTh></tr></thead>
               <tbody>{tw.byPitcher.map((r: any) => (
                 <tr key={r.id} className={`border-t border-border-subtle ${pitcher?.id === r.id ? "bg-current/[0.04]" : ""}`}>
                   <td className="px-2 py-1"><button type="button" onClick={() => setPitcher(pitcher?.id === r.id ? null : { id: r.id, name: r.name ?? String(r.id) })} className="text-left text-text-primary hover:underline">{r.name ?? r.id}</button></td>
                   <td className={`${td} text-text-dim`}>{r.opps || "—"}</td><td className={td}>{r.att}</td><td className={td}>{r.opps ? f((100 * r.att) / r.opps, 1) : "—"}</td>
                   <td className={td}>{r.sb}</td><td className={td}>{r.cs}</td><td className={td}>{f(r.lead)}</td><td className={td}>{f(r.spd)}</td>
+                  <td className={td}>{r.x2 != null && r.att2 ? <Signed v={r.cs2 - r.x2} dp={1} /> : "—"}</td>
                   <td className={td}><Signed v={r.cs - r.xcs} dp={1} /></td>
                 </tr>))}</tbody>
-            </table>
+            </SortableTable>
           </div>
           </div>
           <div>
@@ -296,7 +307,7 @@ export function CatcherPanel({ playerId, season }: { playerId: string; season: n
               <table className="w-full min-w-max text-[11px]">
                 <thead><tr className="text-[10px] uppercase tracking-wider text-text-dim">
                   <th className="px-2 py-1 text-left font-semibold">Date</th><th className="px-2 py-1 text-left font-semibold">Runner</th><th className="px-2 py-1 text-left font-semibold">Pitcher</th>
-                  <th className={th}>Base</th><th className={th}>Lead</th><th className={th}>Spd</th><th className={th}>Pop</th><th className={th}>Exp CS</th><th className={th}>Result</th><th className={th}>Video</th></tr></thead>
+                  <th className={th}>Base</th><th className={th}>Lead</th><th className={th}>Spd</th><th className={th}>Pop</th><th className={th} title="our xCS (§108a-v2)">xCS</th><th className={th} title="Savant's exp_cs">Sav exp</th><th className={th}>Result</th><th className={th}>Video</th></tr></thead>
                 <tbody>{[...events].reverse().map((e, i) => (
                   <tr key={i} className="border-t border-border-subtle">
                     <td className="px-2 py-1 font-data text-text-dim">{md(e.date)}</td>
@@ -304,6 +315,7 @@ export function CatcherPanel({ playerId, season }: { playerId: string; season: n
                     <td className="px-2 py-1 text-text-secondary">{e.pitcher}</td>
                     <td className={td}>{e.base}</td><td className={td}>{f(e.lead)}</td><td className={td}>{f(e.spd)}</td>
                     <td className={td}>{e.held ? <span className="text-text-dim" title="no throw">held</span> : f(e.pop, 2)}</td>
+                    <td className={td}>{e.x2 != null ? `${Math.round(100 * e.x2)}%` : "—"}</td>
                     <td className={`${td} text-text-dim`}>{e.xcs != null ? `${Math.round(100 * e.xcs)}%` : "—"}</td>
                     <td className={td} style={{ color: e.res === "CS" ? GOOD : undefined }}>{e.res}</td>
                     <td className={td}>{e.pid ? <a href={VIDEO + e.pid} target="_blank" rel="noopener noreferrer" className="text-usf-gold hover:underline">Watch ↗</a> : "—"}</td>
@@ -313,7 +325,7 @@ export function CatcherPanel({ playerId, season }: { playerId: string; season: n
           </div>
         </Section>
       )}
-      <p className="text-[10px] text-text-dim">Framing: site model (RESULTS-MLB §76). Blocking: Baseball Savant&apos;s public per-play rows priced by our expected WP+PB (§108b, passed its gates). Throwing: Savant&apos;s rows and their expected CS, labelled (our xCS failed a calibration gate, §108a). Watch opens Baseball Savant&apos;s video of the pitch the runner went on (or the wild pitch / passed ball). Percentiles among that season&apos;s catchers with {">"}100 pitches in the dirt / 15+ attempts.</p>
+      <p className="text-[10px] text-text-dim">Framing: site model (RESULTS-MLB §76). Blocking: Baseball Savant&apos;s public per-play rows priced by our expected WP+PB (§108b, passed its gates). Throwing: Savant&apos;s rows priced by our xCS (§108a-v2: shipped on leave-one-season-out; §108c: ranking confirmed on 2016-19, level era-specific, 2027 confirm pending), runs and deterrence from §108c; Savant&apos;s expected CS and runs labelled. Watch opens Baseball Savant&apos;s video of the pitch the runner went on (or the wild pitch / passed ball). Percentiles among that season&apos;s catchers with {">"}100 pitches in the dirt / 15+ attempts.</p>
     </div>
   );
 }

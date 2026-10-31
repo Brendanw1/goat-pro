@@ -32,6 +32,10 @@ ROOT, CACHE, RES = PIPE.parent, PIPE.parent / "cache", PIPE / "results"
 SITE_FAM = {"FF": "FF", "SI": "SI", "FC": "CT", "SL": "SL", "SW": "SW", "ST": "SW", "SV": "SL", "CU": "CB", "KC": "CB",
             "CS": "CB", "CH": "CH", "FS": "FS", "FO": "FS"}
 K_SPLIT, MIN_TAKEN, MIN_SPLIT, MIN_ATT_RANK, MIN_DIRT_RANK = 100, 500, 50, 15, 100
+MIN_PITCHER_OPPS = 30  # pitcher running-game files: Savant board rows with 30+ runner-on opportunities
+LO, HI = .005, .995  # §108c probability floor on v2 xCS
+V2_STATUS = "ranking confirmed pre-2020; level era-specific; 2027 confirm pending"
+DETER_STATUS = "passes 2020-26 only, small (about 0.2 runs sd)"
 VIDEO = "https://baseballsavant.mlb.com/sporty-videos?playId="
 
 
@@ -135,8 +139,17 @@ def bake(out: Path) -> dict:
     bl = bl.merge(ours, on="play_id", how="left")
     bl["x_sav"] = bl["x_runner_pbwp"]
     bl["x_runner_pbwp"] = bl["p"].fillna(bl["x_sav"])
+    # §108a-v2 xCS (shipped on LOSO, §108c: ranking confirmed pre-2020): each attempt's leave-one-season-out
+    # prediction, floored to [.005, .995]. Population = steals of 2B/3B, pitchouts out; home steals carry none.
+    k4 = ["game_pk", "at_bat_number", "play_init_seq", "runner_id"]
+    v2 = pd.read_parquet(CACHE / "catcher" / "xcs_v2_pred.parquet")[k4 + ["p"]]
+    v2["x2"] = v2["p"].clip(LO, HI)
+    th = th.merge(v2[k4 + ["x2"]], on=k4, how="left")
+    th["cs2"] = np.where(th["x2"].notna(), th["is_runner_cs"], np.nan)
+    runs = pd.read_parquet(CACHE / "catcher" / "throwing_runs_108c.parquet").set_index(["catcher", "season"])
+    deter = pd.read_parquet(CACHE / "catcher" / "deterrence_108c.parquet").set_index(["catcher", "season"])
     opps = running_opps(con)
-    lb = {s: con.sql(f"SELECT player_id, pop_time, exchange_time, arm_strength, caught_stealing_above_average FROM "
+    lb = {s: con.sql(f"SELECT player_id, pop_time, exchange_time, arm_strength, caught_stealing_above_average, catcher_stealing_runs FROM "
                      f"lb_catcher_throwing_{s}").df() for s in range(2020, 2027)}
     lbb = {s: con.sql(f"SELECT player_id, blocks_above_average, catcher_blocking_runs FROM lb_catcher_blocking_{s}").df()
            for s in range(2021, 2027)}
@@ -145,8 +158,10 @@ def bake(out: Path) -> dict:
     fr_cs = fr.groupby(["mlbam", "season"]).size().rename("taken")
     t_cs = th.groupby(["catcher_id", "year"]).agg(att=("is_runner_cs", "size"), cs=("is_runner_cs", "sum"),
                                                   sb=("is_runner_sb", "sum"), xcs=("exp_cs", "sum"),
-                                                  pop=("pop_time", "mean"), lead=("r_primary_lead", "mean"))
+                                                  pop=("pop_time", "mean"), lead=("r_primary_lead", "mean"),
+                                                  att2=("x2", "count"), x2=("x2", "sum"), cs2=("cs2", "sum"))
     t_cs["csaa"] = t_cs["cs"] - t_cs["xcs"]
+    t_cs["csax"] = np.where(t_cs["att2"] > 0, t_cs["cs2"] - t_cs["x2"], np.nan)
     b_cs = bl.groupby(["catcher_id", "year"]).agg(opp=("is_runner_pbwp", "size"), dirt=("is_pitch_ground", "sum"),
                                                   pbwp=("is_runner_pbwp", "sum"), x=("x_runner_pbwp", "sum"),
                                                   xsav=("x_sav", "sum"))
@@ -155,7 +170,8 @@ def bake(out: Path) -> dict:
     t_cs["opps"] = [o_cs.get((c, s), np.nan) for c, s in t_cs.index]
     t_cs["att100"] = 100 * t_cs["att"] / t_cs["opps"]
     tq, bq = t_cs[t_cs["att"] >= MIN_ATT_RANK], b_cs[b_cs["dirt"] >= MIN_DIRT_RANK]
-    t_cs["pct"] = tq.groupby(level=1)["csaa"].transform(pct_rank)
+    t_cs["pct"] = tq.groupby(level=1)["csax"].transform(pct_rank)
+    t_cs["pct_sav"] = tq.groupby(level=1)["csaa"].transform(pct_rank)
     t_cs["pct_rate"] = tq.groupby(level=1)["att100"].transform(lambda v: pct_rank(v, higher_good=False))
     b_cs["pct"] = bq.groupby(level=1)["baa"].transform(pct_rank)
     fpct = fc.set_index(["mlbam", "season"])
@@ -214,7 +230,10 @@ def bake(out: Path) -> dict:
             o = opps[(opps["catcher"] == cid) & (opps["season"] == s)].set_index("pitcher")["opps"]
             pit = e.groupby("pitcher_id").agg(att=("is_runner_cs", "size"), sb=("is_runner_sb", "sum"),
                                               cs=("is_runner_cs", "sum"), lead=("r_primary_lead", "mean"),
-                                              spd=("seasonal_sprint_speed", "mean"), xcs=("exp_cs", "sum")).reset_index()
+                                              spd=("seasonal_sprint_speed", "mean"), xcs=("exp_cs", "sum"),
+                                              att2=("x2", "count"), x2=("x2", "sum"), cs2=("cs2", "sum")).reset_index()
+            rr = runs.loc[(cid, s)] if (cid, s) in runs.index else None
+            dd = deter.loc[(cid, s)] if (cid, s) in deter.index else None
             doc["throwing"] = {
                 "att": int(t.att), "sb": int(t.sb), "cs": int(t.cs), "csPct": rnd(100 * t.cs / t.att, 1),
                 "xcs": rnd(t.xcs, 1), "csaa": rnd(t.csaa, 1), "opps": None if pd.isna(t.opps) else int(t.opps),
@@ -224,17 +243,32 @@ def bake(out: Path) -> dict:
                 "arm": rnd(e["pos2_f_arm_strength"].mean(), 1), "lead": rnd(t.lead, 1),
                 "savant": {k: rnd(svr.iloc[0][c], nd) for k, c, nd in
                            (("pop", "pop_time", 2), ("exchange", "exchange_time", 2), ("arm", "arm_strength", 1),
-                            ("csaa", "caught_stealing_above_average", 1))} if len(svr) else None,
+                            ("csaa", "caught_stealing_above_average", 1), ("runs", "catcher_stealing_runs", 1))}
+                if len(svr) else None,
+                "pctSav": rnd(t.pct_sav, 0) if pd.notna(t.pct_sav) else None,
+                # site model (§108a-v2 xCS, §108c runs + deterrence); Savant's exp CS stays beside it as "xcs"/"csaa"
+                "ours": {"att": int(t.att2), "xcs": rnd(t.x2, 1), "cs": int(t.cs2),
+                         "xcsPct": rnd(100 * t.x2 / t.att2, 1) if t.att2 else None,
+                         "csax": rnd(t.csax, 1), "csaxPer": rnd(t.csax / t.att2, 3) if t.att2 else None,
+                         "runsCS": rnd(rr["csaa_runs"], 2) if rr is not None else None,
+                         "runsDeter": rnd(dd["det_runs"], 2) if dd is not None else None,
+                         "runs": rnd((rr["csaa_runs"] if rr is not None else 0) + (dd["det_runs"] if dd is not None else 0), 2)
+                         if rr is not None or dd is not None else None,
+                         "deter": {"opps": int(dd["n"]), "pitches": int(dd["pitches"]), "att": int(dd["act"]),
+                                   "exp": rnd(dd["exp"], 1), "below": rnd(dd["det"], 1)} if dd is not None else None,
+                         "status": V2_STATUS, "deterStatus": DETER_STATUS},
                 "byPitcher": [{"id": int(r.pitcher_id), "name": nm.get(int(r.pitcher_id)), "att": int(r.att),
                                "sb": int(r.sb), "cs": int(r.cs), "lead": rnd(r.lead, 1), "spd": rnd(r.spd, 1),
-                               "xcs": rnd(r.xcs, 1), "opps": int(o.get(r.pitcher_id, 0))}
+                               "xcs": rnd(r.xcs, 1), "opps": int(o.get(r.pitcher_id, 0)),
+                               "att2": int(r.att2), "x2": rnd(r.x2, 1), "cs2": int(r.cs2)}
                               for r in pit.sort_values("att", ascending=False).itertuples()],
                 "events": [{"date": r.game_date, "base": r.target_base, "runner": flip(r.runner_name), "rid": int(r.runner_id),
                             "pitcher": flip(r.pitcher_name), "pitcherId": int(r.pitcher_id), "spd": rnd(r.seasonal_sprint_speed, 1),
                             "lead": rnd(r.r_primary_lead, 1), "pop": rnd(r.pop_time, 2),
                             "exch": rnd(r.pos2_f_exchange, 2), "arm": rnd(r.pos2_f_arm_strength, 1),
                             "res": "CS" if r.is_runner_cs == 1 else "SB", "held": int(r.is_throw_held == 1),
-                            "xcs": rnd(r.exp_cs, 3), "pid": r.play_id if isinstance(r.play_id, str) else None}
+                            "xcs": rnd(r.exp_cs, 3), "x2": rnd(r.x2, 3),
+                            "pid": r.play_id if isinstance(r.play_id, str) else None}
                            for r in e.itertuples()],
             }
         if not any(k in doc for k in ("framing", "blocking", "throwing")):
@@ -251,12 +285,53 @@ def bake(out: Path) -> dict:
             "blockPct": bb["pct"] if bb else None,
             "att": tb["att"] if tb else None, "sb": tb["sb"] if tb else None, "cs": tb["cs"] if tb else None,
             "csaa": tb["csaa"] if tb else None, "throwPct": tb["pct"] if tb else None,
+            "throwPctSav": tb["pctSav"] if tb else None,
+            "xcsPct": tb["ours"]["xcsPct"] if tb else None, "csax": tb["ours"]["csax"] if tb else None,
+            "csaxPer": tb["ours"]["csaxPer"] if tb else None, "throwRuns": tb["ours"]["runs"] if tb else None,
+            "deterRuns": tb["ours"]["runsDeter"] if tb else None,
+            "attBelow": tb["ours"]["deter"]["below"] if tb and tb["ours"]["deter"] else None,
+            "savRuns": tb["savant"]["runs"] if tb and tb["savant"] else None,
             "att100": tb["att100"] if tb else None, "pop": tb["pop"] if tb else None, "arm": tb["arm"] if tb else None})
     jwrite(out / "catcher" / "board.json", {
         "_comment": "Catcher board: framing = §76 site model (shrunk runs); blocking = WP+PB prevented vs our §108b "
-                    "expectation; throwing = CS above Savant's exp_cs. Per-play rows: Savant's public leaderboard drill-downs.",
-        "video": VIDEO, "seasons": board}, sort_keys=True)
-    return {"files": files, "board_rows": sum(len(v) for v in board.values())}
+                    "expectation; throwing = CS above our §108a-v2 xCS (floored) + §108c throwing/deterrence runs, with "
+                    "Savant's exp_cs / CS above average / throwing runs beside. Per-play rows: Savant's public drill-downs.",
+        "video": VIDEO, "status": {"xcs": V2_STATUS, "deter": DETER_STATUS}, "seasons": board}, sort_keys=True)
+    pfiles = pitcher_files(out, th, nm)
+    return {"files": files, "pitcher_files": pfiles, "board_rows": sum(len(v) for v in board.values())}
+
+
+def pitcher_files(out: Path, th: pd.DataFrame, nm: dict) -> int:
+    """catcher/p/{pitcher}-{season}.json.gz: the pitcher's side of the running game. Lead distances and SB/CS/PK
+    counts are Savant's pitcher-running-game board (descriptive, labelled); CS against our xCS is the site's v2
+    model summed over attempts with him pitching (2B/3B, pitchouts out)."""
+    rb = pd.concat([pd.read_parquet(p) for p in sorted((CACHE / "catcher").glob("pitcher_running_*.parquet"))],
+                   ignore_index=True)
+    rb["pitcher_id"], rb["season"] = rb["pitcher_id"].astype(int), rb["season"].astype(int)
+    rb = rb[rb["n_init"] >= MIN_PITCHER_OPPS].copy()
+    lg = rb.groupby("season").apply(lambda d: float((d["n_init"] * d["r_sec_minus_prim_lead"]).sum() / d["n_init"].sum()))
+    q = rb[rb["n_init"] >= 200]
+    rb["pct_gain"] = q.groupby("season")["r_sec_minus_prim_lead"].transform(lambda v: pct_rank(v, higher_good=False))
+    a = th[th["x2"].notna()].groupby(["pitcher_id", "year"]).agg(att=("x2", "size"), cs=("cs2", "sum"), x2=("x2", "sum"),
+                                                                 sb=("is_runner_sb", "sum"), xsav=("exp_cs", "sum"))
+    n = 0
+    for r in rb.itertuples():
+        pid, s = int(r.pitcher_id), int(r.season)
+        t = a.loc[(pid, s)] if (pid, s) in a.index else None
+        doc = {"id": str(pid), "season": s, "name": nm.get(pid) or flip(r.player_name),
+               "_comment": "Pitcher running game: lead distances and SB/CS/PK are Savant's pitcher-running-game board "
+                           "(descriptive); CS above xCS against uses the site's §108a-v2 xCS (floored)",
+               "savant": {"opps": int(r.n_init), "sb": int(r.n_sb), "cs": int(r.n_cs), "pk": int(r.n_pk),
+                          "lead": rnd(r.r_primary_lead, 1), "secLead": rnd(r.r_secondary_lead, 1),
+                          "gain": rnd(r.r_sec_minus_prim_lead, 2), "gainLg": rnd(lg[s], 2),
+                          "gainPct": rnd(r.pct_gain, 0) if pd.notna(r.pct_gain) else None,
+                          "attRate": rnd(100 * r.rate_sbx, 2), "runs": rnd(r.runs_prevented_on_running_attr, 1)},
+               "ours": {"att": int(t.att), "sb": int(t.sb), "cs": int(t.cs), "xcs": rnd(t.x2, 1),
+                        "csax": rnd(t.cs - t.x2, 1), "xsav": rnd(t.xsav, 1), "status": V2_STATUS}
+               if t is not None else None}
+        jwrite_gz(out / "catcher" / "p" / f"{pid}-{s}.json.gz", doc, sort_keys=True)
+        n += 1
+    return n
 
 
 def tree(d: Path) -> dict:

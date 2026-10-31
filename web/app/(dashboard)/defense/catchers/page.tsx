@@ -13,7 +13,8 @@ type Q = { season?: string; sort?: string; order?: string };
 /**
  * The catcher board (docs/catcher-defense-plan.md): the three jobs side by side per season. Framing = the site's
  * §76 model (shrunk runs, Framing+); blocking = wild pitches + passed balls prevented vs our §108b expectation;
- * throwing = caught stealing above Savant's expectation, plus how often runners even try. The profile Defense tab
+ * throwing = caught stealing above our §108a-v2 xCS (floored) with §108c throwing and deterrence runs, Savant's
+ * expected CS, CS above average and throwing runs beside it, plus how often runners even try. The profile Defense tab
  * carries the splits, the dirt map, the per-pitcher tables and every attempt with a link to its video.
  */
 const COLS: { key: string; label: string; nd: number; signed?: boolean; lowGood?: boolean; pct?: string; tip: string }[] = [
@@ -22,7 +23,14 @@ const COLS: { key: string; label: string; nd: number; signed?: boolean; lowGood?
   { key: "blockAA", label: "Blocks +", nd: 1, signed: true, pct: "blockPct", tip: "WP+PB prevented vs our expected (§108b model)" },
   { key: "dirt", label: "Dirt", nd: 0, tip: "pitches in the dirt with a runner on" },
   { key: "pbwp", label: "WP+PB", nd: 0, lowGood: true, tip: "wild pitches + passed balls" },
-  { key: "csaa", label: "CS +", nd: 1, signed: true, pct: "throwPct", tip: "caught stealing above Savant's expected" },
+  { key: "xcsPct", label: "xCS%", nd: 1, tip: "Site model (§108a-v2): expected caught-stealing rate on the attempts he faced, from runner speed, lead, base, pitcher hand, pickoffs and the pitcher's lead allowed" },
+  { key: "csax", label: "CS + ours", nd: 1, signed: true, pct: "throwPct", tip: "caught stealing above our xCS (count)" },
+  { key: "csaxPer", label: "CS+/att", nd: 3, signed: true, tip: "caught stealing above our xCS per attempt" },
+  { key: "throwRuns", label: "Throw runs", nd: 1, signed: true, tip: "Site (§108c): CS above xCS in runs (base-out run expectancy) + deterrence runs" },
+  { key: "deterRuns", label: "Deter runs", nd: 2, signed: true, tip: "Site (§108c): attempts below expected × the season's run value of an attempt. Passes 2020-26 only; small (about 0.2 runs sd)" },
+  { key: "attBelow", label: "Att below exp", nd: 1, signed: true, tip: "Site (§108c): steal attempts expected on him minus attempts made (runner, base-out state, score, inning, pitcher lead allowed); + = runners stayed put" },
+  { key: "csaa", label: "CS + Savant", nd: 1, signed: true, pct: "throwPctSav", tip: "Savant's: caught stealing above their expected CS" },
+  { key: "savRuns", label: "Runs Savant", nd: 1, signed: true, tip: "Savant's catcher throwing runs" },
   { key: "att", label: "Att", nd: 0, tip: "stolen-base attempts with him catching" },
   { key: "cs", label: "CS", nd: 0, tip: "caught stealing" },
   { key: "att100", label: "Att/100", nd: 2, lowGood: true, tip: "attempts per 100 pitches with a runner on and the next base open (lower = runners stay put)" },
@@ -61,14 +69,22 @@ export default async function CatchersPage({ searchParams }: { searchParams?: Pr
         <DescriptiveChip />
         <span className="text-[11px] text-text-dim hidden md:inline">{DESCRIPTIVE_LINE}</span>
       </div>
+      <div className="flex flex-wrap gap-2 text-[11px]">
+        <span className="rounded-md border border-border-subtle px-2 py-0.5 text-text-secondary" title="RESULTS-MLB §108a-v2 / §108c">
+          xCS (ours): {board?.status?.xcs ?? "ranking confirmed pre-2020; level era-specific; 2027 confirm pending"}</span>
+        <span className="rounded-md border border-border-subtle px-2 py-0.5 text-text-secondary" title="RESULTS-MLB §108c">
+          Deterrence: {board?.status?.deter ?? "passes 2020-26 only, small (about 0.2 runs sd)"}</span>
+      </div>
       <p className="text-xs text-text-dim max-w-[85ch]">
         <span className="text-text-secondary">What this tells you:</span> the three parts of a catcher&apos;s defense
         side by side. <span className="text-text-secondary">Framing</span> is our model (§76): strikes won above a
         called-strike model that never saw him, in runs. <span className="text-text-secondary">Blocks +</span> is
         wild pitches and passed balls kept off the board against our model&apos;s expectation for those exact pitches (§108b, gated against Savant&apos;s: r .92).{" "}
-        <span className="text-text-secondary">CS +</span> is runners thrown out beyond what their speed and lead
-        predicted (Savant&apos;s expectation), and <span className="text-text-secondary">Att/100</span> is how often
-        they try at all. Plus is good for the catcher everywhere; chips are percentiles among that season&apos;s
+        <span className="text-text-secondary">CS + ours</span> is runners thrown out beyond our own xCS (speed, lead,
+        base, pickoffs, the pitcher&apos;s lead allowed; §108a-v2), <span className="text-text-secondary">Throw runs</span>{" "}
+        prices that in runs plus <span className="text-text-secondary">deterrence</span> (attempts below expected, §108c),
+        and <span className="text-text-secondary">Att/100</span> is how often they try at all. Savant&apos;s CS above average
+        and throwing runs sit beside ours, labelled. Plus is good for the catcher everywhere; chips are percentiles among that season&apos;s
         catchers. Click a name for the splits, the dirt map, and every steal attempt with a link to its video.
       </p>
       <div className="flex flex-wrap items-center gap-2">
@@ -115,9 +131,11 @@ export default async function CatchersPage({ searchParams }: { searchParams?: Pr
       </div>}
       <p className="text-[11px] text-text-dim max-w-[85ch]">
         Sources: framing from the site&apos;s §76 model (RESULTS-MLB); blocking from Baseball Savant&apos;s
-        public per-play catcher rows priced by our §108b expectation; throwing from the same rows with Savant&apos;s expected CS, labelled (our own xCS failed a calibration gate, §108a). Pitcher time to plate
-        is not public, so the pitcher&apos;s side of the running game shows on each catcher&apos;s profile as the lead runners
-        take. Rows: 1,000+ taken pitches or 10+ attempts.
+        public per-play catcher rows priced by our §108b expectation; throwing from the same rows priced by our §108a-v2 xCS
+        (each attempt scored by a model that never saw its season, floored to 0.5%-99.5%), runs from the site&apos;s base-out
+        run expectancy (§108c). Savant&apos;s expected CS, CS above average and throwing runs are theirs, labelled. Pitcher time
+        to plate is not public; the pitcher&apos;s side of the running game (lead gained, SB/CS against our xCS) is on each
+        pitcher&apos;s profile. Rows: 1,000+ taken pitches or 10+ attempts.
       </p>
     </div>
   );

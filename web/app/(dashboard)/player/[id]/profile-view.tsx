@@ -17,6 +17,7 @@ import { ExpandableCard } from "@/components/ui/expandable-card";
 import { VAAGrid } from "@/components/charts/vaa-grid";
 import { PROFILE_PCT_FLOOR, GRADE_PCT_FLOOR, NEUTRAL_GREY, percentileColor, getPitcherPercentileRank, ordinal } from "@/lib/percentiles";import { HeaderStat, PercentileGroup, PercentilePanel, ThinSampleBanner, statRow, type PctRow } from "@/components/ui/percentile-row";
 import { AboutThis } from "@/components/ui/discipline-block";
+import { PitcherRunningPanel } from "@/components/ui/pitcher-running-panel";
 import { ProfileTabs, ProfileTabPanel, TABS_FOR } from "@/components/ui/profile-tabs";
 import { GradePct, gradedN } from "@/components/ui/grade-pct";
 import { DynamicStuffLab } from "@/components/3d/lab-dynamic";
@@ -1088,6 +1089,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
           <PitchRvCard data={pitchRv} season={profile.season} />
           {zoneMix && <LocationMixPanel data={zoneMix} playerId={playerId} name={profile.name} />}
           <SituationalRunsPanel data={situational ?? null} name={profile.name} />
+          {level !== "aaa" && <PitcherRunningPanel playerId={String(playerId)} season={profile.season} />}
         </div>
       </div>
       )}
