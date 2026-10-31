@@ -1,7 +1,8 @@
 """§108 (RESULTS-MLB): our xCS% and expected WP+PB, pre-registered before any read. Run once.
 
     python pipeline/catcher_models.py          # fit, gate, write results/catcher_models_SEALED.json + cache/catcher/*_pred.parquet
-    python pipeline/catcher_models.py --demo   # self-checks of the decile gap and the shrunk baseline
+    python pipeline/catcher_models.py --v2     # §108a-v2 (pre-registered f770c20): LOSO xCS%, writes results/catcher_xcs_v2_SEALED.json
+    python pipeline/catcher_models.py --demo   # self-checks of the decile gap, the shrunk baseline and the v2 lead feature
 
 Catcher-grouped 5-fold CV on the training seasons; the last season (2026) held out and scored once by a model fit on
 every training season. Baselines and gates exactly as written in §108.
@@ -13,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
+from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import log_loss, roc_auc_score
 from sklearn.model_selection import GroupKFold
 
@@ -145,6 +147,134 @@ def xpbwp(con):
     return out
 
 
+# §108a-v2 (RESULTS-MLB, pre-registered f770c20 before any fit or read)
+PARAMS_V2 = dict(num_leaves=7, max_depth=3, n_estimators=200, learning_rate=0.05, min_child_samples=200, random_state=7,
+                 n_jobs=4, verbose=-1)
+K_LEAD = 300
+FEATS_V2 = ["seasonal_sprint_speed", "r_primary_lead", "base3", "lhp", "is_sba_delayed", "prior_pk", "season", "lead_gain"]
+
+
+def lead_other(pitcher, season, t, board, k=K_LEAD):
+    """Pitcher's n_init-weighted lead gained over board seasons not in {season, t}, shrunk to the league of the same seasons."""
+    b = board.set_index(["pitcher_id", "season"])
+    lg = board.groupby("season")[["n", "nx"]].sum()
+    pt = board.groupby("pitcher_id")[["n", "nx"]].sum()
+    out = np.empty(len(pitcher))
+    for i, (pid, s) in enumerate(zip(pitcher, season)):
+        excl = {s, t}
+        L = lg.drop(index=[e for e in excl if e in lg.index]).sum()
+        lmean = L["nx"] / L["n"]
+        n, nx = (pt.loc[pid, "n"], pt.loc[pid, "nx"]) if pid in pt.index else (0.0, 0.0)
+        for e in excl:
+            if (pid, e) in b.index:
+                n, nx = n - b.loc[(pid, e), "n"], nx - b.loc[(pid, e), "nx"]
+        out[i] = (nx + k * lmean) / (n + k)
+    return out
+
+
+def fit_cal(tr, label):
+    """Shallow LightGBM + isotonic fitted on inner OOF (5-fold grouped by catcher) predictions only."""
+    oof = np.zeros(len(tr))
+    for a, b in GroupKFold(n_splits=5).split(tr, tr[label], groups=tr["catcher"]):
+        m = LGBMClassifier(**PARAMS_V2).fit(tr.iloc[a][FEATS_V2], tr.iloc[a][label])
+        oof[b] = m.predict_proba(tr.iloc[b][FEATS_V2])[:, 1]
+    iso = IsotonicRegression(y_min=0, y_max=1, out_of_bounds="clip").fit(oof, tr[label])
+    m = LGBMClassifier(**PARAMS_V2).fit(tr[FEATS_V2], tr[label])
+    return lambda X: iso.predict(m.predict_proba(X[FEATS_V2])[:, 1])
+
+
+def xcs_v2(con):
+    th = pd.concat([pd.read_parquet(p) for p in sorted(CACHE.glob("throwing_*.parquet"))], ignore_index=True)
+    th = th[(th["is_pitchout"] != 1) & th["target_base"].isin(["2B", "3B"])].drop_duplicates(
+        ["game_pk", "at_bat_number", "play_init_seq", "runner_id"]).rename(columns={"catcher_id": "catcher", "year": "season"})
+    pk = pd.concat([pd.read_parquet(p) for p in sorted(CACHE.glob("pickoffs_*.parquet"))]).drop_duplicates(["play_id", "runner_id"])
+    th = th.merge(pk[["play_id", "runner_id", "prior_pk"]], on=["play_id", "runner_id"], how="left").reset_index(drop=True)
+    board = pd.concat([pd.read_parquet(p) for p in sorted(CACHE.glob("pitcher_running_*.parquet"))], ignore_index=True)
+    board = board[board["r_sec_minus_prim_lead"].notna() & (board["n_init"] > 0)].assign(
+        n=lambda d: d["n_init"].astype(float), nx=lambda d: d["n_init"] * d["r_sec_minus_prim_lead"].astype(float))
+    board["pitcher_id"] = board["pitcher_id"].astype(int)
+    th["pitcher_id"], th["season"] = th["pitcher_id"].astype(int), th["season"].astype(int)
+    board["season"] = board["season"].astype(int)
+    th["base3"] = (th["target_base"] == "3B").astype(int)
+    th["lhp"] = (th["pitch_hand"] == "L").astype(int)
+    same = board.set_index(["pitcher_id", "season"])["r_sec_minus_prim_lead"].astype(float)
+    lg_season = board.groupby("season").apply(lambda d: d["nx"].sum() / d["n"].sum())
+    th["lead_same"] = [same.get((p, s), np.nan) for p, s in zip(th["pitcher_id"], th["season"])]
+    th["lead_same"] = th["lead_same"].fillna(th["season"].map(lg_season))
+    th["lead_lg"] = th["season"].map(lg_season)
+    y_all = "is_runner_cs"
+    parts = []
+    for t in range(2020, 2027):
+        te = th[th["season"] == t].copy()
+        trall = th[th["season"] != t].copy()
+        trall["lead_gain"] = lead_other(trall["pitcher_id"].to_numpy(), trall["season"].to_numpy(), t, board)
+        te["lead_gain"] = lead_other(te["pitcher_id"].to_numpy(), te["season"].to_numpy(), t, board)
+        te["p"], te["p_same"], te["p_lg"] = np.nan, np.nan, np.nan
+        for _, b in GroupKFold(n_splits=5).split(te, te[y_all], groups=te["catcher"]):
+            idx = te.index[b]
+            tr = trall[~trall["catcher"].isin(te.loc[idx, "catcher"].unique())].reset_index(drop=True)
+            f = fit_cal(tr, y_all)
+            te.loc[idx, "p"] = f(te.loc[idx])
+            te.loc[idx, "p_same"] = f(te.loc[idx].assign(lead_gain=te.loc[idx, "lead_same"]))
+            te.loc[idx, "p_lg"] = f(te.loc[idx].assign(lead_gain=te.loc[idx, "lead_lg"]))
+        near = t - 1 if t > 2020 else 2021
+        last = th[th["season"] == near]
+        lgb = last.groupby("base3")[y_all].mean()
+        te["p_league"] = te["base3"].map(lgb).fillna(last[y_all].mean())
+        lr = trall[y_all].mean()
+        c = trall.groupby("catcher")[y_all].agg(["sum", "size"])
+        te["p_catcher"] = [shrunk_rate(c.loc[i, "sum"], c.loc[i, "size"], lr, 30) if i in c.index else lr
+                           for i in te["catcher"]]
+        parts.append(te)
+        print(f"fold {t} scored ({len(te)} attempts)", flush=True)
+    pred = pd.concat(parts, ignore_index=True)
+    y = pred[y_all].to_numpy()
+    ll = {k: float(log_loss(y, pred[c])) for k, c in (("model", "p"), ("league", "p_league"), ("catcher_only", "p_catcher"))}
+    g1 = ll["model"] <= .97 * ll["league"] and ll["model"] < ll["catcher_only"]
+    gap = decile_gap(y, pred["p"].to_numpy())
+    sav = pd.concat([con.sql(f"SELECT player_id AS catcher, caught_stealing_above_average AS csaa FROM "
+                             f"lb_catcher_throwing_{s}").df().assign(season=s) for s in range(2020, 2027)])
+    cs, cg = credit_gates(pred, y_all, sav, "csaa", 30, 1)
+    pop = pred.groupby(["catcher", "season"])["pop_time"].mean().rename("pop").reset_index()
+    q = cs[cs["n"] >= 30].merge(pop, on=["catcher", "season"])
+    r_pop = float(q["rate"].corr(q["pop"]))
+    pred["pcredit"] = pred["p_same"] - pred["p_lg"]
+    pc = pred.groupby(["pitcher_id", "season"]).agg(n=("pcredit", "size"), c=("pcredit", "mean")).reset_index()
+    pc = pc[pc["n"] >= 15]
+    pp = pc.merge(pc.assign(season=pc["season"] - 1), on=["pitcher_id", "season"], suffixes=("", "_n"))
+    r6 = float(pp["c"].corr(pp["c_n"]))
+    dec = pd.DataFrame({"y": y, "p": pred["p"], "q": pd.qcut(pred["p"].rank(method="first"), 10, labels=False)}).groupby("q").mean()
+    out = {"n": int(len(pred)), "features": FEATS_V2, "params": {k: v for k, v in PARAMS_V2.items() if k != "verbose"},
+           "k_lead": K_LEAD, "prior_pk_match": round(float(pred["prior_pk"].notna().mean()), 4),
+           "auc": round(float(roc_auc_score(y, pred["p"])), 4),
+           "auc_savant_exp_cs": round(float(roc_auc_score(y, pred["exp_cs"].fillna(pred["exp_cs"].mean()))), 4),
+           "loso_logloss": {k: round(v, 5) for k, v in ll.items()}, "g1_pass": bool(g1),
+           "per_season_logloss": {int(s): round(float(log_loss(g[y_all], g["p"], labels=[0, 1])), 4)
+                                  for s, g in pred.groupby("season")},
+           "decile_table": {int(i): [round(float(r["p"]), 4), round(float(r["y"]), 4)] for i, r in dec.iterrows()},
+           "decile_gap": round(gap, 4), "g2_pass": bool(gap <= .03), **cg,
+           "pop_r": round(r_pop, 3), "g5_pass": bool(r_pop <= -.40),
+           "g6_pairs": int(len(pp)), "g6_pitcher_credit_yty": round(r6, 3), "g6_pass": bool(r6 >= .30),
+           "p_exact_0_or_1": int(((pred["p"] <= 0) | (pred["p"] >= 1)).sum())}
+    out["verdict"] = "SHIP" if all(out[f"g{i}_pass"] for i in range(1, 7)) else "DESCRIPTIVE"
+    pred[["game_pk", "at_bat_number", "play_init_seq", "runner_id", "catcher", "pitcher_id", "season", "p", "pcredit"]
+         ].to_parquet(CACHE / "xcs_v2_pred.parquet")
+    return out
+
+
+def main_v2():
+    sealed = RES / "catcher_xcs_v2_SEALED.json"
+    if sealed.exists():
+        raise SystemExit(f"{sealed} exists: §108a-v2 is read once")
+    sys.path.insert(0, str(MART_DIR))
+    import mart
+    con = mart.connect()
+    con.execute("SET threads TO 4")
+    res = {"prereg": "RESULTS-MLB §108a-v2 (committed f770c20 before any fit or read)", "xcs_v2": xcs_v2(con)}
+    sealed.write_text(json.dumps(res, indent=1))
+    print(json.dumps(res, indent=1))
+
+
 def main():
     sealed = RES / "catcher_models_SEALED.json"
     if sealed.exists():
@@ -161,8 +291,14 @@ def main():
 def demo():
     y, p = np.array([0, 1] * 50), np.full(100, 0.5)
     assert decile_gap(y, p) <= 0.5 and shrunk_rate(0, 0, .2, 30) == .2 and shrunk_rate(30, 30, 0, 30) == .5
+    bd = pd.DataFrame({"pitcher_id": [1, 1, 1, 2], "season": [2020, 2021, 2022, 2021], "n": [100., 100., 100., 300.],
+                       "nx": [200., 400., 600., 1200.]})
+    v = lead_other(np.array([1, 1, 9]), np.array([2021, 2020, 2021]), 2022, bd, k=300)
+    # p1 in 2021, test 2022: only 2020 left (n 100, x 2) vs league of 2020 (=2): 2.0; p1 in 2020: 2021 only (x 4) shrunk
+    # to league 2021 ((400+1200)/400 = 4): 4.0; unknown pitcher gets the league of {2020, 2022}... excl {2021, 2022} -> 2.
+    assert np.allclose(v, [2.0, 4.0, 2.0]), v
     print("demo ok")
 
 
 if __name__ == "__main__":
-    demo() if "--demo" in sys.argv else main()
+    demo() if "--demo" in sys.argv else main_v2() if "--v2" in sys.argv else main()

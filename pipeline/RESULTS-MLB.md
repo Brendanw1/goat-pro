@@ -4421,3 +4421,27 @@ leave-season-out feature (2020 95.9%, 2026 91.4%, 2021-25 98-99%); the rest get 
 - *Verdict:* as §108: SHIP (our xCS, CS above xCS, and the pitcher lead credit) only if G1-G6 all pass; otherwise the
   running-game views stay descriptive with Savant's numbers labelled, and each failed gate gets a data / handling /
   modeling diagnosis. Run once; results sealed to `results/catcher_xcs_v2_SEALED.json`.
+
+### §108a-v2 result (read once, 2026-10-30): SHIP on LOSO, unconfirmed until 2027
+
+Fit once by `python pipeline/catcher_models.py --v2` (code added after the pre-registration commit f770c20; nothing fitted
+before). Sealed: `results/catcher_xcs_v2_SEALED.json`; per-attempt predictions `cache/catcher/xcs_v2_pred.parquet`.
+18,856 attempts, prior-pickoff join 100%. Pooled over the 7 leave-one-season-out folds:
+
+- **G1 PASS.** LOSO log loss .4411 vs league .5051 (−12.7%, bar ≥ 3%) and catcher-only .5077. AUC .749 (Savant's
+  exp_cs, which uses the throw and the runner's distance at the catch, .792: reference only). Per season .407-.490.
+- **G2 PASS.** Max decile gap .013 (bar .03; §108 was .043). Top decile .484 predicted vs .483 observed (was .523 vs
+  .480); bottom decile .010 vs .012.
+- **G3 PASS.** CS above xCS vs Savant's CS above average, 266 catcher-seasons: pooled r .947, every season .967-.982 (bar .80 / .70).
+- **G4 PASS.** YTY .419 vs Savant's .455 on the same 148 pairs: ratio .92 (bar .75).
+- **G5 PASS.** CS above xCS per attempt vs pop time r −.595 (bar ≤ −.40).
+- **G6 PASS.** Pitcher lead credit YTY r .612 on 49 pitcher pairs with ≥ 15 attempts both years (bar .30). Few pairs:
+  attempts per pitcher are thin, so this is the gate with the widest interval.
+
+**Verdict: SHIP (LOSO, unconfirmed).** Under the pre-registered rule, our xCS%, CS above xCS and the pitcher lead credit
+can replace Savant's expected CS on the running-game views, labelled "LOSO-validated, 2027 confirm pending". Site not
+changed yet (owner call). 2027 is the confirm read: the model fit on 2020-26 scores 2027 once, same gates.
+
+Caveat seen at the read, not fixed in place: the isotonic map (clipped to [0,1] as pre-registered) gives **p = 0 for 488
+attempts** (83% held throws); one of them was a CS, which costs ~.002 of log loss and does not change G1. Before any site
+display, a probability floor would need its own note: 0% xCS should not be shown as a literal value.

@@ -72,6 +72,8 @@ season's catchers where a rank is honest, and signed colours (green = good for t
 beside it). xCS% passed agreement, stickiness and the pop-time sanity check but failed calibration (G2, top decile
 overconfident), so throwing stays descriptive with Savant's expected CS until a pre-registered re-test (§108a-v2:
 isotonic recalibration or shallower trees).
+**§108a-v2 read 2026-10-30:** shallower trees + isotonic + prior pickoffs + pitcher lead gained passed G1-G6 on
+leave-one-season-out (decile gap .013); SHIP labelled LOSO-unconfirmed, 2027 confirm read; site switch awaits the owner.
 
 ## Out of scope here
 
