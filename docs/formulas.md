@@ -245,3 +245,13 @@ range runs, per the §100 finding that speed belongs in decomposition views, not
 - Deterrence (PA × lead runner, 2020-26 LOSO, `catcher_108c.py`): attempts below expected = Σ p(attempt) − attempts; deterrence runs = that · V_s, V_s = season mean over attempts of (CS ? ΔRE_CS : ΔRE_SB) (−.008 to +.033).
 - Throwing runs = CS runs + deterrence runs. Savant's exp CS / CS above average / catcher_stealing_runs ship beside, labelled.
 - Pitcher file: Savant board `r_sec_minus_prim_lead` (lead gained, pct among n_init ≥ 200, lower = better), n_sb / n_cs / n_pk, rate_sbx · 100, runs_prevented_on_running_attr; ours: Σ (CS − xCS) over attempts with him pitching. Files for n_init ≥ 30.
+
+## Arizona Fall League (pipeline/afl_fetch.py → data/afl/; pipeline/afl_export.py → afl/index.json, afl/{season}.json)
+
+- Source: MLB Stats API schedule (`sportId=17&leagueId=119`, game types R/D/L/W, finals only) and `/api/v1.1/game/{pk}/feed/live`, cached gzipped under `cache/afl/`.
+- Feed → Statcast columns, checked pitch-for-pitch on MLB game 822761 (277 pitches): `release_speed = startSpeed`; `pfx_x = −breakHorizontal/12`, `pfx_z = breakVerticalInduced/12` (Savant's sign, feet); `plate_x/z = pX/pZ` (zone identical); `release_spin_rate = spinRate`; `spin_axis = spinDirection`; `release_extension = extension`; `release_pos_x/z` = the 9-parameter fit run back from y0 to y = 60.5 − extension (±.005 ft); `description` = Savant's name for the call code; `balls/strikes` = the count before the pitch; a play ending on a runner out is `truncated_pa`.
+- Rates: one function on both sides of every delta. CSW% = (called + swinging strikes + foul tips) / pitches; whiff% = (swinging strikes + foul tips) / swings; chase% = swings at zones 10–14 / pitches there; zone% = zones 1–9 / pitches; hard-hit = EV ≥ 95 / balls in play; EV90 = 90th-percentile EV. IP, ERA, BF, K%, BB% and the slash line come from the official box score.
+- Barrel = Savant's rule (EV ≥ 98, EV·1.5 − LA ≥ 117, EV + LA ≥ 124, 4 ≤ LA ≤ 50) on a whole-degree LA, true if any angle within ±0.5° qualifies. On MLB 2026 balls in play: 99.75% agreement with Savant's `launch_speed_angle = 6` (9,539 vs 9,561); without the ±0.5 the count is 6% short.
+- Spin per pitch type shows only when tracked on ≥ 50% of that type's pitches.
+- AFL vs regular season = AFL − same-season regular season. K%/BB%/OPS: every level's box line (data/milb). Pitch-level rates, velocity, movement, usage: MLB + AAA Statcast, regular season, ≥ 100 tracked pitches. New pitch: ≥ 5% of AFL pitches (≥ 10 thrown) after < 1% of regular-season pitches.
+

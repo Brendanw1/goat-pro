@@ -11,3 +11,4 @@ data/milb/
 cache/
 *.tsbuildinfo
 .vercel
+data/afl/*.parquet

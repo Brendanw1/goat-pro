@@ -593,6 +593,14 @@ export async function getMinorsIndex(): Promise<{ levels: string[]; pitchers: nu
   return fetchFromR2<any>("minors/index.json", { shared: true }).catch(() => null);
 }
 
+/** /afl (afl_export.py): the season list, and one Fall League season (boards, arsenal, deltas, park coverage). */
+export async function getAflIndex(): Promise<{ seasons: { season: number; games: number; pitches: number; from: string; to: string }[] } | null> {
+  return fetchFromR2<any>("afl/index.json", { shared: true }).catch(() => null);
+}
+export async function getAflSeason(season: number | string): Promise<any | null> {
+  return fetchFromR2<any>(`afl/${season}.json`, { shared: true }).catch(() => null);
+}
+
 /** /minors MLEs (milb_translation.py, RESULTS-MLB §88): AAA/AA MLB-equivalent lines for one season. */
 export async function getTranslation(kind: "pitchers" | "hitters", season: number | string): Promise<any | null> {
   return fetchFromR2<any>(`translation/${kind}-${season}.json`, { shared: true }).catch(() => null);
