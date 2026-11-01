@@ -1,0 +1,105 @@
+{
+ "reproduction": {
+  "cells": 7340,
+  "cells_mine": 7340,
+  "n_equal": 1.0,
+  "r": 0.9999999999999999,
+  "mean_abs_diff": 3.258514976162156e-17,
+  "max_abs_diff": 9.8879238130678e-17,
+  "pass": true
+ },
+ "coverage": {
+  "2021": {
+   "graded-eligible": 4833,
+   "no extension / fit": 0,
+   "no spin": 0,
+   "type not graded": 18,
+   "untracked": 23040
+  },
+  "2022": {
+   "graded-eligible": 4819,
+   "no extension / fit": 0,
+   "no spin": 0,
+   "type not graded": 0,
+   "untracked": 22214
+  },
+  "2023": {
+   "graded-eligible": 4698,
+   "no extension / fit": 0,
+   "no spin": 0,
+   "type not graded": 0,
+   "untracked": 23722
+  },
+  "2024": {
+   "graded-eligible": 17054,
+   "no extension / fit": 0,
+   "no spin": 30,
+   "type not graded": 190,
+   "untracked": 12084
+  },
+  "2025": {
+   "graded-eligible": 26592,
+   "no extension / fit": 3,
+   "no spin": 75,
+   "type not graded": 221,
+   "untracked": 47
+  },
+  "2026": {
+   "graded-eligible": 18898,
+   "no extension / fit": 232,
+   "no spin": 1069,
+   "type not graded": 0,
+   "untracked": 464
+  }
+ },
+ "graded_pitches": {
+  "2021": 4833,
+  "2022": 4819,
+  "2023": 4698,
+  "2024": 17054,
+  "2025": 26592,
+  "2026": 18898
+ },
+ "pitchers_whiff_plus": {
+  "2021": 76,
+  "2022": 85,
+  "2023": 87,
+  "2024": 145,
+  "2025": 151,
+  "2026": 155
+ },
+ "pitchers_k_plus": {
+  "2021": 74,
+  "2022": 82,
+  "2023": 84,
+  "2024": 143,
+  "2025": 147,
+  "2026": 146
+ },
+ "means": {
+  "grade": {
+   "2021": 99.8,
+   "2022": 97.2,
+   "2023": 97.9,
+   "2024": 99.2,
+   "2025": 101.0,
+   "2026": 99.9
+  },
+  "k_plus": {
+   "2021": 98.9,
+   "2022": 98.1,
+   "2023": 105.1,
+   "2024": 99.2,
+   "2025": 99.8,
+   "2026": 99.5
+  },
+  "prevention_plus": {
+   "2021": 95.4,
+   "2022": 94.6,
+   "2023": 103.0,
+   "2024": 96.1,
+   "2025": 96.6,
+   "2026": 95.8
+  }
+ }
+}

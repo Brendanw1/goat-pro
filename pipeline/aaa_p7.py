@@ -80,15 +80,16 @@ def frozen_models():
     return kp, kproj.model().fit(tr[stack.S_COLS], tr["rv_next"])
 
 
-def scored():
+def scored(d=None):
     """Every AAA pitcher-season (>= 50 taken) with k_proj / k_plus / prevention_plus on p7_export's MLB
-    scale (constants from MLB pitcher-seasons with >= 100 PA), so the two levels read on one scale."""
+    scale (constants from MLB pitcher-seasons with >= 100 PA), so the two levels read on one scale.
+    d: another level's frame with the same inputs (afl_grades.py); default the AAA frame."""
     tr = stack.frame()
     kp, pv = frozen_models()
     tr["kplus"] = kp.predict(tr[kproj.X_COLS])
     big = tr[tr["pa"] >= 100]
     kp100, pv100 = kp.predict(big[kproj.X_COLS]), pv.predict(big[stack.S_COLS])
-    d = aaa_frame(with_next=False)
+    d = aaa_frame(with_next=False) if d is None else d
     d["k_proj"] = kp.predict(d[kproj.X_COLS])
     d["kplus"] = d["k_proj"]
     d["k_plus"] = 100 + 10 * (d["k_proj"] - kp100.mean()) / kp100.std()

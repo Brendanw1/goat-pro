@@ -3,6 +3,7 @@
     python pipeline/test_afl.py   (or pytest)
 """
 import afl_export
+import afl_grades
 import afl_fetch
 
 
@@ -49,8 +50,13 @@ def test_export_demo():
     afl_export.demo()
 
 
+def test_grades_demo():
+    afl_grades.demo()
+
+
 if __name__ == "__main__":
     test_pitch_rows_count_call_and_movement()
     test_runner_out_truncates_the_pa()
     test_export_demo()
+    test_grades_demo()
     print("test_afl ok")
