@@ -4660,3 +4660,52 @@ went from .4411 to .4396 with the floor; the decile gap stayed at .013. The §10
 
 The site is unchanged (owner call). 2016-19 is now **spent** for xCS and catcher throwing. 2027 stays the clean forward
 read for v2 (H-2027, frozen hash above), and it is now also the only out-of-sample confirmation left for deterrence.
+
+## §109 Model grades on Arizona Fall League pitches (inference only) and a spring-system scale check, pre-registered 2026-11-01 before any AFL grade is computed or read
+
+**Owner ask (2026-11-01):** "give our estimated model grades on the sample data, scoring AFL pitchers for the last 2 or 3 years, maybe all". No AFL pitch was ever in a training set, so this is scoring, not fitting.
+
+**Method (frozen here).** `pipeline/afl_grades.py`.
+- **Model = the AAA path, unchanged:** the `s7_aaa` recipe (§64; s4_bb: wps target, the 13 v2 inputs, FB default params, BB nl7/mc1000/lr .1/800, CH nl63/mc1000/lr .1/25), trained on MLB 2023–24 only, 4 pitcher folds (crc32(mlbam) % 4). `crossfit_v2.py` never saved those fold boosters, so they are refit on the identical MLB 2023–24 training rows (LightGBM default seed; no AFL row in any fit) and cached under `cache/afl_folds/`.
+- **Reproduction gate (before any AFL score is used):** the refit's out-of-fold predictions on MLB 2023–24, averaged per pitcher × season × pitch type, against the shipped `crossfit_v2_s7_aaa_pt.csv`: r ≥ .999 and mean |diff| ≤ .002, or stop and diagnose.
+- **No self-grading:** each AFL pitch is scored by the fold model whose held-out pitchers include him (his fold), so no model saw any of his MLB pitches (§17).
+- **Inputs:** the AFL feed on Statcast columns (`afl_fetch.py`), through the same FEATURE_SQL filters and derivations. A pitch without spin, an untracked pitch (Kino; 2021–23 parks other than Salt River) or a type outside the model's list (KN) is **ungraded**; spin is never imputed (no spin-free variant of the model exists). Fastball anchors come from his AFL pitches only. AFL plate convention: mean sz_top 3.15–3.24 in every season, the AAA / MLB 2026 convention, so the AAA plate_z map (×0.9977 + 0.0763 ft) applies; this only touches hvaa. The AAA extension / release-height offsets (§27) are AAA-specific and are **not** applied: the AFL system question is the check below.
+- **Scale and shrinkage = the site's AAA grades exactly:** the MLB TRAIN references (`whiff_hand.refs` on `pred_s7_aaa`; `type_table` / `class_scale` with the s7_aaa TRAIN rows), overall Whiff+ from 10 graded pitches, type and class grades from 10 (type shrunk toward class, k = 150). K+ / Prevention+: the frozen MLB ridges (`aaa_p7.frozen_models`) on AFL inputs (K%, BB%, GB%, log PA, swinging-strike rate on graded pitches, Whiff+, Marcel K% on AFL history only with the AFL league K% as the prior, the AAA rule), ≥ 50 taken AFL pitches, MLB scale constants.
+- **Label:** "MLB model on AFL data", descriptive, small sample, n on every grade. No forecast claim, so no gate.
+
+**Scale check (read once, after the reproduction gate).** Population: AFL pitcher-seasons with Whiff+ and ≥ 100 tracked regular-season MLB + AAA pitches in the same season; pitch types with ≥ 10 pitches on both sides.
+1. **Input offsets** per class (FB, BB, CH): paired mean AFL − regular of velo, IVB, arm-side HB, extension and release height; pitcher-clustered bootstrap 95% CI (2,000 draws, seed 13), by tracking era (2021–23, 2024, 2025–26) and pooled.
+2. **Grade gap:** AFL Whiff+ − his same-season regular Whiff+ (the level where he threw more tracked pitches: MLB s4_bb or AAA s7_aaa), paired mean, same bootstrap.
+- **Material system offset** if pooled extension differs by ≥ 0.15 ft or release height by ≥ 0.10 ft with the CI excluding 0 (inputs a pitcher does not move that much in a month), **or** the pooled grade gap is ≥ 3 Whiff+ points in either direction with the CI excluding 0. Velo and movement offsets are reported but not attributed to the system: fatigue at the end of a long season and the AFL's development work move them for real.
+- **Action:** no correction is pre-registered. If material, the page shows the measured offsets as a caveat beside the grades; any correction needs its own pre-registered section.
+
+### §109 result (read once, 2026-11-01)
+
+- **Reproduction gate: PASS.** The refit fold models reproduce the shipped `crossfit_v2_s7_aaa` out-of-fold predictions on MLB 2023–24 exactly: 7,340 of 7,340 pitcher × season × type cells, same pitch counts, r 1.000, max |diff| 1e-16. The cached boosters in `cache/afl_folds/` are the shipped AAA models. Run: 51 s, 2.3 GB peak, 3 threads.
+- **Graded:** 76,894 AFL pitches, 699 pitcher-seasons with Whiff+ (≥ 10 graded pitches), 676 with K+ / Prevention+ (≥ 50 taken).
+
+| season | graded pitches | Whiff+ pitchers | K+ pitchers | not graded: untracked | no spin | no extension / fit | type (KN) |
+|---|---|---|---|---|---|---|---|
+| 2021 | 4,833 | 76 | 74 | 23,040 | 0 | 0 | 18 |
+| 2022 | 4,819 | 85 | 82 | 22,214 | 0 | 0 | 0 |
+| 2023 | 4,698 | 87 | 84 | 23,722 | 0 | 0 | 0 |
+| 2024 | 17,054 | 145 | 143 | 12,084 | 30 | 0 | 190 |
+| 2025 | 26,592 | 151 | 147 | 47 | 75 | 3 | 221 |
+| 2026 | 18,898 | 155 | 146 | 464 | 1,069 | 232 | 0 |
+
+Season means, Whiff+ / K+ / Prevention+: 2021 99.8 / 98.9 / 95.4; 2022 97.2 / 98.1 / 94.6; 2023 97.9 / 105.1 / 103.0; 2024 99.2 / 99.2 / 96.1; 2025 101.0 / 99.8 / 96.6; 2026 99.9 / 99.5 / 95.8. In 2021–23 a pitcher's Whiff+ covers only his Salt River (and 2022 Chase Field) pitches; the page shows the graded n.
+
+**Scale check** (`results/afl_scale_check.json`). Only 48 pitcher-seasons qualify (most AFL arms pitched below AAA, where nothing is tracked). Pooled AFL − regular, mean [95% CI], n pitchers:
+
+| input (all classes) | gap |
+|---|---|
+| velo | +0.23 mph [−0.09, +0.55], 47 |
+| IVB | +0.02 in [−0.38, +0.38] |
+| arm-side HB | +0.25 in [−0.17, +0.67] |
+| extension | **−0.06 ft [−0.09, −0.03]** |
+| release height | −0.01 ft [−0.04, +0.02] |
+| **Whiff+ gap** | **+0.08 [−1.22, +1.49], 48** (r .73 between the two grades) |
+
+- By era, extension: 2021–23 −0.05, **2024 −0.13 [−0.18, −0.07]**, 2025–26 0.00. Release height: 2021–23 −0.06, then ~0. Whiff+ gap by era: −0.6 / +0.9 / −0.2, every CI spans 0.
+- Reported, not judged: gap vs an AAA grade −0.3 [−1.7, +1.2] (44); vs an MLB grade +3.9 [+1.3, +6.1] (4 pitchers, too few to read).
+- **Verdict: NOT MATERIAL** on every pre-registered clause (extension −0.06 ft < 0.15; release height −0.01 < 0.10; Whiff+ gap +0.1, CI inside ±3). The check has the power to rule out a ±1.5-point system offset on the pooled grade, not less. The 2024 extension shortfall (−0.13 ft, one season) sits under the bar and is noted on the page. No correction applied.

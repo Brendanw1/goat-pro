@@ -15,8 +15,9 @@ export const metadata = { title: "Arizona Fall League" };
  * Arizona Fall League (owner ask 2026-11-01): the season's pitchers, their arsenals and the hitters, from MLB
  * Stats API game feeds (pipeline/afl_fetch.py -> afl_export.py), plus each player's AFL line against his own
  * regular season (MLB/AAA Statcast for pitch-level rates, every level's box line for K%, BB%, OPS).
- * Descriptive only: a few weeks of games, no model scored on these pitches. Server-rendered; sorting is
- * client-side over the rendered rows (SortableTable).
+ * Descriptive only: a few weeks of games. Whiff+ / K+ / Prevention+ are the site's AAA grades scored on these pitches
+ * (pipeline/afl_grades.py, RESULTS-MLB §109: inference only, the fold model that never saw the pitcher, MLB scale).
+ * Server-rendered; sorting is client-side over the rendered rows (SortableTable).
  */
 
 type Q = { season?: string; view?: string; min?: string };
@@ -35,9 +36,15 @@ function Name({ r, season }: { r: any; season: number }) {
     : <span className="text-text-primary" title="no profile on the site yet">{r.name}</span>;
 }
 
-function Tier({ n }: { n: number }) {
+function Tier({ n, what = "pitches" }: { n: number; what?: string }) {
   const b = confidenceBadge(sampleTier(n))!;
-  return <span title={`${n} pitches`} className={`rounded px-1 py-px text-[9px] font-semibold ${b.bg} ${b.text}`}>{b.label}</span>;
+  return <span title={`${n} ${what}`} className={`rounded px-1 py-px text-[9px] font-semibold ${b.bg} ${b.text}`}>{b.label}</span>;
+}
+
+/** A model grade with its graded-pitch tier (the sample behind it), or a dash. */
+function Grade({ v, n }: { v: unknown; n?: number }) {
+  if (typeof v !== "number" || !Number.isFinite(v)) return <>—</>;
+  return <span className="whitespace-nowrap">{v.toFixed(1)}{n != null && <> <Tier n={n} what="graded pitches" /></>}</span>;
 }
 
 /** [label, tooltip, first-click direction, left-aligned (a text column)] */
@@ -100,10 +107,25 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
       <p className="text-xs text-text-dim max-w-[75ch]">
         {season}: {doc?.games ?? 0} games, {(doc?.pitches ?? 0).toLocaleString("en-US")} pitches ({doc?.from} to {doc?.to}),
         from the MLB Stats API game feeds. Every rate is the site&apos;s own definition (glossary). A few weeks of games
-        against mixed competition: read these as what a player showed, not who he is. No model is scored on Fall League
-        pitches, so there is no Whiff+, K+ or Prevention+ here. The badge beside each name is the site&apos;s pitch-count
-        confidence tier (HIGH 400+, MED 150+, LOW 50+, MIN below).
+        against mixed competition: read these as what a player showed, not who he is. The badge beside each name is the
+        site&apos;s pitch-count confidence tier (HIGH 400+, MED 150+, LOW 50+, MIN below).
       </p>
+      {doc?.models && (
+        <p className="text-xs text-text-dim max-w-[75ch]">
+          <span className="text-text-secondary">Model grades ({doc.models.label}):</span> Whiff+, K+ and Prevention+ are the site&apos;s
+          Triple-A grades scored on these pitches, on the MLB scale, each pitch by a model that never saw the pitcher. Same floors and
+          shrinkage as Triple-A: Whiff+ from 10 graded pitches (its badge counts graded pitches), K+ and Prevention+ from 50 taken.
+          Pitches with no tracking or no spin reading are left ungraded ({(doc.models.gradedPitches ?? 0).toLocaleString("en-US")} of{" "}
+          {(doc.pitches ?? 0).toLocaleString("en-US")} graded this season). Descriptive, small sample, not a forecast.
+          {doc.models.scaleCheck?.gradeGap && (
+            <> Scale check against the same pitchers&apos; regular-season Whiff+ ({doc.models.scaleCheck.pitchers} pitchers, 2021–26): gap{" "}
+              {doc.models.scaleCheck.gradeGap[0] >= 0 ? "+" : "−"}{Math.abs(doc.models.scaleCheck.gradeGap[0]).toFixed(1)} [{doc.models.scaleCheck.gradeGap[1].toFixed(1)},{" "}
+              {doc.models.scaleCheck.gradeGap[2].toFixed(1)}], no measurable shift from the Fall parks&apos; tracking
+              {doc.models.scaleCheck.verdict !== "NOT MATERIAL" && <span className="text-amber-400/90"> (flagged: {doc.models.scaleCheck.verdict})</span>}
+              {doc.models.scaleCheck.extGap && <>; extension reads {Math.abs(doc.models.scaleCheck.extGap[0]).toFixed(2)} ft shorter in the Fall parks, under the 0.15 ft bar</>}.</>
+          )}
+        </p>
+      )}
       {thinTracking && (
         <p className="text-xs text-amber-400/90 max-w-[75ch]">
           In {season} pitch tracking ran only at {trackedParks.join(", ") || "no park"} ({Math.round(100 * trackedPitches / doc.pitches)}% of pitches):
@@ -121,6 +143,9 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
       {view === "pitchers" && (
         <Table>
           <Head cols={[["Team"], ["G"], ["IP"], ["BF"], ["P", "pitches thrown"], ["ERA", undefined, "asc"], ["K%"], ["BB%", undefined, "asc"], ["K-BB%"],
+            ["Whiff+", "bat-missing pitch shape, 100 = MLB average, 10 = one SD; badge = graded pitches", "desc"],
+            ["K+", "projected strikeout rate on the 100 / 10 scale (50+ taken pitches)", "desc"],
+            ["Prev+", "Prevention+: projected run prevention on the 100 / 10 scale (50+ taken pitches)", "desc"],
             ["CSW%", "called + swinging strikes per pitch"], ["Whiff%", "whiffs per swing"], ["Chase%", "swings at pitches outside the zone"],
             ["Zone%"], ["FB velo", "his most-thrown fastball (four-seam or sinker), mph"], ["EV ag.", "average exit velocity allowed"], ["Mix", "usage and velocity by pitch type", undefined, true]]} />
           <tbody>
@@ -130,6 +155,9 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
                 <td className="px-2 py-1.5 font-sans text-text-secondary whitespace-nowrap">{r.team}</td>
                 <td className={td}>{r.g}</td><td className={td}>{n1(r.ip)}</td><td className={td}>{r.bf}</td><td className={td}>{r.nPitches}</td>
                 <td className={td}>{n1(r.era, 2)}</td><td className={td}>{n1(r.kPct)}</td><td className={td}>{n1(r.bbPct)}</td><td className={td}>{n1(r.kBbPct)}</td>
+                <td className={td} data-sort={r.whiffPlus ?? ""}><Grade v={r.whiffPlus} n={r.nGraded} /></td>
+                <td className={td} title={r.kProj != null ? `projected K% ${n1(r.kProj)}` : undefined}>{n1(r.kPlus)}</td>
+                <td className={td}>{n1(r.preventionPlus)}</td>
                 <td className={td}>{n1(r.cswPct)}</td><td className={td}>{n1(r.whiffPct)}</td><td className={td}>{n1(r.chasePct)}</td><td className={td}>{n1(r.zonePct)}</td>
                 <td className={td}>{n1(r.fbVelo)}</td><td className={td}>{n1(r.evAg)}</td>
                 <td className="px-2 py-1.5 text-left text-text-dim whitespace-nowrap" data-sort={r.arsenal?.length ?? 0}>
@@ -145,7 +173,7 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
 
       {view === "arsenal" && (
         <Table>
-          <Head cols={[["Type"], ["N", "pitches of this type"], ["Use%"], ["Velo"], ["IVB", "induced vertical break, inches"], ["HB", "horizontal break, inches, arm-side positive"],
+          <Head cols={[["Type"], ["N", "pitches of this type"], ["Whiff+", "this pitch type's grade, shrunk toward its class (10+ graded pitches); badge = graded pitches", "desc"], ["Use%"], ["Velo"], ["IVB", "induced vertical break, inches"], ["HB", "horizontal break, inches, arm-side positive"],
             ["Spin", "rpm; blank where spin was tracked on under half his pitches of the type (see park coverage below)"], ["Ext", "extension, ft"],
             ["Whiff%"], ["CSW%"], ["Chase%"]]} />
           <tbody>
@@ -153,7 +181,9 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
               <tr key={`${r.id}-${a.type}`} className="border-t border-white/[0.04]">
                 <td className="px-4 py-1.5 font-sans whitespace-nowrap"><Name r={r} season={season} /> <span className="text-text-dim">{r.throws}HP</span></td>
                 <td className="px-2 py-1.5 text-right font-semibold" style={{ color: (PITCH_CONFIG as any)[a.type]?.color }}>{a.type}</td>
-                <td className={td}>{a.n}</td><td className={td}>{n1(a.usage)}</td><td className={td}>{n1(a.velo)}</td>
+                <td className={td}>{a.n}</td>
+                <td className={td} data-sort={a.whiffPlus ?? ""}><Grade v={a.whiffPlus} n={a.nGraded} /></td>
+                <td className={td}>{n1(a.usage)}</td><td className={td}>{n1(a.velo)}</td>
                 <td className={td}>{n1(a.ivb)}</td><td className={td}>{n1(armSideHb(a.hb, r.throws))}</td>
                 <td className={td} title={`spin tracked on ${Math.round(100 * (a.spinCover ?? 0))}% of these pitches`}>{n1(a.spin, 0)}</td>
                 <td className={td}>{n1(a.ext)}</td><td className={td}>{n1(a.whiffPct)}</td><td className={td}>{n1(a.cswPct)}</td><td className={td}>{n1(a.chasePct)}</td>
@@ -188,7 +218,9 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
       {view === "changes" && (
         <>
           <p className="text-xs text-text-dim max-w-[75ch]">
-            AFL minus his own {season} regular season. K% and BB% (and OPS for hitters) compare against his box lines at every level
+            AFL minus his own {season} regular season. ΔWhiff+, ΔK+ and ΔPrev+ compare his AFL grade with his regular-season grade at
+            the level (MLB or Triple-A) where he threw more graded pitches; most Fall League arms pitched below Triple-A, where nothing is
+            tracked, so most rows have none. K% and BB% (and OPS for hitters) compare against his box lines at every level
             that year; velocity, movement, usage, whiff, chase and CSW compare against his tracked MLB and Triple-A pitches (100+
             needed; levels below Triple-A have no tracking). Green is better for the player, red worse. The Fall League parks run
             spring-training tracking, a different system from the regular-season parks, so a small shift can be the system and not
@@ -197,7 +229,8 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
           <h2 className="text-sm font-semibold text-text-primary">Pitchers</h2>
           <Table>
             <Head cols={[["2026 levels", "regular-season levels (box lines)"], ["P", "AFL pitches"], ["Reg P", "tracked regular-season pitches (MLB/AAA)"],
-              ["ΔFB velo", "most-thrown fastball, mph"], ["ΔK%"], ["ΔBB%", undefined, "asc"], ["ΔWhiff%"], ["ΔChase%"], ["ΔCSW%"], ["New pitch"], ["Pitch changes", "per type, AFL minus regular season; shown past 0.5 mph, 5 points of usage or 1.5 in. of break", undefined, true]]} />
+              ["ΔFB velo", "most-thrown fastball, mph"], ["ΔK%"], ["ΔBB%", undefined, "asc"], ["ΔWhiff%"], ["ΔChase%"], ["ΔCSW%"],
+              ["ΔWhiff+", "AFL Whiff+ minus his regular-season Whiff+ (MLB or AAA, the level with more graded pitches)"], ["ΔK+"], ["ΔPrev+"], ["New pitch"], ["Pitch changes", "per type, AFL minus regular season; shown past 0.5 mph, 5 points of usage or 1.5 in. of break", undefined, true]]} />
             <tbody>
               {P.filter((r) => r.delta).map((r) => {
                 const d = r.delta;
@@ -210,6 +243,9 @@ export default async function AflPage({ searchParams }: { searchParams?: Promise
                     <td className={td}><Signed v={d.dKPct} dp={1} /></td><td className={td}><Signed v={d.dBbPct} dp={1} lowerIsGood /></td>
                     <td className={td}><Signed v={d.dWhiffPct} dp={1} /></td><td className={td}><Signed v={d.dChasePct} dp={1} /></td>
                     <td className={td}><Signed v={d.dCswPct} dp={1} /></td>
+                    <td className={td} title={d.regWhiffPlus != null ? `regular season ${d.regGradeLevel} ${n1(d.regWhiffPlus)} (${d.regGradedN} graded pitches)` : undefined}><Signed v={d.dWhiffPlus} dp={1} /></td>
+                    <td className={td} title={d.regKPlus != null ? `regular season ${d.regGradeLevel} ${n1(d.regKPlus)}` : undefined}><Signed v={d.dKPlus} dp={1} /></td>
+                    <td className={td} title={d.regPreventionPlus != null ? `regular season ${d.regGradeLevel} ${n1(d.regPreventionPlus)}` : undefined}><Signed v={d.dPreventionPlus} dp={1} /></td>
                     <td className="px-2 py-1.5 text-right font-sans text-text-primary">{(d.newPitches ?? []).join(", ") || "—"}</td>
                     <td className="px-2 py-1.5 text-left font-sans text-text-dim whitespace-nowrap">{typeChanges(d.types, r.throws).join(" · ") || "—"}</td>
                   </tr>

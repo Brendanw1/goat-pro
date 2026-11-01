@@ -16,9 +16,12 @@ applies Savant's published rule to the feed's rounded EV/LA (agrees with Savant'
 tracked on >= half its pitches (spin is missing on part of the Scottsdale/Peoria/Salt River slate and at
 Kino Stadium nothing is tracked at all); the per-park coverage ships in the file.
 
-Descriptive only: no model is scored on AFL pitches (Whiff+ and friends need the cross-fit rerun and a gate
-of their own; docs/model-inventory.md). A delta compares two systems' tracking (AFL spring parks vs MLB/AAA
-Hawk-Eye) over a few weeks, so it is a lead, not a measurement.
+Model grades (RESULTS-MLB §109, afl_grades.py): Whiff+ (overall, by type, by class), K+ and Prevention+ scored on
+AFL pitches by the site's AAA path (the s7_aaa fold models, each pitch by the fold that never saw its pitcher, the
+MLB scale), merged here from data/afl/grades_*.parquet when present. Descriptive, small sample; the deltas compare
+them with his regular-season grade at the level where he threw more graded pitches. A delta compares two systems'
+tracking (AFL spring parks vs MLB/AAA Hawk-Eye) over a few weeks, so it is a lead, not a measurement; §109's scale
+check (results/afl_scale_check.json) ships in the file.
 """
 import json
 import sys
@@ -41,6 +44,39 @@ NEW_PITCH_USE = 5.0  # % of AFL pitches for a "new pitch" ...
 NEW_PITCH_REG = 1.0  # ... that was under this % of his regular-season tracked pitches
 REG_MIN = 100        # tracked regular-season pitches (or swings seen, hitters) before a delta shows
 SPIN_COVER = 0.5
+EXPORT = ROOT / "data" / "export"
+
+
+def load_grades() -> tuple[dict, dict]:
+    """AFL grades (afl_grades.py) keyed (mlbam, season): pitcher fields, and {site type: (grade, n)}."""
+    if not (SRC / "grades_pitchers.parquet").exists():
+        return {}, {}
+    p = pd.read_parquet(SRC / "grades_pitchers.parquet")
+    pit = {(int(r.mlbam), int(r.season)): {
+        "whiffPlus": r.grade, "nGraded": int(r.n_graded), "kPlus": r.k_plus, "kProj": None if pd.isna(r.k_proj) else 100 * r.k_proj,
+        "preventionPlus": r.prevention_plus, "whiffByClass": json.loads(r.by_class)} for r in p.itertuples()}
+    t = pd.read_parquet(SRC / "grades_types.parquet")
+    types: dict = {}
+    for r in t.itertuples():
+        types.setdefault((int(r.pitcher), int(r.season)), {})[r.site] = (float(r.type_grade), int(r.n))
+    return pit, types
+
+
+def regular_grades() -> dict:
+    """His regular-season Whiff+ / K+ / Prevention+ per (mlbam, season): the MLB or AAA row with more graded pitches."""
+    out: dict = {}
+    for f, lvl in (("mlb_pitcher_models.json", "MLB"), ("aaa_pitcher_models.json", "AAA")):
+        if not (EXPORT / f).exists():
+            continue
+        for r in json.loads((EXPORT / f).read_text())["pitchers"]:
+            if r.get("whiff_plus") is None:
+                continue
+            n = sum(c["n"] for c in r.get("whiff_by_class") or [])
+            key = (int(r["mlbam"]), int(r["season"]))
+            if key not in out or n > out[key]["regGradedN"]:
+                out[key] = {"regGradeLevel": lvl, "regGradedN": n, "regWhiffPlus": r["whiff_plus"],
+                            "regKPlus": r.get("k_plus"), "regPreventionPlus": r.get("prevention_plus")}
+    return out
 
 
 def barrel(ev, la):
@@ -187,8 +223,40 @@ def pct_or_none(a, b):
     return 100 * a / b if b else None
 
 
+def add_grades(row: dict, key: tuple, pit: dict, types: dict, reg: dict) -> None:
+    """Merge the §109 grades into a pitcher row: overall + class, Whiff+ per arsenal type, deltas vs his regular season."""
+    if key not in pit:
+        return
+    row.update(pit[key])
+    for a in row["arsenal"]:
+        if a["type"] in types.get(key, {}):
+            g, n = types[key][a["type"]]
+            a["whiffPlus"], a["nGraded"] = rnd(g), n
+    if key in reg:
+        d = {**(row["delta"] or {}), **reg[key]}
+        for k in ("WhiffPlus", "KPlus", "PreventionPlus"):
+            mine, theirs = row.get(k[0].lower() + k[1:]), reg[key]["reg" + k]
+            if mine is not None and theirs is not None and np.isfinite(mine):
+                d["d" + k] = mine - theirs
+        row["delta"] = clean(d)
+
+
+def model_card(season: int) -> dict:
+    """The §109 label, coverage and scale-check summary shipped beside the grades."""
+    res = ROOT / "pipeline" / "results"
+    g = json.loads((res / "afl_grades.json").read_text())
+    sc = json.loads((res / "afl_scale_check.json").read_text()) if (res / "afl_scale_check.json").exists() else {}
+    cov = g["coverage"].get(str(season), {})
+    return {"label": "MLB model on AFL data", "status": "descriptive, small sample (RESULTS-MLB §109); no forecast claim on AFL",
+            "gradedPitches": g["graded_pitches"].get(str(season)), "coverage": cov,
+            "scaleCheck": {"verdict": sc.get("verdict"), "gradeGap": (sc.get("grade_gap") or {}).get("pooled"),
+                           "extGap": ((sc.get("inputs") or {}).get("pooled") or {}).get("all", {}).get("ext"),
+                           "pitchers": ((sc.get("grade_gap") or {}).get("pooled") or [None] * 4)[3]}}
+
+
 def build(season: int, pitches: pd.DataFrame, box: pd.DataFrame, reg: pd.DataFrame | None,
-          lines: tuple[pd.DataFrame, pd.DataFrame] | None, profiles: tuple[set, set] = (set(), set())) -> dict:
+          lines: tuple[pd.DataFrame, pd.DataFrame] | None, profiles: tuple[set, set] = (set(), set()),
+          grades: tuple[dict, dict, dict] = ({}, {}, {})) -> dict:
     px = pitches[pitches["season"] == season]
     pl, hl = box_lines(box, season)
     reg = reg if reg is not None else pd.DataFrame(columns=px.columns.tolist() + ["level"])
@@ -216,6 +284,7 @@ def build(season: int, pitches: pd.DataFrame, box: pd.DataFrame, reg: pd.DataFra
         fb = ars[ars["type"].isin(["FF", "SI"])] if len(ars) else ars
         row["fbVelo"] = float(fb.iloc[0]["velo"]) if len(fb) and fb.iloc[0]["n"] >= MIN_TYPE_N else None
         row["delta"] = pitcher_delta(row, ars, reg[reg["pitcher"] == t["id"]], rp_lines, t["id"])
+        add_grades(row, (int(t["id"]), season), *grades)
         pitchers.append(clean(row))
     for t in hl.to_dict("records"):
         mine = px[px["batter"] == t["id"]]
@@ -318,6 +387,13 @@ def demo() -> None:
     assert abs(r["chasePct"] - 200 / 3) < 1e-9                        # 2 swings of 3 pitches in zones 10-14
     assert abs(r["cswPct"] - 50) < 1e-9 and r["pa"] == 2 and r["kPct"] == 50
     assert r["hardHitPct"] == 100 and r["barrelPct"] == 100
+    # grades merge: type grade onto the arsenal row, delta vs the regular-season grade, no K+ delta when K+ is blank
+    row = {"arsenal": [{"type": "SL", "n": 12}], "delta": None}
+    add_grades(row, (1, 2026), {(1, 2026): {"whiffPlus": 110.0, "kPlus": float("nan"), "preventionPlus": 99.0}},
+               {(1, 2026): {"SL": (121.04, 12)}},
+               {(1, 2026): {"regWhiffPlus": 104.0, "regKPlus": 101.0, "regPreventionPlus": None}})
+    assert row["arsenal"][0]["whiffPlus"] == 121.0 and row["delta"]["dWhiffPlus"] == 6.0
+    assert "dKPlus" not in row["delta"] and "dPreventionPlus" not in row["delta"]
     print("afl_export demo ok")
 
 
@@ -330,11 +406,15 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     seasons = sorted(int(s) for s in pitches["season"].unique())
     index, profiles = [], profile_ids()
+    pit, types = load_grades()
+    grades = (pit, types, regular_grades() if pit else {})
     for s in seasons:
         ids = box[box["season"] == s]
         reg = regular_pitches(s, ids.loc[ids["role"] == "P", "id"].unique(), ids.loc[ids["role"] == "H", "id"].unique())
         lines = season_lines(s) if (MILB / "pitchers.parquet").exists() else None
-        doc = build(s, pitches, box, reg, lines, profiles)
+        doc = build(s, pitches, box, reg, lines, profiles, grades)
+        if pit:
+            doc["models"] = model_card(s)
         (OUT / f"{s}.json").write_text(json.dumps(doc, separators=(",", ":"), default=str))
         index.append({k: doc[k] for k in ("season", "games", "pitches", "from", "to")}
                      | {"pitchers": len(doc["pitchers"]), "hitters": len(doc["hitters"])})
