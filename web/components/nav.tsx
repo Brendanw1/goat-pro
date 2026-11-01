@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/pitchers", label: "Pitchers" },
   { href: "/hitters", label: "Hitters" },
   { href: "/minors", label: "Minors" },
+  { href: "/afl", label: "AFL" },
   { href: "/prospects", label: "Prospects" },
   { href: "/teams", label: "Teams" },
   { href: "/trades", label: "Trades" },

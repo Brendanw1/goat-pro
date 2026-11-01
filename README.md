@@ -18,6 +18,7 @@ shown. The results are published as a website.
 | Pitchers / Hitters | Sortable leaderboards with the site's models beside the measured stats. Every column, and every stat with a profile percentile, can be filtered by range |
 | Player profiles | Percentile panels, arsenal and pitch grades, movement and location visuals, swing (bat tracking), defense field drill with Savant clips, aging track, WAR and WPA lines, game logs, splits, printable sheet, and an MLB/AAA level toggle for players with seasons at both |
 | Minors | AAA boards, with the MLB-trained models scored on AAA pitches (display only), and MLB-equivalent lines (MLEs) for AAA and AA |
+| AFL | Arizona Fall League 2021–2026 from MLB Stats API game feeds: pitcher, arsenal and hitter boards and each player's AFL line minus his own regular season; descriptive, no model scored on AFL pitches |
 | Prospects | MLB Pipeline lists 2011–2026 with debut tags, draft hit rates, and farm-system output by year with risers and fallers |
 | Trades | Every MLB-to-MLB trade 2020–26, grouped into deals, with the run value each club got back |
 | Postseason / Matchup | Each October 2020–26 as a bracket with series results, game reports with starting lineups, and postseason WPA and run-value leaders (`postseason.py`, bake family `postseason`); a descriptive pitcher-vs-lineup scouting view from the arsenal, hand/family splits and movement buckets |
