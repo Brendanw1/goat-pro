@@ -9,9 +9,8 @@
  * rounded to 5) — labelled estimates, never a model output, and nothing
  * here predicts next season.
  */
-import { useEffect, useMemo, useState } from "react";
-import { HEX_NX, HEX_NY, HEX_S, type HexCols, hexCenter, quantile, smoothHex, sumHex, typesOf } from "@/lib/zone-hex";
-import { percentileRamp } from "@/lib/percentiles";
+import { type MouseEvent as RMouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { HEX_DY, HEX_NX, HEX_NY, HEX_S, type HexCols, hexCenter, quantile, smoothHex, sumHex, typesOf } from "@/lib/zone-hex";
 import { signedFixed } from "@/components/ui/shared-ui";
 
 const gradeColor = (g: number): string => {
@@ -102,6 +101,22 @@ const base = {
 /** The sample behind a metric: pitches, swings (whiff) or balls in play (contact). */
 const sampleOf = (b: Base, c: Cell) => (b === "whiff" ? `${c[1] ?? 0} sw` : b === "xw" || b === "hard" ? `${c[4] ?? 0} BIP` : `n=${c[0]}`);
 type Base = keyof typeof base;
+/** Hover lines for one cell or hex: every metric, with the league's figure and the difference when known. */
+function metricLines(c: Cell, l: Cell | null, bip: string): string[] {
+  const ln = (b: Base, label: string, fmt: (x: number) => string, dfmt: (x: number) => string, extra = "") => {
+    const a = base[b](c), g = l ? base[b](l) : null;
+    return a == null ? null : `${label} ${fmt(a)}${extra}${g != null ? ` (league ${fmt(g)}, ${dfmt(a - g)})` : ""}`;
+  };
+  const pf = (x: number) => `${f1(x)}%`, d1 = (x: number) => signedFixed(x, 1);
+  return [
+    ln("swing", "swung", pf, d1),
+    ln("whiff", "whiff", pf, d1, " of swings"),
+    c.length > 4 && !(c[4] > 0) ? "no balls in play" : null,
+    ln("xw", "xwOBACON", xwFmt, xwSigned, c.length > 4 ? ` on ${bip} BIP` : ""),
+    ln("hard", "hard-hit", pf, d1),
+    ln("rv", "run value", (x) => `${signedFixed(x, 1)}/100`, d1),
+  ].filter((x): x is string => x != null);
+}
 const pctFmt = (v: number) => `${Math.round(v)}%`;
 const xwFmt = (v: number) => v.toFixed(3).replace(/^(-?)0\./, "$1.");
 const xwSigned = (v: number) => (Math.abs(v) < 0.0005 ? ".000" : (v > 0 ? "+" : "−") + xwFmt(Math.abs(v)));
@@ -120,10 +135,37 @@ const METRICS: { key: string; label: string; b: Base; vsLg: boolean; kind: "seq"
   { key: "rv", label: "RV/100", b: "rv", vsLg: false, kind: "div", cap: 6, fmt: (v) => signedFixed(v, 1), what: "run value per 100 pitches" },
   { key: "rvD", label: "RV/100 vs lg", b: "rv", vsLg: true, kind: "div", cap: 6, fmt: (v) => signedFixed(v, 1), what: "run value per 100 pitches minus league's" },
 ];
-/** Sequential ramp: one hue (blue), lightness carries the value — clear of the green/red good-bad colours. */
-const SEQ_LO = "#1c2a35", SEQ_HI = "#8fd0f5";
-const seqColor = (t: number) => `color-mix(in oklab, ${SEQ_HI} ${Math.round(100 * Math.max(0, Math.min(1, t)))}%, ${SEQ_LO})`;
-const divColor = (d: number, cap: number) => percentileRamp(0.5 + Math.max(-1, Math.min(1, d / cap)) / 2);
+/** Levels: viridis (perceptually uniform, monotone lightness, readable on the dark theme). */
+const VIRIDIS = ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"];
+/** Signed: saturated red (bad for the hitter) through a neutral grey to saturated green (good). */
+const DIVERGE = ["#f0443a", "#c4494a", "#4a5060", "#2e9e5e", "#2fd573"];
+const hexRgb = (c: string) => [1, 3, 5].map((k) => parseInt(c.slice(k, k + 2), 16));
+/** Evenly spaced stops, linear in sRGB between neighbours (close enough at 5-10 stops). */
+function ramp(stops: string[], t: number): string {
+  const u = (Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0.5) * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(u)), f = u - i;
+  const a = hexRgb(stops[i]), b = hexRgb(stops[i + 1]);
+  return `#${a.map((v, k) => Math.round(v + (b[k] - v) * f).toString(16).padStart(2, "0")).join("")}`;
+}
+/** Dark text on light fills, light text on dark ones (WCAG relative luminance). */
+const isLight = (hex: string) => {
+  const [r, g, b] = hexRgb(hex).map((v) => { const s = v / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.3;
+};
+const seqColor = (t: number) => ramp(VIRIDIS, t);
+const divColor = (d: number, cap: number) => ramp(DIVERGE, 0.5 + Math.max(-1, Math.min(1, d / cap)) / 2);
+const SEQ_BG = `linear-gradient(to right, ${VIRIDIS.join(", ")})`, DIV_BG = `linear-gradient(to right, ${DIVERGE.join(", ")})`;
+/** Hover box shared by the Zones and Smooth views. */
+type Tip = { x: number; y: number; text: string } | null;
+function TipBox({ tip }: { tip: Tip }) {
+  if (!tip) return null;
+  return (
+    <div className="pointer-events-none absolute z-20 max-w-[260px] whitespace-pre-line rounded-md border border-border-subtle bg-[#0b1016]/95 px-2 py-1.5 font-data text-[10px] leading-snug text-text-primary shadow-lg"
+      style={{ left: tip.x + 14, top: tip.y + 14 }}>{tip.text}</div>
+  );
+}
+/** Cursor position inside the panel (the TipBox's offset parent). */
+const relPos = (e: RMouseEvent, el: HTMLElement) => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
 
 const SEG = "rounded-full px-2.5 py-0.5 text-[10px] transition-colors";
 function Seg<T extends string>({ value, set, opts }: { value: T; set: (v: T) => void; opts: readonly (readonly [T, string])[] }) {
@@ -137,9 +179,12 @@ function Seg<T extends string>({ value, set, opts }: { value: T; set: (v: T) => 
   );
 }
 
-function ZonePlot({ title, split, lg, metric, note }: {
+function ZonePlot({ title, split, lg, metric, note, scale }: {
   title: string; split: { s: string; c: Cell[] } | null; lg: Cell[] | null; metric: (typeof METRICS)[number]; note: string;
+  scale: [number, number];
 }) {
+  const [tip, setTip] = useState<Tip>(null);
+  const box = useRef<HTMLDivElement>(null);
   if (!split) {
     return (
       <div className="rounded-lg border border-border-subtle p-3">
@@ -164,7 +209,8 @@ function ZonePlot({ title, split, lg, metric, note }: {
   const boxX = side === "R" ? 4 : gridR + 8;
 
   return (
-    <div className="rounded-lg border border-border-subtle p-3">
+    <div ref={box} className="relative rounded-lg border border-border-subtle p-3">
+      <TipBox tip={tip} />
       <div className="flex items-baseline justify-between">
         <span className="text-[11px] font-semibold text-text-primary">{title}</span>
         <span className="text-[9px] text-text-dim">bats {side} here</span>
@@ -181,35 +227,20 @@ function ZonePlot({ title, split, lg, metric, note }: {
           const own = base[metric.b](c), lgv = l ? base[metric.b](l) : null;
           const v = metric.vsLg ? (own != null && lgv != null ? own - lgv : null) : own;
           let fill = "rgba(127,127,127,0.06)", dark = false;
-          if (v != null && metric.kind === "seq") {
-            const t = (v - metric.lo!) / (metric.hi! - metric.lo!);
-            fill = seqColor(t); dark = t > 0.55;
-          } else if (v != null) {
-            fill = divColor(metric.lowerGood ? -v : v, metric.cap!);
+          if (v != null) {
+            fill = metric.kind === "seq" ? seqColor((v - scale[0]) / (scale[1] - scale[0] || 1)) : divColor(metric.lowerGood ? -v : v, metric.cap!);
+            dark = isLight(fill);
           }
-          const ln = (b: Base, label: string, fmt: (x: number) => string, dfmt: (x: number) => string, extra = "") => {
-            const a = base[b](c), g = l ? base[b](l) : null;
-            return a == null ? null : `${label} ${fmt(a)}${extra}${g != null ? ` (league ${fmt(g)}, ${dfmt(a - g)})` : ""}`;
-          };
-          const tip = [
-            `${title} · ${ZR_LABEL[zz]}, ${ZC_LABEL[zx].toLowerCase()} · ${c[0]} pitches`,
-            ln("swing", "swung", (x) => `${f1(x)}%`, (x) => signedFixed(x, 1)),
-            ln("whiff", "whiff", (x) => `${f1(x)}%`, (x) => signedFixed(x, 1), " of swings"),
-            c.length > 4 && c[4] === 0 ? "no balls in play" : null,
-            ln("xw", "xwOBACON", xwFmt, xwSigned, c.length > 4 ? ` on ${c[4]} BIP` : ""),
-            ln("hard", "hard-hit", (x) => `${f1(x)}%`, (x) => signedFixed(x, 1)),
-            ln("rv", "run value", (x) => `${signedFixed(x, 1)}/100`, (x) => signedFixed(x, 1)),
-          ].filter(Boolean).join("\n");
+          const tipText = [`${title} · ${ZR_LABEL[zz]}, ${ZC_LABEL[zx].toLowerCase()} · ${c[0]} pitches`, ...metricLines(c, l, String(c[4] ?? 0))].join("\n");
           const x = colX[ci], y = rowY[ri], w = colW[ci], h = rowH[ri];
           const txt = v != null ? metric.fmt(v) : "·";
           return (
             <g key={key}>
-              <rect x={x} y={y} width={w} height={h} rx={3} fill={fill}>
-                <title>{tip}</title>
-              </rect>
+              <rect x={x} y={y} width={w} height={h} rx={3} fill={fill}
+                onMouseMove={(e) => box.current && setTip({ ...relPos(e, box.current), text: tipText })} onMouseLeave={() => setTip(null)} />
               <text x={x + w / 2} y={y + h / 2} textAnchor="middle" fontSize={w < 40 ? 8.5 : 10.5}
                 className={`font-data pointer-events-none ${v != null ? (dark ? "fill-[#0c1218]" : "fill-text-primary") : "fill-text-dim"}`}>{txt}</text>
-              <text x={x + w / 2} y={y + h / 2 + 11} textAnchor="middle" fontSize={7} fillOpacity={0.65}
+              <text x={x + w / 2} y={y + h / 2 + 11} textAnchor="middle" fontSize={7} fillOpacity={0.85}
                 className={`font-data pointer-events-none ${dark ? "fill-[#0c1218]" : "fill-text-primary"}`}>
                 {sampleOf(metric.b, c)}
               </text>
@@ -232,17 +263,17 @@ function ZonePlot({ title, split, lg, metric, note }: {
 
 /* ------------------------------------------------------------ Smooth view (zone_hex) */
 const BWS = [["0.12", "Fine 0.12 ft"], ["0.2", "Medium 0.2 ft"], ["0.3", "Broad 0.3 ft"]] as const;
-/** Smoothed denominator at which a hex is drawn fully opaque; below it the hex fades (never hidden). */
-const FULL_SUPPORT = { n: 6, sw: 4, bip: 3 } as const;
+/** Smoothed denominator a hex needs to set the signed views' colour cap (it is drawn at full colour regardless). */
+const CAP_SUPPORT = { n: 6, sw: 4, bip: 3 } as const;
 const hexCache = new Map<string, Promise<any>>();
 const getJson = (url: string) => {
   if (!hexCache.has(url)) hexCache.set(url, fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null));
   return hexCache.get(url)!;
 };
 
-function ZoneSmooth({ title, file, hand, grp, metric, bw, season, level }: {
+function ZoneSmooth({ title, file, hand, grp, metric, bw, season, level, scale }: {
   title: string; file: any; hand: "R" | "L" | "A"; grp: string; metric: (typeof METRICS)[number]; bw: number;
-  season: number; level: string;
+  season: number; level: string; scale: [number, number];
 }) {
   const hands = hand === "A" ? (["R", "L"] as const) : [hand];
   const own = useMemo(() => sumHex(hands.flatMap((h) => typesOf(grp).map((t) => file?.h?.[h]?.[t]))), [file, hand, grp]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -251,15 +282,17 @@ function ZoneSmooth({ title, file, hand, grp, metric, bw, season, level }: {
     ? ((file?.s?.R ?? file?.s?.L) === "L" ? "L" : "R")
     : file?.s?.[hand] === "L" ? "L" : "R";
   const [lg, setLg] = useState<HexCols | null>(null);
+  const [tip, setTip] = useState<Tip>(null);
+  const [hov, setHov] = useState<number | null>(null);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!metric.vsLg) return;
-    let live = true;
+    let live = true; // league surface: the vs-league fills and the league figures on hover
     getJson(`/api/data/zone-hex-league?season=${season}&stand=${side}&hand=${hand}&split=${grp}&level=${level}`)
       .then((j) => live && setLg(j?.i?.length ? j : null));
     return () => { live = false; };
-  }, [metric.vsLg, season, side, hand, grp, level]);
+  }, [season, side, hand, grp, level]);
   const sm = useMemo(() => (own ? smoothHex(own, bw) : null), [own, bw]);
-  const smLg = useMemo(() => (metric.vsLg && lg ? smoothHex(lg, bw) : null), [metric.vsLg, lg, bw]);
+  const smLg = useMemo(() => (lg ? smoothHex(lg, bw) : null), [lg, bw]);
   const raw = useMemo(() => new Map((own?.i ?? []).map((k, r) => [k, own!.n[r]])), [own]);
 
   if (!own || !sm) {
@@ -276,7 +309,7 @@ function ZoneSmooth({ title, file, hand, grp, metric, bw, season, level }: {
   const N = HEX_NX * HEX_NY;
   const vals: (number | null)[] = new Array(N).fill(null);
   for (let k = 0; k < N; k++) {
-    if (sm[den][k] < 0.05) continue;
+    if (sm[den][k] < 0.05) continue; // past the kernel's reach: no pitch within ~2.5 bandwidths
     const v = base[metric.b](cellOf(sm, k));
     if (v == null) continue;
     if (metric.vsLg) {
@@ -284,12 +317,12 @@ function ZoneSmooth({ title, file, hand, grp, metric, bw, season, level }: {
       vals[k] = l == null ? null : v - l;
     } else vals[k] = v;
   }
-  // robust scale: 5th–95th percentile over the well-supported hexes (opaque ones), so thin edges cannot set it
-  const pool = (min: number) => vals.filter((v, k): v is number => v != null && sm[den][k] >= min);
-  const solid = pool(FULL_SUPPORT[denKey]);
-  const shown = solid.length >= 20 ? solid : pool(1);
   const div = metric.kind === "div";
-  const lo = div ? 0 : quantile(shown, 0.05), hi = div ? 0 : quantile(shown, 0.95);
+  // levels: the league-anchored scale shared with the Zones view; signed: 95th pct of |value| over well-sampled hexes
+  const pool = (min: number) => vals.filter((v, k): v is number => v != null && sm[den][k] >= min);
+  const solid = pool(CAP_SUPPORT[denKey]);
+  const shown = solid.length >= 20 ? solid : pool(1);
+  const [lo, hi] = scale;
   const cap = div ? Math.max(quantile(shown.map(Math.abs), 0.95) || 0, metric.b === "xw" ? 0.02 : 1) : 0;
   const color = (v: number) => (div ? divColor(metric.lowerGood ? -v : v, cap) : seqColor(hi > lo ? (v - lo) / (hi - lo) : 0.5));
 
@@ -306,46 +339,61 @@ function ZoneSmooth({ title, file, hand, grp, metric, bw, season, level }: {
   const boxX = side === "R" ? 4 : W - BOX - 4;
   const fmtLegend = (v: number) => metric.fmt(v);
 
+  /** Cursor -> nearest lattice hex (row first, then column within the row's offset). */
+  const onMove = (e: RMouseEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W, py = ((e.clientY - r.top) / r.height) * H;
+    const x = flip * ((px - X0) / P + XL), z = ZT - py / P;
+    const j = Math.round((z - 0.5) / HEX_DY), i = Math.round((x + 1.5 - (j % 2 ? HEX_S / 2 : 0)) / HEX_S);
+    if (j < 0 || j >= HEX_NY || i < 0 || i >= HEX_NX || !box.current) { setTip(null); setHov(null); return; }
+    // a denominator under 0.05 is past the kernel's reach: zero it so its rate reads as absent, not 100%
+    const reach = (x: Cell) => x.map((q, ci) => ((ci === 0 || ci === 1 || ci === 4) && q < 0.05 ? 0 : q));
+    const k = j * HEX_NX + i, c = reach(cellOf(sm, k)), l = smLg ? reach(cellOf(smLg, k)) : null, v = vals[k];
+    const [hx, hz] = hexCenter(k);
+    const where = `${Math.abs(hx) < 0.005 ? "middle" : `${Math.abs(hx).toFixed(1)} ft ${hx > 0 ? "inside" : "away"}`}, ${hz.toFixed(1)} ft high`;
+    const text = [
+      `${title} · ${where}`,
+      v != null ? `${metric.label} ${metric.fmt(v)} (smoothed)` : `${metric.label}: no ${denKey === "n" ? "pitches" : denKey === "sw" ? "swings" : "balls in play"} within reach`,
+      `kernel sample ${c[0].toFixed(1)} pitches · ${c[1].toFixed(1)} swings · ${c[4].toFixed(1)} BIP · ${raw.get(k) ?? 0} pitches in this hex`,
+      ...(c[0] >= 0.05 ? metricLines(c, l, c[4].toFixed(1)) : []),
+    ].join("\n");
+    setHov(k); setTip({ ...relPos(e, box.current), text });
+  };
+
   return (
-    <div className="rounded-lg border border-border-subtle p-3">
+    <div ref={box} className="relative rounded-lg border border-border-subtle p-3">
+      <TipBox tip={tip} />
       <div className="flex items-baseline justify-between">
         <span className="text-[11px] font-semibold text-text-primary">{title}</span>
         <span className="text-[9px] text-text-dim">bats {side} here · {own.n.reduce((a, b) => a + b, 0)} pitches</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full max-w-[330px] h-auto" role="img"
-        aria-label={`${title}: smoothed ${metric.what}, catcher's view`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full max-w-[330px] h-auto cursor-crosshair" role="img"
+        aria-label={`${title}: smoothed ${metric.what}, catcher's view`}
+        onMouseMove={onMove} onMouseLeave={() => { setTip(null); setHov(null); }}>
         {vals.map((v, k) => {
           if (v == null) return null;
           const [x, z] = hexCenter(k);
-          const sup = sm[den][k];
-          return (
-            <path key={k} d={hexPath(sx(x), sy(z))} fill={color(v)} fillOpacity={Math.max(0.1, Math.min(1, sup / FULL_SUPPORT[denKey]))}>
-              <title>{`${metric.fmt(v)}${metric.vsLg ? " vs league" : ""} · smoothed sample ${sup.toFixed(1)} ${denKey === "n" ? "pitches" : denKey === "sw" ? "swings" : "BIP"} · ${raw.get(k) ?? 0} pitches in this hex`}</title>
-            </path>
-          );
+          return <path key={k} d={hexPath(sx(x), sy(z))} fill={color(v)} />;
         })}
         {/* the standard zone (his zone scaled to 1.5–3.5) in thirds */}
         <rect x={zl} y={sy(3.5)} width={zr - zl} height={sy(1.5) - sy(3.5)} fill="none" stroke="currentColor" strokeOpacity={0.8}
-          strokeWidth={1.5} className="text-text-primary" />
+          strokeWidth={1.5} className="text-text-primary pointer-events-none" />
         {[1 / 3, 2 / 3].map((t) => (
-          <g key={t} className="text-text-primary" stroke="currentColor" strokeOpacity={0.25}>
+          <g key={t} className="text-text-primary pointer-events-none" stroke="currentColor" strokeOpacity={0.25}>
             <line x1={zl} x2={zr} y1={sy(1.5 + 2 * t)} y2={sy(1.5 + 2 * t)} />
             <line x1={zl + (zr - zl) * t} x2={zl + (zr - zl) * t} y1={sy(3.5)} y2={sy(1.5)} />
           </g>
         ))}
         <path d={`M ${zl} ${sy(0.55)} H ${zr} V ${sy(0.47)} L ${(zl + zr) / 2} ${sy(0.36)} L ${zl} ${sy(0.47)} Z`}
-          fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.55} className="text-text-primary" />
+          fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.55} className="text-text-primary pointer-events-none" />
         <rect x={boxX} y={sy(3.5)} width={BOX} height={sy(1.5) - sy(3.5)} rx={2} fill="none" stroke="currentColor"
-          strokeOpacity={0.3} strokeDasharray="4 3" className="text-text-dim" />
-        <text x={boxX + BOX / 2} y={sy(2.5) + 3} textAnchor="middle" fontSize={9} className="fill-text-secondary font-data">{side}HH</text>
+          strokeOpacity={0.3} strokeDasharray="4 3" className="text-text-dim pointer-events-none" />
+        <text x={boxX + BOX / 2} y={sy(2.5) + 3} textAnchor="middle" fontSize={9} className="fill-text-secondary font-data pointer-events-none">{side}HH</text>
+        {hov != null && (() => { const [x, z] = hexCenter(hov); return <path d={hexPath(sx(x), sy(z))} fill="none" stroke="#fff" strokeWidth={1.5} className="pointer-events-none" />; })()}
       </svg>
-      {shown.length > 0 && (
+      {(div ? shown.length > 0 : true) && (
         <div className="mt-2 max-w-[330px]">
-          <div className="h-2 rounded-full" style={{
-            background: div
-              ? `linear-gradient(to right, ${[0, 0.25, 0.5, 0.75, 1].map((t) => percentileRamp(t)).join(", ")})`
-              : `linear-gradient(to right, ${SEQ_LO}, ${SEQ_HI})`,
-          }} />
+          <div className="h-2 rounded-full" style={{ background: div ? DIV_BG : SEQ_BG }} />
           <div className="mt-1 flex justify-between text-[9px] text-text-dim font-data">
             {div ? (
               <><span>{fmtLegend(metric.lowerGood ? cap : -cap)}</span><span>{metric.vsLg ? "league" : "0"}</span><span>{fmtLegend(metric.lowerGood ? -cap : cap)}</span></>
@@ -354,7 +402,7 @@ function ZoneSmooth({ title, file, hand, grp, metric, bw, season, level }: {
             )}
           </div>
           <p className="text-[9px] text-text-dim">
-            {div ? "ends = 95th percentile of |value| over its well-sampled hexes" : "ends = 5th and 95th percentiles over its well-sampled hexes"}
+            {div ? "ends = 95th percentile of |value| over its well-sampled hexes" : "ends = league 5th–95th percentile of zone cells, same filter (as in Zones)"}
             {metric.vsLg && !smLg ? " · loading league…" : ""}
           </p>
         </div>
@@ -393,10 +441,18 @@ export function ZoneGridPanel({ data, league, level = "mlb" }: { data: any | nul
     CH: "changeups", FS: "splitters", FB: "fastballs", BR: "breaking balls", OS: "offspeed pitches" } as Record<string, string>)[grp] ?? "";
   const switchHitter = zg.R?.s && zg.L?.s && zg.R.s !== zg.L.s;
   const m = metric;
+  // Level scale anchored to the league: 5th–95th percentile of the league's cells for the panels shown
+  // (same side, hand and filter), so both panels and both views share it; fixed fallback if no league slice.
+  const lgVals = hands.flatMap((h) => {
+    const sp = zg[`${h}${grp}`];
+    return ((sp ? league?.[sp.s]?.[`${h}${grp}`] : null) ?? []) as Cell[];
+  }).map((c) => base[m.b](c)).filter((v): v is number => v != null);
+  const lgLo = quantile(lgVals, 0.05), lgHi = quantile(lgVals, 0.95);
+  const scale: [number, number] = m.kind === "seq" && lgVals.length >= 5 && lgHi > lgLo ? [lgLo, lgHi] : [m.lo ?? 0, m.hi ?? 1];
   const legend = m.kind === "seq"
-    ? { bg: `linear-gradient(to right, ${SEQ_LO}, ${SEQ_HI})`, lo: m.fmt(m.lo!), mid: m.fmt((m.lo! + m.hi!) / 2), hi: `${m.fmt(m.hi!)}+` }
+    ? { bg: SEQ_BG, lo: `≤${m.fmt(scale[0])}`, mid: m.fmt((scale[0] + scale[1]) / 2), hi: `≥${m.fmt(scale[1])}` }
     : {
-        bg: `linear-gradient(to right, ${[0, 0.25, 0.5, 0.75, 1].map((t) => percentileRamp(t)).join(", ")})`,
+        bg: DIV_BG,
         lo: m.fmt(m.lowerGood ? m.cap! : -m.cap!), mid: m.vsLg ? "league" : "0", hi: m.fmt(m.lowerGood ? -m.cap! : m.cap!),
       };
 
@@ -423,7 +479,7 @@ export function ZoneGridPanel({ data, league, level = "mlb" }: { data: any | nul
         {mode === "smooth" && hands.map((h) => (
           hexFile ? (
             <ZoneSmooth key={h} title={h === "A" ? "All pitchers" : h === "R" ? "vs RHP" : "vs LHP"} file={hexFile} hand={h}
-              grp={grp} metric={m} bw={Number(bw)} season={data.season} level={level} />
+              grp={grp} metric={m} bw={Number(bw)} season={data.season} level={level} scale={scale} />
           ) : (
             <p key={h} className="text-[11px] text-text-dim py-6">{hexFile === null ? "No smooth surface for this season." : "Loading…"}</p>
           )
@@ -433,7 +489,7 @@ export function ZoneGridPanel({ data, league, level = "mlb" }: { data: any | nul
           const sp = zg[key] ?? null;
           return (
             <ZonePlot key={h} title={h === "A" ? "All pitchers" : h === "R" ? "vs RHP" : "vs LHP"} split={sp}
-              lg={sp ? league?.[sp.s]?.[key] ?? null : null} metric={m}
+              lg={sp ? league?.[sp.s]?.[key] ?? null : null} metric={m} scale={scale}
               note={`Under 50 ${typeLabel || "pitches"} from ${h === "R" ? "righties" : h === "L" ? "lefties" : "anyone"} — no chart.`} />
           );
         })}
@@ -444,17 +500,17 @@ export function ZoneGridPanel({ data, league, level = "mlb" }: { data: any | nul
           <span>{legend.lo}</span><span>{legend.mid}</span><span>{legend.hi}</span>
         </div>
         <p className="mt-1 text-[9px] text-text-dim">
-          {m.kind === "seq" ? "a level, not a verdict" : m.lowerGood ? "green = fewer whiffs than league (good for the hitter), red = more" : "green = good for the hitter, red = bad"}
+          {m.kind === "seq" ? `a level, not a verdict · ends = ${lgVals.length >= 5 ? "league's 5th–95th percentile cells, same filter" : "fixed range"}` : m.lowerGood ? "green = fewer whiffs than league (good for the hitter), red = more" : "green = good for the hitter, red = bad"}
         </p>
       </div>}
       {mode === "smooth" && (
         <p className="mt-3 text-[10px] leading-relaxed text-text-dim">
           Smooth: raw counts per 0.1 ft hexagon, smoothed in your browser with a Gaussian kernel of the chosen bandwidth
           ({bw} ft), numerator and denominator separately, so each hex shows a kernel-pooled rate. His zone is scaled to a
-          standard 1.5–3.5 ft so the outline sits in thirds. Hexes fade where the smoothed sample is thin (opaque at about{" "}
-          {FULL_SUPPORT.n} pitches, {FULL_SUPPORT.sw} swings or {FULL_SUPPORT.bip} balls in play) and are never hidden; hover
-          for the smoothed sample and the raw pitches in that hex. Levels are scaled to the 5th–95th percentiles of the
-          surface&apos;s opaque (well-sampled) hexes so one hot hex cannot wash out the rest; signed views to their 95th percentile of |value|; league =
+          standard 1.5–3.5 ft so the outline sits in thirds. Every hex is drawn at full colour however thin its sample —
+          hover any spot for the smoothed value, every metric with the league&apos;s, the kernel sample (effective pitches,
+          swings, balls in play) and where it is. Levels share the Zones scale (the league&apos;s 5th–95th percentile cells for
+          this filter); signed views are capped at their 95th percentile of |value| over well-sampled hexes; league =
           the league&apos;s surface for the same side, hand and filter at the same bandwidth.
         </p>
       )}
