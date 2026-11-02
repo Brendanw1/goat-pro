@@ -39,6 +39,7 @@ const TYPE_SHORT: Record<string, string> = {
 
 const SWING_COLS: Col[] = [
   { key: "sq", label: "SQ" },
+  { key: "age", label: "Age" },
   { key: "avgBatSpeed", label: "Bat mph" },
   { key: "batSpeedP90", label: "Peak 90th" },
   { key: "swingLength", label: "Length ft" },
@@ -161,16 +162,18 @@ export default async function HittersPage({ searchParams }: {
     const [index, swingq] = await Promise.all([getSwingIndex(), getSwingQAll()]);
     const seasons: number[] = Object.keys(index?.seasons ?? {}).map(Number).sort((a, b) => b - a);
     const season = seasons.includes(Number(q.season)) ? Number(q.season) : seasons[0];
-    const byId = new Map((data ?? []).map((r0: any) => [String(r0.id), r0]));
+    // Keyed by (id, season): hitters.json holds every season, so an id-only map took whichever season came last.
+    const byId = new Map((data ?? []).map((r0: any) => [`${r0.id}-${r0.season}`, r0]));
     let rows: any[] = (index?.seasons?.[String(season)] ?? []).map((r0: any) => {
-      const b = byId.get(String(r0.id));
+      const b = byId.get(`${r0.id}-${season}`);
       const sq = swingq?.rows?.[`${r0.id}-${season}`]?.g ?? null;
-      return { ...r0, sq, name: b?.name ?? r0.id, team: b?.team ?? null, bats: b?.bats ?? null };
+      const age = typeof b?.age === "number" ? Math.floor(b.age) : null;
+      return { ...r0, sq, age, name: b?.name ?? r0.id, team: b?.team ?? null, bats: b?.bats ?? null };
     });
     if (q.team) rows = rows.filter((r0) => r0.team === q.team);
     const teams = [...new Set(rows.map((r0) => r0.team).filter(Boolean))].sort() as string[];
     const sortKey = SWING_COLS.some((c) => c.key === q.sort) ? q.sort! : "avgBatSpeed";
-    const asc = sortKey === "swordRate" || sortKey === "swords" || sortKey === "whiffPerSwing" || sortKey === "swingLength";
+    const asc = sortKey === "age" || sortKey === "swordRate" || sortKey === "swords" || sortKey === "whiffPerSwing" || sortKey === "swingLength";
     const dir = q.dir === "asc" || q.dir === "desc" ? q.dir : asc ? "asc" : "desc";
     rows.sort(sortComparator(sortKey, dir));
     const PAGE = 50;
@@ -187,7 +190,7 @@ export default async function HittersPage({ searchParams }: {
           Statcast bat tracking, {season}: every hitter with 100+ tracked swings. Bat speed is our average over all
           tracked swings (Savant&apos;s leaderboard averages competitive swings only, so theirs reads about a point
           higher); swords, squared-up, blast and hard-swing rates are Savant&apos;s own. Swing length and attack angle
-          are style — sortable, never coloured. SQ is the Swing Quality grade (100 = league, descriptive, §98; 25+ BIP).
+          are style — sortable, never coloured. SQ is the Swing Quality grade (100 = league, descriptive, §98; 25+ BIP). Age is his season age, rounded down.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/hitters" className={chip(false)}>Rate board</Link>
