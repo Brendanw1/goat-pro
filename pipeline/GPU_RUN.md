@@ -62,6 +62,14 @@ grep -E "fit wall|skip|budget stop|Traceback" npy104.log
 - Diagnostics are appended to `pipeline/results/prospect_104_npy_diag.jsonl`, one line per fit: divergences, R̂ and ESS
   of the globals, mean leapfrog steps, wall seconds and device.
 - Do not change any setting. A different setting is a new spec and needs a new pre-registration.
+- **Starts + probe (handling, added after GPU run 2; the settings above are unchanged).** GPU run 2 (2026-10-31) lost
+  all 5 big-fold fits: every iteration hit the tree cap (mean leapfrog 1,023) and 1-3 of 4 chains froze (sd 0 over all
+  draws). Leapfrog grew with fold size on the laptop too (383 at 10.7k entities, 639 at 18k), so it is geometry, not
+  the GPU. Now each chain starts from the SVI fit (AutoNormal loc + 2 × scale × N(0,1), overdispersed), and after
+  warm-up + the first 100 draws the fit aborts if one chain's step size is > 5× smaller than another's or a chain
+  averages ≥ 95% of the tree cap. An abort writes a diag line with `probe` (per-chain step size and leapfrog) and no
+  draws file, so the box frees in about the warm-up time instead of the full fit. A repeat abort means the geometry
+  needs a spec amendment (dense mass on the globals or a deeper tree); that is the owner's call.
 
 ## 4. Bring back and read (on the laptop)
 
