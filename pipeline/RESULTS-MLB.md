@@ -4087,6 +4087,21 @@ p@50 (CIs exclude 0) and on Spearman, but none beats it on top-100 NDCG, which B
 The sleeper gain is not the gate metric and is recorded only as a finding; using it needs a new pre-registration with a
 fresh holdout (none is left in 1990s-2018 lists with matured labels).
 
+### §104 sleeper pre-checks (post-hoc, spent lists 2015-18, 2026-11-03; `pipeline/prospect_sleeper_check.py`)
+Not a gate. Pool = unlisted or org rank > 20 (32,846 of 34,922 rows, 651 hits, rate .020). Sleeper p@50 per class, mean:
+
+| | B1 | −age_rel | level + youth | LR age/level/draft | LR + 3 rates | v0u | LGB | NPY |
+|---|---|---|---|---|---|---|---|---|
+| 2015-18 | .100 | .075 | .085 | .095 | .150 | .280 | .255 | .290 |
+
+- Youth for level alone does not find sleepers (.075, below B1). The models beat the best plain baseline (LR + 3 rate
+  stats, trained on the same tyear ≤ Y − 4 split): v0u +13 pp [+4.5, +20], NPY +14 pp [+5.5, +22.5].
+- Power (2.8 × player-clustered bootstrap SE): one class detects ΔNDCG@100 ≥ .10-.12 and Δp@50 ≥ .20; four pooled classes
+  detect ΔNDCG ≥ .05-.06 and Δp@50 ≥ .10-.12. The 2018 read could not detect the dev-sized NDCG gain (+.03-.05), so its
+  failure is inconclusive, not evidence of no gain. Even four classes do not resolve NPY vs B1 on NDCG (+.028 [−.012, +.068]).
+- A four-class sleeper test is well powered against B1 (effect ≈ .19, MDE ≈ .11) and marginal against LR + rates
+  (≈ .13-.14 vs ≈ .11-.12).
+
 ### §104 dev results (2026-10-29; `results/prospect_104_dev.json`; NPY pending the GPU run)
 Player-clustered bootstrap, 1,000 draws. Fixed splits, OOF Platt, full draft, health and org coverage fixes.
 
