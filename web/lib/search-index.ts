@@ -4,6 +4,8 @@ export interface SearchEntry {
   team: string;
   type: "pitcher" | "hitter";
   position?: string;
+  /** Profile link when not /player/[id] (minor leaguers) */
+  href?: string;
   /** Lowercased name for fast matching */
   nameLC: string;
 }
@@ -17,8 +19,8 @@ export interface SearchIndex {
  * Call once when data loads; pass the index to the Search component.
  */
 export function buildSearchIndex(
-  hitters: { id: string; name: string; team: string; position?: string }[],
-  pitchers: { id: string; name: string; team: string; position?: string }[]
+  hitters: { id: string; name: string; team: string; position?: string; href?: string }[],
+  pitchers: { id: string; name: string; team: string; position?: string; href?: string }[]
 ): SearchIndex {
   const entries: SearchEntry[] = [];
 
@@ -29,6 +31,7 @@ export function buildSearchIndex(
       team: h.team,
       type: "hitter",
       position: h.position,
+      href: h.href,
       nameLC: h.name.toLowerCase(),
     });
   }
@@ -40,6 +43,7 @@ export function buildSearchIndex(
       team: p.team,
       type: "pitcher",
       position: p.position,
+      href: p.href,
       nameLC: p.name.toLowerCase(),
     });
   }
