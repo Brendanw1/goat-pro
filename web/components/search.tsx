@@ -10,7 +10,7 @@ import {
   type SearchIndex as SearchIndexType,
 } from "@/lib/search-index";
 
-type Player = { id: string; name: string; team: string };
+type Player = { id: string; name: string; team: string; position?: string; href?: string };
 type Lists = { hitters: Player[]; pitchers: Player[] };
 
 /**
@@ -21,8 +21,10 @@ let listsPromise: Promise<Lists> | null = null;
 function loadLists(): Promise<Lists> {
   listsPromise ??= fetch("/api/data/search-index")
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-    .then((b: { h: [string, string, string][]; p: [string, string, string][] }) => {
-      const rows = (xs: [string, string, string][]) => xs.map(([id, name, team]) => ({ id, name, team }));
+    .then((b: { h: string[][]; p: string[][] }) => {
+      // a 5-long row is a minor leaguer: [id, name, team, level, season]
+      const rows = (xs: string[][]) => xs.map(([id, name, team, level, season]) =>
+        (level ? { id, name, team, position: level, href: `/minors/player/${id}?season=${season}` } : { id, name, team }));
       return { hitters: rows(b.h), pitchers: rows(b.p) };
     })
     .catch((e) => { listsPromise = null; throw e; });   // a failed load is retried on the next focus
@@ -96,7 +98,7 @@ export function Search() {
       setResults([]);
       setIsOpen(false);
       setIsSearching(false);
-      router.push(`/player/${entry.id}`);
+      router.push(entry.href ?? `/player/${entry.id}`);
     },
     [router]
   );
