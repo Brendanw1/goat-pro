@@ -362,8 +362,11 @@ def seed_dir(src: Path, dst: Path, skip: tuple[str, ...]) -> None:
     if not src.exists():
         dst.mkdir(parents=True)
         return
+    src = src.resolve()  # a symlinked export (worktree) would be cloned as a link, and the skip loop below would
+    #                      then delete the REAL aaa/ and hoops/ through it (2026-11-02); clone the directory itself
     if subprocess.run(["cp", "-cR", str(src), str(dst)], capture_output=True).returncode:
         shutil.copytree(src, dst)  # not APFS: a real copy
+    assert not dst.is_symlink(), f"check seed {dst} is a symlink; refusing to delete through it"
     for name in (*skip, "BAKE_LOCK"):
         p = dst / name
         shutil.rmtree(p) if p.is_dir() else p.unlink(missing_ok=True)
