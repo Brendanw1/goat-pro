@@ -4709,3 +4709,42 @@ Season means, Whiff+ / K+ / Prevention+: 2021 99.8 / 98.9 / 95.4; 2022 97.2 / 98
 - By era, extension: 2021–23 −0.05, **2024 −0.13 [−0.18, −0.07]**, 2025–26 0.00. Release height: 2021–23 −0.06, then ~0. Whiff+ gap by era: −0.6 / +0.9 / −0.2, every CI spans 0.
 - Reported, not judged: gap vs an AAA grade −0.3 [−1.7, +1.2] (44); vs an MLB grade +3.9 [+1.3, +6.1] (4 pitchers, too few to read).
 - **Verdict: NOT MATERIAL** on every pre-registered clause (extension −0.06 ft < 0.15; release height −0.01 < 0.10; Whiff+ gap +0.1, CI inside ±3). The check has the power to rule out a ±1.5-point system offset on the pooled grade, not less. The 2024 extension shortfall (−0.13 ft, one season) sits under the bar and is noted on the page. No correction applied.
+
+## §110 wRAA / wRC / wRC+ (owner approved 2026-11-02), pre-registered before any MLB wRC+ number is computed or read
+
+**Definition (FanGraphs Library form).** Per hitter-season, on the site's own wOBA (the `hitters` family's measured
+weights; scale = league OBP / league raw wOBA, so lg wOBA = lg OBP):
+- wRAA = (wOBA − lg wOBA) / scale × PA
+- wRC = wRAA + lgR/PA × PA, lgR/PA = MLB runs / MLB PA that season (regular season, from the mart's scores)
+- wRC+ = 100 × (wRAA/PA + lgR/PA + (lgR/PA − PF × lgR/PA)) / D, where D = the hitter's league (AL or NL, by
+  batting team, PA-weighted for a player who moved) wRC/PA **excluding pitchers' own PAs** (a pitcher batting in a
+  game he pitched, under 100 PA that season: the §85 rule).
+- PF = the PA-weighted mean of the §85 venue runs factor (`war.park_factors`, S−2..S, 50% regressed) over the parks
+  he batted in, **re-centred per season × league** so that the PA-weighted mean applied PF over non-pitcher PAs is
+  exactly 1 (the college E18 bug: an uncentred PF lifted the average by ~2).
+- Splits (vs hand, vs pitch family) and per-club lines use the same season constants and his season PF.
+
+**Guards in the bake (hard asserts):** a hand-calc selftest on one hitter (`wrc.py --demo`); per season × league,
+PA-weighted mean wRC+ over non-pitcher hitter-seasons = 100 ± 0.5 with the park adjustment on and off; applied PF
+mean = 1 ± 1e-9 per season × league.
+
+**Outside reference (value stat: must match one).** FanGraphs is not reachable from this network (Cloudflare 403)
+and not in the repo or savant_mart. Gate: B-Ref's park-adjusted batting runs (`runs_bat`, `war_daily_bat.txt`, the
+§85 file) vs our park-adjusted wRAA (wRAA + lgR/PA × (1 − PF) × PA), non-pitchers ≥ 300 PA (≥ 100 in 2020):
+**PASS if r ≥ .95 pooled and in every season.** Reported, not judged: mean and SD of the difference per 600 PA, and
+a small recalled sample of published FanGraphs wRC+ (memory, unverified, labelled so).
+
+**Out-of-sample (hitter level, pairs 2020→21 … 2025→26, ≥ 100 PA both seasons, `stack.pooled_dr`, hitter-cluster
+bootstrap 2,000, seed 13):**
+1. Δr = r(wRC+_N, Y) − r(wOBA_N, Y) for Y = wOBA_{N+1} and wRC+_{N+1}, park on and park off. Expectation: park off
+   ≈ 0 (a near-linear transform; only the AL/NL denominators differ); park on within ±.02. A CI excluding 0 is
+   reported as a park effect, not a bug.
+2. Year-to-year r(wRC+_N, wRC+_{N+1}) per pair, park on and off, beside wOBA's.
+3. **Projected wRC+ (ships only on PASS).** The §67 Marcel wOBA (Savant scale) for N+1 → wRC+ with season N's
+   constants: lg wOBA = N's Savant-scale league wOBA (Σ woba_value / Σ woba_denom), our scale_N, lgR/PA_N, his
+   league D_N and his centred PF_N. Target: actual wRC+_{N+1} (park on). Decile calibration, CI rule (BaseballGOAT
+   docs/model-roles.md): per decile of the prediction, 95% bootstrap CI over hitters (2,000, seed 13) of
+   mean(outcome − prediction), **on unrounded values**; tol = .010 wOBA on the wRC+ scale = 100 × .010 / (scale ×
+   lgR/PA) with the target season's constants. PASS = no CI wholly outside ±tol and every half-width ≤ tol;
+   UNDERPOWERED = some half-width > tol, none outside; FAIL = any outside. Primary pair 2025→26; **proven only if
+   2025→26 PASSES and no other pair FAILS.** Marcel has no fitted parameters, so every pair is out of sample.
