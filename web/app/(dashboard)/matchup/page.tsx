@@ -131,6 +131,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                       </td>
                       <td className="py-1 pr-3 text-right text-[10px]">{r.pa} PA</td>
                       <td className="py-1 pr-3 text-right text-[10px]">{d3(r.woba)} wOBA</td>
+                      <td className="py-1 pr-3 text-right text-[10px]">{r.wrcPlus != null ? Math.round(r.wrcPlus) : "—"} wRC+</td>
                       <td className="py-1 pr-3 text-right text-[10px]">{r.kPct?.toFixed(0) ?? "—"} K%</td>
                       <td className="py-1 text-right text-[10px]">
                         {r.decisionPlus != null ? <span title="Decision+ (descriptive)">Dec+ {r.decisionPlus.toFixed(0)}</span> : null}
@@ -352,7 +353,7 @@ export default async function MatchupPage({ searchParams }: { searchParams?: Pro
                       </div>
                       {h ? (
                         <div className="pl-[18px] text-[10px] text-text-dim font-data">
-                          {h.pa} PA · wOBA {d3(h.woba)} · K {h.kPct?.toFixed(0) ?? "—"}% · chase {h.oSwingPct?.toFixed(0) ?? "—"}%
+                          {h.pa} PA · wOBA {d3(h.woba)}{h.wrcPlus != null ? ` · wRC+ ${Math.round(h.wrcPlus)}` : ""} · K {h.kPct?.toFixed(0) ?? "—"}% · chase {h.oSwingPct?.toFixed(0) ?? "—"}%
                         </div>
                       ) : <div className="pl-[18px] text-[10px] text-text-dim">no {season} hitter file</div>}
                       {h && (h.decisionPlus != null || h.batSpeed != null || h.attackAngle != null || h.sprintSpeed != null) ? (

@@ -27,6 +27,7 @@ export const HITTER_RESULT_COLUMNS = [
 
 export const HITTER_QUALITY_COLUMNS = [
   { key: "woba", label: "wOBA", w: "w-[54px]", align: "right", tip: "wOBA on linear weights derived from this site's own run-expectancy data, scaled so league wOBA equals league OBP each season — descriptive, like everything on this site." },
+  { key: "wrcPlus", label: "wRC+", w: "w-[50px]", align: "right", tip: "Weighted runs created plus (RESULTS-MLB §110): his runs created per PA against his league's (AL/NL) average without pitchers, adjusted for the parks he batted in. 100 = average, 150 = 50% better. FanGraphs' formula on this site's own wOBA; descriptive." },
   { key: "ev90", label: "EV90", w: "w-[48px]", align: "right", tip: "90th percentile exit velocity of his balls in play — the hard contact he carries, not the lucky one." },
   { key: "maxEv", label: "MaxEV", w: "w-[52px]", align: "right", tip: "Hardest ball in play this season." },
   { key: "hardHitPct", label: "HH%", w: "w-[48px]", align: "right", tip: "Balls in play at 95 mph or harder." },
@@ -44,6 +45,8 @@ export const HITTER_QUALITY_COLUMNS = [
  * their own families in getHitters; Savant's fielding and baserunning run values, labelled theirs). */
 export const HITTER_MODEL_COLUMNS = [
   { key: "war", label: "WAR", w: "w-[52px]", align: "right", tip: "Wins above replacement, the site's own (RESULTS-MLB §85): our batting run values (park-adjusted), Savant baserunning, our range and framing runs, the standard position adjustment and replacement level. Matches Baseball-Reference WAR at r .92. Glossary: WAR." },
+  { key: "wraa", label: "wRAA", w: "w-[54px]", align: "right", tip: "Weighted runs above average: runs his hitting added over an average hitter in the same PA, (wOBA − league wOBA) ÷ wOBA scale × PA. Not park-adjusted (wRC+ is). Glossary: wRAA." },
+  { key: "wrc", label: "wRC", w: "w-[50px]", align: "right", tip: "Weighted runs created: wRAA plus the league's runs per PA × his PA — the runs his hitting is worth in total. Glossary: wRC." },
   { key: "decisionPlus", label: "Decision+", w: "w-[76px]", align: "right", tip: "Swing decisions: run value of his swing/take choices vs an average hitter given each pitch's location and count. 100 = average, 10 = one SD (hitters with 100+ PA)." },
   { key: "rangeRuns", label: "Range", w: "w-[58px]", align: "right", tip: "Site range model: runs saved vs an average fielder at the position on the balls he had a chance at (all positions summed; 30+ chances). See the Defense board." },
   { key: "framingPlus", label: "Framing+", w: "w-[70px]", align: "right", tip: "Catchers: strikes stolen above a called-strike model, 100 = average, 10 = one SD (2,500+ taken pitches)." },

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Signed } from "@/components/ui/shared-ui";
 import { sortComparator } from "@/lib/table-sort";
 import { notFound } from "next/navigation";
 import { getCoaches, getPitchers, getHitters, getParks , getRecentGames } from "@/lib/data";
@@ -22,7 +23,8 @@ const P_COLS = [
   { key: "rvPer100", label: "RV/100", nd: 2 }, { key: "stuffPlus", label: "Whiff+" },
 ];
 const H_COLS = [
-  { key: "pa", label: "PA" }, { key: "woba", label: "wOBA", nd: 3 }, { key: "avg", label: "AVG", nd: 3 },
+  { key: "pa", label: "PA" }, { key: "woba", label: "wOBA", nd: 3 }, { key: "wrcPlus", label: "wRC+", nd: 0 },
+  { key: "wraa", label: "wRAA", nd: 1, signed: true }, { key: "avg", label: "AVG", nd: 3 },
   { key: "slg", label: "SLG", nd: 3 }, { key: "ev90", label: "EV90", nd: 1 },
   { key: "hardHitPct", label: "HH%", nd: 1 }, { key: "whiffPct", label: "Whiff%", nd: 1, asc: true },
 ];
@@ -44,7 +46,7 @@ const P_AGG: Agg[] = [
   { key: "kPlus", label: "K+", w: "battersFaced", nd: 0, good: 1 }, { key: "preventionPlus", label: "Prevention+", w: "battersFaced", nd: 0, good: 1 },
 ];
 const H_AGG: Agg[] = [
-  { key: "woba", label: "wOBA", w: "pa", nd: 3, good: 1 }, { key: "obp", label: "OBP", w: "pa", nd: 3, good: 1 },
+  { key: "woba", label: "wOBA", w: "pa", nd: 3, good: 1 }, { key: "wrcPlus", label: "wRC+", w: "pa", nd: 0, good: 1 }, { key: "obp", label: "OBP", w: "pa", nd: 3, good: 1 },
   { key: "slg", label: "SLG", w: "pa", nd: 3, good: 1 }, { key: "iso", label: "ISO", w: "pa", nd: 3, good: 1 },
   { key: "kPct", label: "K%", w: "pa", nd: 1, good: -1 }, { key: "bbPct", label: "BB%", w: "pa", nd: 1, good: 1 },
   { key: "ev90", label: "EV90", w: "nBip", nd: 1, good: 1 }, { key: "hardHitPct", label: "Hard-hit%", w: "nBip", nd: 1, good: 1 },
@@ -150,7 +152,7 @@ function Board({ title, rows, cols, sort, sortBase, dirQ, link }: {
                 </td>
                 <td className="px-2 py-1.5 text-right text-text-dim">{r.season}</td>
                 {cols.map((c) => (
-                  <td key={c.key} className={`px-2 py-1.5 text-right ${c.key === sort ? "text-text-primary" : "text-text-secondary"}`}>{c.key === "ip" && typeof r.ip === "number" ? fmtIp(r.ip) : fmt(r[c.key], c.nd)}</td>
+                  <td key={c.key} className={`px-2 py-1.5 text-right ${c.key === sort ? "text-text-primary" : "text-text-secondary"}`}>{c.key === "ip" && typeof r.ip === "number" ? fmtIp(r.ip) : (c as any).signed ? <Signed v={r[c.key]} dp={c.nd ?? 1} /> : fmt(r[c.key], c.nd)}</td>
                 ))}
               </tr>
             ))}

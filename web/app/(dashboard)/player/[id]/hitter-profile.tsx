@@ -37,6 +37,8 @@ import { LeagueScatter, RvFamilyBars, ProjectionBand } from "@/components/ui/lea
 
 const pct1 = (v: number) => v.toFixed(1);
 const dec3 = (v: number) => v.toFixed(3).replace(/^0/, "");
+const int0 = (v: number) => Math.round(v).toString();
+const sgn1 = (v: number) => (v > 0 ? "+" : "") + v.toFixed(1);
 
 /** The Statcast pitch families the splits fold into (mirrors the bake). */
 const FAM_LABEL: Record<string, string> = {
@@ -98,7 +100,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
 
   /** Header sub-line: the rank with its ordinal, blank when unrankable. */
   const headerRankText = (label: string, v: unknown): string => {
-    const key = ({ woba: "woba", "k%": "kPct" } as Record<string, string>)[label.toLowerCase()] ?? label.toLowerCase();
+    const key = ({ woba: "woba", "k%": "kPct", "wrc+": "wrcPlus" } as Record<string, string>)[label.toLowerCase()] ?? label.toLowerCase();
     const r = rank(key, v);
     if (r === null) return "";
     const rem10 = r % 10, rem100 = r % 100;
@@ -143,6 +145,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
         <div className="w-[48px] text-right">OBP</div>
         <div className="w-[48px] text-right">SLG</div>
         <div className="w-[48px] text-right">wOBA</div>
+        <div className="w-[48px] text-right" title="wRC+ of the split: same season constants and his season park factor">wRC+</div>
         <div className="w-[48px] text-right">K%</div>
         <div className="w-[56px] text-right">Avg EV</div>
       </div>
@@ -158,6 +161,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
               <div className="w-[48px] text-right text-xs font-data text-text-secondary">{slash(r.obp)}</div>
               <div className="w-[48px] text-right text-xs font-data text-text-secondary">{slash(r.slg)}</div>
               <div className="w-[48px] text-right text-xs font-data text-text-secondary">{slash(r.woba)}</div>
+              <div className="w-[48px] text-right text-xs font-data text-text-secondary">{typeof r.wrcPlus === "number" ? Math.round(r.wrcPlus) : "—"}</div>
               <div className="w-[48px] text-right text-xs font-data text-text-secondary">{r.kPct ?? "—"}</div>
               <div className="w-[56px] text-right text-xs font-data text-text-secondary">{r.avgEv ?? "—"}</div>
             </div>
@@ -170,6 +174,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                 <div className="w-[48px] text-right text-xs font-data text-text-dim">{slash(benchRow.obp)}</div>
                 <div className="w-[48px] text-right text-xs font-data text-text-dim">{slash(benchRow.slg)}</div>
                 <div className="w-[48px] text-right text-xs font-data text-usf-gold/80">{slash(benchRow.woba)}</div>
+                <div className="w-[48px] text-right text-xs font-data text-text-dim" title="League wRC+ in this split cell (no park adjustment)">{typeof benchRow.wrcPlus === "number" ? Math.round(benchRow.wrcPlus) : "—"}</div>
                 <div className="w-[48px] text-right text-xs font-data text-text-dim">{benchRow.kPct ?? "—"}</div>
                 <div className="w-[56px] text-right text-xs font-data text-text-dim">{benchRow.avgEv ?? "—"}</div>
               </div>
@@ -204,7 +209,7 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
           <p className="mt-1 text-xs text-text-dim">
             <TeamLine team={profile.team} teams={profile.teams} /> · {profile.bats ? `bats ${profile.bats}` : ""}{typeof profile.age === "number" ? ` · age ${Math.floor(profile.age)}` : ""} · {sampleLine}
           </p>
-          <TeamSplitsDetails lines={(profile as any).teamSplits} cols={[["pa", "PA", 0], ["avg", "AVG", 3], ["obp", "OBP", 3], ["slg", "SLG", 3], ["woba", "wOBA", 3], ["hr", "HR", 0], ["kPct", "K%", 1], ["bbPct", "BB%", 1]]} />
+          <TeamSplitsDetails lines={(profile as any).teamSplits} cols={[["pa", "PA", 0], ["avg", "AVG", 3], ["obp", "OBP", 3], ["slg", "SLG", 3], ["woba", "wOBA", 3], ["wrcPlus", "wRC+", 0], ["hr", "HR", 0], ["kPct", "K%", 1], ["bbPct", "BB%", 1]]} />
         </div>
         <div className="flex flex-wrap gap-6 text-center">
           {[
@@ -214,11 +219,12 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
             { label: "OPS", v: typeof profile.obp === "number" && typeof profile.slg === "number" ? Number((profile.obp + profile.slg).toFixed(3)) : null },
             { label: "ISO", v: typeof profile.avg === "number" && typeof profile.slg === "number" ? Number((profile.slg - profile.avg).toFixed(3)) : null },
             { label: "wOBA", v: profile.woba },
+            { label: "wRC+", v: profile.wrcPlus, int: true },
             { label: "K%", v: profile.kPct, pct: true },
-          ].map(({ label, v, pct }: any) => (
+          ].map(({ label, v, pct, int }: any) => (
             <div key={label}>
               <div className="font-data text-lg font-bold text-text-primary">
-                {typeof v !== "number" ? "—" : pct ? `${v.toFixed(1)}%` : v.toFixed(3).replace(/^0/, "")}
+                {typeof v !== "number" ? "—" : pct ? `${v.toFixed(1)}%` : int ? Math.round(v) : v.toFixed(3).replace(/^0/, "")}
               </div>
               <div className="text-[10px] text-text-dim">{label}</div>
               <div className="text-[10px] text-text-secondary">{headerRankText(label, v)}</div>
@@ -373,12 +379,15 @@ export function HitterProfileView({ profile, percentiles, playerId, gameLog, spr
                   <AboutThis label="How to read these">
                     Each row is his rank among {profile.season} hitters with 50+ PA. Green is good for him, red bad
                     (a low K% ranks high). Hollow ranks are small samples, not verdicts. wOBA uses weights derived
-                    from this site&apos;s own run data — descriptive, not a forecast of anything.
+                    from this site&apos;s own run data — descriptive, not a forecast of anything. wRC+ puts it on a 100 = league-average
+                    scale, adjusted for his parks and league (AL/NL); wRAA is the same thing in runs, not park-adjusted.
                   </AboutThis>
                 }
               >
                 <PercentileGroup title="Production" rows={[
                   statRow("hitter", "woba", "wOBA", profile.woba, dec3, seasonBp?.woba, thinPa),
+                  statRow("hitter", "wrcPlus", "wRC+", profile.wrcPlus, int0, seasonBp?.wrcPlus, thinPa),
+                  statRow("hitter", "wraa", "wRAA", profile.wraa, sgn1, seasonBp?.wraa, thinPa),
                   statRow("hitter", "obp", "OBP", profile.obp, dec3, seasonBp?.obp, thinPa),
                   statRow("hitter", "slg", "SLG", profile.slg, dec3, seasonBp?.slg, thinPa),
                   statRow("hitter", "bbPct", "BB%", profile.bbPct, pct1, seasonBp?.bbPct, thinPa),

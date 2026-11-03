@@ -3091,6 +3091,23 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                    + wt["triple"] * t.s3 + wt["home_run"] * t.hr)
             return raw / den * hfactor.get(s, 1.0)
 
+        # §110 wRAA / wRC / wRC+ (FanGraphs form) on this wOBA: season constants, his centred §85 park factor
+        # and his league's (AL/NL) wRC/PA without pitchers. MLB only (AAA has no venue factors or AL/NL).
+        wrc_c, wrc_h, wrc_t = ({}, {}, {})
+        if level == "mlb":
+            from wrc import context as wrc_context, line as wrc_line
+            wrc_c, wrc_h, wrc_t = wrc_context(con, seasons, hag, woba_of, hfactor)
+
+        def wrc_cols(wv, pa, season, ctx, full=True) -> dict:
+            """wRC+ (and wRAA / wRC on full lines) for one line; {} when there is no wOBA or no context."""
+            if wv is None or not pa or ctx is None or season not in wrc_c:
+                return {}
+            wraa, wrc_v, plus = wrc_line(wv, pa, wrc_c[season], ctx["pf"], ctx["den"])
+            out_ = {"wrcPlus": f(plus, 0)}
+            if full:
+                out_.update(wraa=f(wraa, 1), wrc=f(wrc_v, 1), parkFactor=f(100 * ctx["pf"], 1))
+            return out_
+
         HITTER_PA_FLOOR = 50
         # D-34 depth (pipeline/hitter_depth.py): Savant expected stats, batted-ball
         # direction, bat tracking (>= 50 tracked swings), sprint speed, batting RV/100.
@@ -3152,7 +3169,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
             obp = f((hits + t.bb + t.hbp) / obp_den, 3) if obp_den else None
             slg = f((t.s1 + 2 * t.s2 + 3 * t.s3 + 4 * t.hr) / ab, 3) if ab else None
             wv = woba_of(t, t.season)
-            return {"team": t.team, "g": int(t.g), "pa": int(t.pa), "avg": avg, "obp": obp, "slg": slg,
+            return {**wrc_cols(wv, int(t.pa), int(t.season), wrc_t.get((int(t.id), int(t.season), t.team))),
+                    "team": t.team, "g": int(t.g), "pa": int(t.pa), "avg": avg, "obp": obp, "slg": slg,
                     "ops": f(obp + slg, 3) if obp is not None and slg is not None else None,
                     "iso": f(slg - avg, 3) if slg is not None and avg is not None else None, "nBip": int(t.bip),
                     "woba": f(wv, 3) if wv is not None else None, "hr": int(t.hr),
@@ -3185,6 +3203,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "id": str(t.id), "name": h_names.get(int(t.id)), "team": hteam_map.get(key), "teams": team_stints_h.get(key),
                 "bats": None, "season": int(t.season), "pa": int(t.pa), "age": season_age(t.id, t.season),
                 "woba": f(woba_v, 3) if woba_v is not None else None,
+                **wrc_cols(woba_v, int(t.pa), int(t.season), wrc_h.get(key)),
             }
             ab = rates["pa"] - rates["bb"] - rates["hbp"] - rates["sf"] - rates["sh"] - rates["ci"]
             tb = rates["s1"] + 2 * rates["s2"] + 3 * rates["s3"] + 4 * rates["hr"]
@@ -3274,7 +3293,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
         print(f"hitter board rows: {counts_board}")
 
         # hitter percentiles (per season): pct5 + dense wOBA for the chips
-        H_METRICS = ["woba", "obp", "slg", "avg", "ops", "iso", "kPct", "bbPct", "ev90", "maxEv",
+        H_METRICS = ["woba", "wrcPlus", "wraa", "wrc", "obp", "slg", "avg", "ops", "iso", "kPct", "bbPct", "ev90", "maxEv",
                      "hardHitPct", "barrelPct", "whiffPct", "contactPct", "swingPct",
                      "oSwingPct", "nBip", *dict.fromkeys(k for k, _ in HD.values()),
                      "wobaProj", "kPctProj", "bbPctProj", "drvPer100", "izaPer100", "ozaPer100", "decisionPlus",
@@ -3340,6 +3359,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "obp": f((r.s1 + r.s2 + r.s3 + r.hr + r.bb + r.hbp) / (ab + r.bb + r.hbp + r.sf), 3) if (ab + r.bb + r.hbp + r.sf) else None,
                     "slg": f(tb / ab, 3) if ab else None,
                     "woba": f(raw / den * hfactor.get(r.season, 1.0), 3) if den and r.season in woba else None,
+                    **wrc_cols(raw / den * hfactor.get(r.season, 1.0) if den and r.season in woba else None,
+                               int(r.pa), int(r.season), wrc_h.get(key), full=False),
                     "kPct": f(100 * r.k / r.pa, 1) if r.pa else None,
                     "bbPct": f(100 * r.bb / r.pa, 1) if r.pa else None,
                     "avgEv": f(r.avg_ev, 1),
@@ -3389,6 +3410,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "obp": f((r.s1 + r.s2 + r.s3 + r.hr + r.bb + r.hbp) / (ab + r.bb + r.hbp + r.sf), 3) if (ab + r.bb + r.hbp + r.sf) else None,
                     "slg": f(tb / ab, 3) if ab else None,
                     "woba": f(raw / den * hfactor.get(r.season, 1.0), 3) if den and r.season in woba else None,
+                    **wrc_cols(raw / den * hfactor.get(r.season, 1.0) if den and r.season in woba else None, int(r.pa),
+                               int(r.season), {"pf": 1.0, "den": wrc_c[int(r.season)]["denMLB"]} if int(r.season) in wrc_c else None,
+                               full=False),
                     "kPct": f(100 * r.k / r.pa, 1) if r.pa else None,
                     "bbPct": f(100 * r.bb / r.pa, 1) if r.pa else None,
                     "avgEv": f(r.avg_ev, 1),
@@ -3432,6 +3456,10 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                {"_comment": "league per-split-cell lines over the 50+ PA population; join the Splits tab",
                 "hand": bm_hand, "family": bm_fam, "type": bm_types}, sort_keys=True)
         counts["hitter_split_benchmarks"] = 1
+        if wrc_c:
+            jwrite(out / "benchmarks" / "wrc.json",
+                   {"_comment": "§110 season constants: lg wOBA, wOBA scale, lgR/PA, AL/NL/MLB wRC/PA without pitchers, mean raw PF",
+                    **{str(s_): {k: round(v, 5) for k, v in c_.items()} for s_, c_ in wrc_c.items()}}, sort_keys=True)
 
         # The hitter's own "arsenal faced": one row per Statcast type he saw,
         # the finer cut under the FB/CT/BR/OS family splits. Powers the
@@ -3492,6 +3520,8 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "obp": f((t.s1 + t.s2 + t.s3 + t.hr + t.bb + t.hbp) / obp_den, 3) if obp_den else None,
                 "slg": f(tb / ab, 3) if ab else None,
                 "woba": f(raw / den * hfactor.get(season, 1.0), 3) if raw is not None and den else None,
+                **wrc_cols(raw / den * hfactor.get(season, 1.0) if raw is not None and den else None, int(t.pa), season,
+                           wrc_h.get((pid, season))),
                 "kPct": f(100 * t.k / t.pa, 1) if t.pa else None,
                 "bbPct": f(100 * t.bb / t.pa, 1) if t.pa else None,
                 "swingPct": f(100 * t.swings / t.pitches_seen, 1) if t.pitches_seen else None,

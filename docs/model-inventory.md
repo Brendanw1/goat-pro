@@ -25,6 +25,7 @@ tables below are the original plan and are kept as written.
 | Sequencing | sticky, not forecast-useful; not shipped | §57 |
 | P7 family on AAA | confirmed, on /minors | §66 |
 | Hitter Marcel projection | display-only baseline | §67 |
+| wRAA / wRC / wRC+ | descriptive value stat (B-Ref batting runs r .982); projected wRC+ not proven | §110 |
 | xwOBA (ours) | failed twice (ground-ball spray leak, then v2); Savant's xwOBA is shown | §68, §77 |
 | **Decision+** / IZA / OZA | shipped descriptive (stable, loses to chase rate as a forecast) | §69 |
 | Park factors | 2B/3B/HR/SO by hand shipped descriptive; park-adjusted wOBA/FIP not shipped | §70, §72 |
