@@ -303,7 +303,7 @@ FIT_SECS = []                                  # wall seconds of each fit done i
 
 
 def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin=5, tree=10, subsample=0,
-             max_minutes=0, est_minutes=60, roles="hp", center=False):
+             max_minutes=0, est_minutes=60, roles="hp", center=False, seed=99):
     """One fold = a hitter fit and a pitcher fit. Each fit is saved as soon as it ends and skipped if its file exists
     (resumable after a kill or preemption). With max_minutes, a fit that would not finish in the budget is not started.
     Returns False when the budget stops the run."""
@@ -333,7 +333,8 @@ def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin
         dg = {"pitcher": pit, "method": method, "entities": int(len(E)), "lines": int(len(d["e"])),
               "T": int(d["dims"][1]), "center": center, "mu0": np.round(d["mu0"], 3).tolist()}
         if method == "nuts":
-            pr, nd, glob = fit_nuts(d, task, warmup, samples, chains, thin, tree)
+            dg["seed"] = seed
+            pr, nd, glob = fit_nuts(d, task, warmup, samples, chains, thin, tree, seed)
             if pr is None:                     # probe abort: diag only, no draws file (a rerun retries the fit)
                 dg.update(nd, secs=round(time.time() - t0), warmup=warmup, samples=samples, chains=chains, tree=tree)
                 with open(RES / f"prospect_{TAG}_npy_diag.jsonl", "a") as f:
@@ -428,6 +429,7 @@ if __name__ == "__main__":
     ap.add_argument("--max-minutes", type=float, default=0, help="stop before a fit that would not finish in time")
     ap.add_argument("--roles", default="hp", choices=["hp", "h", "p"], help="h hitters, p pitchers")
     ap.add_argument("--center", action="store_true", help="§104 amendment A (pitchers): centred theta_last")
+    ap.add_argument("--seed", type=int, default=99, help="§104 amendment B: one rerun of a failed fit uses 100")
     ap.add_argument("--est-minutes", type=float, default=60, help="first-fit estimate until one fit has been timed")
     a = ap.parse_args()
     if a.prior_check:
@@ -437,7 +439,7 @@ if __name__ == "__main__":
         for f in a.folds or []:
             task, y = f.split(":")
             if not run_fold(S, task, int(y), a.method, a.warmup, a.samples, a.chains, a.thin, a.tree, a.subsample,
-                            a.max_minutes, a.est_minutes, a.roles, a.center):
+                            a.max_minutes, a.est_minutes, a.roles, a.center, a.seed):
                 break
         if a.nuts:
             nuts_check(S)

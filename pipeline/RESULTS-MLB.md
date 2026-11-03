@@ -4058,6 +4058,17 @@ validity bar and gates. The failed uncentred pitcher fit is kept as `prospect_10
 not scored. Runtime: the GPU fits use jax 0.4.38 / numpyro 0.16.1 (Thunder's virtual GPU breaks jax 0.12; see `GPU_RUN.md`), and
 the laptop fits used jax 0.12 / numpyro 0.22.
 
+**§104 amendment B (2026-11-03, recorded before any NPY dev, post-hoc or read score).** *Handling (6189d03, no spec change):*
+chains start from the SVI fit (overdispersed, 2 × scale) and a probe after warm-up + 100 draws aborts a fit whose chains have
+uneven step sizes (> 5×) or sit at the tree cap (≥ 95% of 1,023 leapfrog steps). GPU run 3: centred pitchers 2017 (R̂ 1.013)
+and 2018 (R̂ 1.044) pass; centred pitchers 2016 fail on sd_eta[HR] alone (R̂ 1.067; the other 11 globals ≤ 1.015, 0
+divergences); uncentred hitters 2017 and 2018 abort at the tree cap. *Triggered (amendment A):* a probe abort is a bar failure
+(no draws to pass with), so **hitters move to the centred spec in all four folds** (2015-18; one spec across dev, post-hoc and
+read). The passing uncentred hitter fits are kept as `prospect_104_npy_val{2015,2016}_h_uncentred.parquet` and are not scored.
+*New rule:* a fit that fails the bar gets **exactly one rerun with a new seed (100)**, and the rerun result stands, pass or
+fail. It applies now to pitchers 2016 (seed-99 fit kept as `prospect_104_npy_val2016_p_seed99_failed.parquet`, not scored) and
+to any later fit. `--read104` refuses to run unless both 2018 fits pass the bar in the diag log.
+
 ### §104 dev results (2026-10-29; `results/prospect_104_dev.json`; NPY pending the GPU run)
 Player-clustered bootstrap, 1,000 draws. Fixed splits, OOF Platt, full draft, health and org coverage fixes.
 
