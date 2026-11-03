@@ -4069,6 +4069,24 @@ read). The passing uncentred hitter fits are kept as `prospect_104_npy_val{2015,
 fail. It applies now to pitchers 2016 (seed-99 fit kept as `prospect_104_npy_val2016_p_seed99_failed.parquet`, not scored) and
 to any later fit. `--read104` refuses to run unless both 2018 fits pass the bar in the diag log.
 
+### §104 value read (read once, 2026-11-03; `results/prospect_104_read.json`): gate (b) FAILS
+List 2018, 8,880 rows, player-clustered bootstrap (2,000). All 8 NPY fits passed the bar (amendment B).
+
+| value (EV) | NDCG@100 | Δ vs B1 | Spearman | sleeper p@50 (Δ pp vs B1) |
+|---|---|---|---|---|
+| B1 | .502 [.379, .581] | — | .296 | .06 |
+| v0u | .466 [.382, .561] | −.036 [−.088, +.058] | .404 | .36 (+30 [+16, +44]) |
+| LGB | .489 [.387, .570] | −.014 [−.084, +.067] | .402 | .30 (+24 [+10, +38]) |
+| **NPY** | .486 [.372, .561] | **−.016 [−.103, +.081]** | .406 | .32 (+26 [+12, +40]) |
+
+Gate (b) needs NPY ΔNDCG@100 vs B1 > 0 with the CI excluding 0 and no loss to LGB: Δ −.016, CI spans 0, and NPY − LGB
+−.003 [−.108, +.091]. **No value ranking ships; §99f stays withdrawn.** Diagnosis: *handling* — none found (the first
+attempt died on a missing lightgbm import before any fit or score, nothing written; rerun in the anaconda env that ran
+`--dev104`); *data* — same store and fold logic as dev/post-hoc; *modeling* — every model beats B1 by 24-30 pp on sleeper
+p@50 (CIs exclude 0) and on Spearman, but none beats it on top-100 NDCG, which B1 (the draft/rank baseline) sets on 2018.
+The sleeper gain is not the gate metric and is recorded only as a finding; using it needs a new pre-registration with a
+fresh holdout (none is left in 1990s-2018 lists with matured labels).
+
 ### §104 dev results (2026-10-29; `results/prospect_104_dev.json`; NPY pending the GPU run)
 Player-clustered bootstrap, 1,000 draws. Fixed splits, OOF Platt, full draft, health and org coverage fixes.
 

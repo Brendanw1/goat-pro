@@ -413,3 +413,6 @@ chain). Scratch scripts kept out of the repo; `pipeline/prospect_bayes_bench.py`
   [−.042, +.082] on 2015).
 - NPY now runs as NUTS on a cloud GPU (`pipeline/GPU_RUN.md`). The one clean read is the 2018 list. Until then the
   prospect row stays under review.
+- **Read (2026-11-03, once): gate (b) fails.** List 2018: NPY vs B1 NDCG@100 −.016 [−.103, +.081], vs LGB −.003. No value
+  ranking ships. Every model's sleeper p@50 beats B1 by 24-30 pp (CIs exclude 0, pool base rate 1.8%), in dev and post-hoc
+  too; that is a finding, not a gate (RESULTS-MLB "§104 value read").

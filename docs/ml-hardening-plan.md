@@ -227,8 +227,8 @@ Legend: **CV** current validation · **Spent** · **Unseen** · **Risks** · **M
 - **Ideas:** (1) Pre-registered 1–2 trait model (K+, Control+) per §87 diagnosis; gate GA on 2015–19 converters (n roughly doubles). Effort S / low.
 
 ### Prospect model (§97, §99f–h, §104)
-- **CV:** forward-chained list years; value holdout 2016–17 spent (NPY passed NDCG); arrival 2022–23 spent (failed, handling: split bias found §99h); §104 fixed splits dev only.
-- **Unseen:** 2024 list (reserved for §99g/§99h, read after 2027); 2018–21 value lists — verify maturity.
+- **CV:** forward-chained list years; value holdout 2016–17 spent (§99f pass withdrawn); value read list 2018 spent (§104, failed 2026-11-03); arrival 2022–23 spent (failed, handling: split bias found §99h); §104 fixed splits dev only.
+- **Unseen:** 2024 list (reserved for §99g/§99h, read after 2027); 2019+ value lists censored (6 control seasons not observed).
 - **Risks:** found already: split drop bias, left-truncated draft coverage, `debut_k4` censoring artifact (use hazard form).
 - **Ideas:** (1) Keep the reserved reads; no new reads before 2027. (2) Value gate re-registered on §104 fixed splits for the next matured list. Effort — / waits.
 
