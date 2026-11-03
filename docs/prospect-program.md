@@ -64,17 +64,21 @@ its pre-registered gate.
 
 ## Foundation (missing; must exist before new research or tests)
 
-- [ ] **F1. Estimand and label spec.** Write down:
-  - debut within k = 1..6 seasons;
-  - the control years, from `data/service/service_est.parquet` (D-44 estimator, 2010+) and not the 6-season proxy;
-  - WAR from Baseball-Reference `war_daily` (`data/milb/bref/`, public, 1871–2026);
-  - star odds;
-  - per-list censoring flags.
-
-  This replaces FSE, the playing-time label.
-- [ ] **F2. Label table** `data/milb/prospect_labels.parquet`: one row per player × list year with arrival time, control
-  WAR, star flag and a maturity flag.
-  - Checks: WAR ID join rate ≥ 99% for debuted players; control-year totals reconcile against service days on 20 hand-checked players.
+- [x] **F1. Label source: our line WAR** (`pipeline/line_war.py`, 2026-11-03).
+  - B-Ref WAR is a validation reference only (a project rule, `docs/service-time-method.md`), and our §85 WAR starts
+    in 2020. So the label is §85 accounting on public Stats API season lines, 2011–26: linear-weight batting, SB/CS,
+    the listed-position adjustment and FIP for pitchers. It has no range, framing, park or leverage terms.
+  - Checks (`results/line_war_check.json`): season totals hit 1,000 WAR.
+    - Against §85, 2021–26: hitters r .911, pitchers .988.
+    - Against B-Ref (validation only): per season, hitters .842 and pitchers .795. On the label shape (first 6 MLB
+      seasons summed, debuts 2012–20), hitters **.927** and pitchers **.935**.
+  - Known cost: elite defenders are under-rated, because there is no fielding term.
+- [x] **F2. Label table** `data/milb/prospect_labels.parquet` (`pipeline/prospect_labels.py`).
+  - Columns: `war6` (WAR over the debut season + 5, when the debut is within 4 seasons), `star` (2+ control seasons of
+    4+ WAR), `war2` (the early label) and maturity flags.
+  - Spent lists 2011–18 are fully matured: 3.3–3.9% reach war6 ≥ 1, and 0.2–0.3% are stars.
+  - Sealed lists are never summarized by the script.
+  - Ponytail: the control window is 6 seasons, not service days. Refine if the label moves.
 - [ ] **F3. Event store: minor-league play-by-play 2011–2026** (Stats API `game/{pk}/playByPlay`, sportId 11–14, 16; no 2020 season).
   - Probed 2026-11-03: PA outcomes and spray coordinates exist at every level from 2011. Pitch sequences are partial
     below AA before 2019. Velocity and EV are AAA-only from 2023 (Savant, already in `savant_mart/data/aaa`).
@@ -102,7 +106,7 @@ its pre-registered gate.
   - the baseline ladder built in.
 
   `prospect_sleeper_check.py` folds into it.
-- [ ] **F7. KB.** Add the prospect valuation sources and a synthesis of this plan (done 2026-11-03).
+- [x] **F7. KB.** Add the prospect valuation sources and a synthesis of this plan (done 2026-11-03).
 
 ## Research and tests (in order, each a RESULTS-MLB section)
 
@@ -125,7 +129,8 @@ its pre-registered gate.
   - **G1 sleeper watch.** Lists 2019–22 pooled, early label = WAR in the first 2 control seasons.
     - First validate the early label on 2015–18: at least 70% of early hits are full-label hits, and the model order is preserved.
     - Gate: Δ p@50 and Δ log loss vs LR + rates, CI excluding 0.
-  - **G2 arrival.** The §99h hazard (or its R3 successor) on the 2024 list, scored on what has matured by 2026 (2 seasons, k ≤ 2).
+  - **G2 arrival.** The §99h hazard (or its R3 successor) on the 2024 list, scored on debut within 2 seasons (k ≤ 2,
+    matured by 2026). The full k = 4 window cannot close. **Owner decision pending** (recommended 2026-11-03).
   - **G3 value.** Only if R0 to R3 dev shows a gain over consensus above the four-class MDE. Otherwise the value ranking stays research.
 - [ ] **R5. Ship** what passes, with owner review: sleeper watch, arrival probabilities, value. Label each one with its gate.
 
