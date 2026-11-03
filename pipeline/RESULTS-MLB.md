@@ -4748,3 +4748,25 @@ bootstrap 2,000, seed 13):**
    lgR/PA) with the target season's constants. PASS = no CI wholly outside ±tol and every half-width ≤ tol;
    UNDERPOWERED = some half-width > tol, none outside; FAIL = any outside. Primary pair 2025→26; **proven only if
    2025→26 PASSES and no other pair FAILS.** Marcel has no fitted parameters, so every pair is out of sample.
+
+**Result (read once, 2026-11-02; `wrc_read.py` → `results/wrc_110.json`).** Constants per season in
+`benchmarks/wrc.json` (e.g. 2025: lg wOBA .3151, scale 1.289, lgR/PA .1179, D AL .1182 / NL .1180). One
+clarification to the design above: the pitcher exclusion is applied per hitter-season (pitched in a game he batted
+in and < 100 PA that season), the same population §85 uses, not per PA.
+- **Guards:** PF centred per season × league (|mean − 1| < 1e-9); PA-weighted mean wRC+ 100 ± 0.5 for MLB, AL and
+  NL in every season 2020–26, park on and off. Mean raw (uncentred) §85 PF over hitters' PA was 1.000–1.0015, so the
+  centring moves wRC+ by ≤ 0.15 here (college E18 was 2.2).
+- **Outside reference: PASS.** Our park-adjusted wRAA vs B-Ref `runs_bat`, n 1,972: r **.982** pooled, .974–.986
+  every season. Difference per 600 PA mean +0.21, SD 3.7 runs.
+- **FanGraphs (recalled, unverified; not a gate):** 15 star seasons 2021–25, |ours − FG| median 1, max 4; 10/15
+  within 2, 15/15 within 4 (Soto 2024 −4, Betts/Freeman 2023 −3, Ohtani 2024 +3, Guerrero 2021 +3). The gaps are
+  method: our measured linear weights and scale (2025 scale 1.289 vs FanGraphs' ~1.2), and a milder park factor
+  (§85 venue runs factor, 50% regressed, per PA: Coors hitters ~107 vs FanGraphs' basic ~112).
+- **OOS (6 pairs, hitter-cluster bootstrap):** wRC+ predicts next wOBA as well as wOBA (park on Δr +.0007
+  [−.0034, +.0045]; off −.0008 [−.0036, +.0019]). For next park-adjusted wRC+, park on +.0053 [+.0012, +.0095]: a
+  CI excluding 0, reported as a park effect (the same venue factor sits on both seasons), not a skill gain.
+  **YoY r** wRC+ (park) .325–.449 per pair vs wOBA .320–.440.
+- **Projected wRC+: NOT PROVEN, not shipped.** 2025→26 **UNDERPOWERED** (worst decile −14.5 [−24.2, −5.5],
+  max half-width 9.3 > tol 6.5); 2022→23 **FAIL** (worst −20.9 [−29.0, −13.0]); other pairs UNDERPOWERED. The level
+  is negative in every pair (−2.7 to −9.4): Marcel overshoots, as §67's lopsided ranges already showed (no age
+  term). The site keeps the §67 wOBA projection as is.

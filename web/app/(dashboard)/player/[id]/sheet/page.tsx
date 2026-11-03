@@ -114,6 +114,7 @@ export default async function PlayerSheetPage({ params, searchParams }: {
                 <Stat label="OBP" value={rate3(profile.obp)} sub={rankPct("obp", profile.obp)} />
                 <Stat label="SLG" value={rate3(profile.slg)} sub={rankPct("slg", profile.slg)} />
                 <Stat label="wOBA" value={rate3(profile.woba)} sub={rankPct("woba", profile.woba)} />
+                <Stat label="wRC+" value={profile.wrcPlus != null ? String(Math.round(profile.wrcPlus)) : "—"} sub={rankPct("wrcPlus", profile.wrcPlus)} />
                 <Stat label="K%" value={profile.kPct != null ? `${profile.kPct}%` : "—"} sub={rankPct("kPct", profile.kPct)} />
                 <Stat label="EV90" value={profile.ev90 != null ? `${profile.ev90}` : "—"} sub={rankPct("ev90", profile.ev90)} />
                 <Stat label="Brl%" value={profile.barrelPct != null ? `${profile.barrelPct}%` : "—"} sub={rankPct("barrelPct", profile.barrelPct)} />

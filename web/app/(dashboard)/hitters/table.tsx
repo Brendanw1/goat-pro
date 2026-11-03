@@ -18,10 +18,10 @@ import { FilterBuilder, useUrlFilters } from "@/components/ui/filter-builder";
 import { PAGE_SIZE } from "@/lib/boards/shared";
 import { useBoardPage } from "@/lib/boards/use-board-page";
 
-const CHIP_KEYS = new Set(["woba", "obp", "slg", "ev90", "hardHitPct", "barrelPct", "whiffPct", "oSwingPct", "xwoba", "batSpeed", "squaredUpPct", "sprintSpeed"]);
+const CHIP_KEYS = new Set(["woba", "wrcPlus", "obp", "slg", "ev90", "hardHitPct", "barrelPct", "whiffPct", "oSwingPct", "xwoba", "batSpeed", "squaredUpPct", "sprintSpeed"]);
 
 /** Run-value columns: green when good for him, red when bad (the shared Signed rule). */
-const SIGNED_KEYS = new Set(["war", "rangeRuns", "frvRuns", "bsrRuns"]);
+const SIGNED_KEYS = new Set(["war", "wraa", "rangeRuns", "frvRuns", "bsrRuns"]);
 
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
@@ -31,7 +31,8 @@ function fmt(value: any, key: string): string {
   if (key === "avg" || key === "obp" || key === "slg" || key === "ops" || key === "iso" || key === "woba") return value.toFixed(3).replace(/^0/, "");
   if (key.endsWith("Pct")) return value.toFixed(1);
   if (["ev90", "maxEv"].includes(key)) return value.toFixed(1);
-  if (key === "decisionPlus" || key === "framingPlus") return Math.round(value).toString();
+  if (key === "decisionPlus" || key === "framingPlus" || key === "wrcPlus") return Math.round(value).toString();
+  if (key === "wrc") return value.toFixed(1);
   if (key === "rangeRuns" || key === "frvRuns" || key === "bsrRuns") return (value > 0 ? "+" : "") + value.toFixed(1);
   return String(value);
 }

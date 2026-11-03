@@ -33,6 +33,7 @@ const H_COLS: Col[] = [
   { key: "lcWpa", label: "Late&close", nd: 2, tip: "WPA in inning 7+ within one run" },
   { key: "lcPa", label: "L&C PA", nd: 0 },
   { key: "woba", label: "wOBA", nd: 3 },
+  { key: "wrcPlus", label: "wRC+", nd: 0, tip: "Park- and league-adjusted runs created per PA, 100 = average (§110)" },
   { key: "ops", label: "OPS", nd: 3 },
 ];
 const P_COLS: Col[] = [
@@ -72,7 +73,7 @@ export default async function WpaPage({ searchParams }: { searchParams?: Promise
     return {
       ...r, team: b.team ?? null, teams: b.teams ?? null, age: b.age != null ? Math.floor(b.age) : null,
       gained, lost: gained != null ? gained - r.wpa : null, wpa100: n ? (100 * r.wpa) / n : null,
-      woba: b.woba, ops: b.ops, role: b.role ?? null, ip: b.ip, era: b.era, fip: b.fip, stuffPlus: b.stuffPlus,
+      woba: b.woba, wrcPlus: b.wrcPlus, ops: b.ops, role: b.role ?? null, ip: b.ip, era: b.era, fip: b.fip, stuffPlus: b.stuffPlus,
     };
   });
   const teams = [...new Set(all.flatMap((r) => [r.team, ...(r.teams ?? []).map((t: any) => t.team)]).filter(Boolean))].sort() as string[];

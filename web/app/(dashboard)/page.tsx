@@ -328,7 +328,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
 
       <div className="grid gap-4 md:grid-cols-3">
         <Leaders i={8} season={season} title="Hitters by xwOBA" rows={top(hq, "xwoba")} metric="xwoba" fmt={dec3}
-          href={`/hitters?season=${season}&sort=xwoba`} sub={(r) => (typeof r.woba === "number" ? `wOBA ${dec3(r.woba)}` : null)}
+          href={`/hitters?season=${season}&sort=xwoba`} sub={(r) => (typeof r.woba === "number" ? `wOBA ${dec3(r.woba)}${typeof r.wrcPlus === "number" ? ` · wRC+ ${Math.round(r.wrcPlus)}` : ""}` : null)}
           note="200+ PA. Statcast's expected wOBA from contact quality, walks and strikeouts." />
         <Leaders i={9} season={season} title="Decision+ leaders" rows={top(hq, "decisionPlus")} metric="decisionPlus" fmt={int}
           href={`/hitters?season=${season}&sort=decisionPlus`} note="200+ PA. Swing/take run value per pitch vs an average decision; 100 = average." />
