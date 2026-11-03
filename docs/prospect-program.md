@@ -79,7 +79,7 @@ its pre-registered gate.
   - Spent lists 2011–18 are fully matured: 3.3–3.9% reach war6 ≥ 1, and 0.2–0.3% are stars.
   - Sealed lists are never summarized by the script.
   - Ponytail: the control window is 6 seasons, not service days. Refine if the label moves.
-- [ ] **F3. Event store: minor-league play-by-play 2011–2026** (Stats API `game/{pk}/playByPlay`, sportId 11–14, 16; no 2020 season).
+- [ ] **F3. Event store: minor-league play-by-play 2010–2026** (`pipeline/milb_pbp.py`, started 2026-11-03; ~140k games, ~1 GB sent; spent seasons 2010–17 first; `men_on_end` is the base state after the PA, not before) (Stats API `game/{pk}/playByPlay`, sportId 11–14, 16; no 2020 season).
   - Probed 2026-11-03: PA outcomes and spray coordinates exist at every level from 2011. Pitch sequences are partial
     below AA before 2019. Velocity and EV are AAA-only from 2023 (Savant, already in `savant_mart/data/aaa`).
   - Fetcher: resumable, 1 s pause per the service-time etiquette, keeps only extracted PA rows in zstd Parquet. About
