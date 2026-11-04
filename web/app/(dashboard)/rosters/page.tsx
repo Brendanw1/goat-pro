@@ -5,6 +5,7 @@ import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 import { Signed } from "@/components/ui/shared-ui";
 import { SortableTable, SortTh } from "@/components/ui/sortable-table";
+import { EST_TIP } from "./est";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "40-man rosters" };
@@ -22,7 +23,6 @@ export const metadata = { title: "40-man rosters" };
 
 const SPOTRAC = "https://www.spotrac.com/mlb/";
 const COTS = "https://legacy.baseballprospectus.com/compensation/cots/";
-const EST_TIP = "Unofficial estimates from MLB Stats API transactions; not contract data. Service = days on the active roster or injured list (172 = 1 year), seeded from each opening-day 40-man and walked through the season's transactions. Status: pre-arb / arb-1..3 / arb-4+ / 6+, S2 = estimated Super Two. Control thru = the last season before 6.000 if he spends every day up from here; extensions and contracts override it. ~ = uncertain (contradictory transaction walk or within 15 days of a boundary). Salaries, options and no-trade clauses: see Spotrac / Cot's.";
 
 export default async function RostersPage({ searchParams }: {
   searchParams?: Promise<{ team?: string }>;

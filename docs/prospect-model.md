@@ -274,6 +274,8 @@ bottleneck is **outcome lag**: true value takes 3–6 years to mature.
 
 ### 6.5 Order of work for the deep dive
 
+*Superseded 2026-11-03 by `docs/prospect-program.md`, which keeps steps 1-6 but puts the label, event data and evaluation foundation first.*
+
 1. Widen the universe to all MiLB players, build the point-in-time snapshots, and calibrate v0.
 2. Re-target to value with censoring, keeping ETA separate. Re-run §97-style gates as a new pre-registration.
 3. The NumPyro latent-skill model (needs a `pip install numpyro`, owner OK), benchmarked against v0 and a GBM hurdle.
@@ -413,3 +415,6 @@ chain). Scratch scripts kept out of the repo; `pipeline/prospect_bayes_bench.py`
   [−.042, +.082] on 2015).
 - NPY now runs as NUTS on a cloud GPU (`pipeline/GPU_RUN.md`). The one clean read is the 2018 list. Until then the
   prospect row stays under review.
+- **Read (2026-11-03, once): gate (b) fails.** List 2018: NPY vs B1 NDCG@100 −.016 [−.103, +.081], vs LGB −.003. No value
+  ranking ships. Every model's sleeper p@50 beats B1 by 24-30 pp (CIs exclude 0, pool base rate 1.8%), in dev and post-hoc
+  too; that is a finding, not a gate (RESULTS-MLB "§104 value read").

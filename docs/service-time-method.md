@@ -7,6 +7,12 @@ Output: `data/service/service_est.parquet` (one row per player with MLB-roster t
 
 ## Source and etiquette
 
+*Bulk play-by-play (`pipeline/milb_pbp.py`, owner OK 2026-11-03):* three connections (two until 20:15; the third added on the owner OK as the reply time swung) sharing a cap of 3 requests a
+second (owner OK 2026-11-03 evening: one connection idled at about 0.7 games/s on the server's 3–4 s cold-cache
+replies), gzip plus a `fields=` filter (about 7 KB per game against about 390 KB plain), and a 60 s backoff that holds
+both connections and doubles the gap on any 429/5xx. It stops after 10 failures in a row. The 1 s pause below still applies to
+`service_time.py`.
+
 Only the public MLB Stats API (`statsapi.mlb.com`), individual non-commercial use, attributed per
 its copyright notice ("Copyright MLB Advanced Media, L.P. Use of any content on this page
 acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt").

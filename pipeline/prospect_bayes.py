@@ -223,24 +223,70 @@ def fit(d, task, steps=STEPS, seed=99):
     return guide, svi.run(jax.random.PRNGKey(seed), steps, d, task, progress_bar=False)
 
 
+PROBE = 100          # first draws after warm-up, checked before the rest are paid for
+STEP_RATIO = 5.0     # abort when one chain's adapted step size is this many times smaller than another's
+CAP_SHARE = 0.95     # abort when a chain's mean leapfrog steps in the probe reach this share of 2**tree - 1
+
+
+def svi_init(d, task, chains, seed):
+    """Per-chain unconstrained starts drawn from the SVI fit at twice its scale (overdispersed, so R-hat stays honest).
+    Handling only: the §104 sampler settings are unchanged; it keeps warm-up out of the far tails where the large
+    folds collapsed their step size (GPU run 2: every chain at the tree cap, 1-3 of 4 frozen)."""
+    _, res = fit(d, task, seed=seed)
+    p, k = res.params, jax.random.PRNGKey(seed + 1)
+    out = {}
+    for name in sorted(n[:-len("_auto_loc")] for n in p if n.endswith("_auto_loc")):
+        k, sk = jax.random.split(k)
+        loc, sc = p[f"{name}_auto_loc"], p[f"{name}_auto_scale"]
+        out[name] = loc + 2 * sc * jax.random.normal(sk, (chains, *jnp.shape(loc)))
+    return out
+
+
+def probe_check(mc, ex, chains, tree):
+    """Per-chain step size and probe tree size; 'abort' is set when a chain has collapsed."""
+    ss = np.asarray(mc.last_state.adapt_state.step_size).reshape(chains)
+    steps = np.asarray(ex["num_steps"]).reshape(chains, -1).mean(1)
+    info = {"step_size": np.round(ss, 5).tolist(), "probe_mean_leapfrog": np.round(steps, 1).tolist()}
+    if not np.isfinite(ss).all() or ss.max() / ss.min() > STEP_RATIO:
+        info["abort"] = "step size spread across chains"
+    elif steps.max() >= CAP_SHARE * (2 ** tree - 1):
+        info["abort"] = "a chain sits at the tree-depth cap"
+    return info
+
+
 def fit_nuts(d, task, warmup, samples, chains, thin, tree, seed=99):
-    """§104 fit: NUTS on the compact model; returns draws of p_debut (and e_val) and the diagnostics."""
+    """§104 fit: NUTS on the compact model; returns draws of p_debut (and e_val) and the diagnostics.
+    Chains start from the SVI fit. After warm-up + PROBE draws the chains are checked; a collapsed chain aborts the
+    fit (draws None) before the remaining draws are paid for."""
     from numpyro.diagnostics import summary
     d = {**d, "compact": True}
-    mc = MCMC(NUTS(model, target_accept_prob=0.9, max_tree_depth=tree), num_warmup=warmup, num_samples=samples,
-              num_chains=chains, thinning=thin, chain_method="vectorized", progress_bar=False)
-    mc.run(jax.random.PRNGKey(seed), d, task, extra_fields=("diverging", "num_steps"))
-    smp = mc.get_samples(group_by_chain=True)
+    kern = NUTS(model, target_accept_prob=0.9, max_tree_depth=tree)
+    xf = ("diverging", "num_steps")
+    mc = MCMC(kern, num_warmup=warmup, num_samples=PROBE, num_chains=chains, thinning=thin,
+              chain_method="vectorized", progress_bar=False)
+    mc.run(jax.random.PRNGKey(seed), d, task, extra_fields=xf, init_params=svi_init(d, task, chains, seed))
+    ex1 = mc.get_extra_fields(group_by_chain=True)
+    probe = probe_check(mc, ex1, chains, tree)
+    print("probe after warm-up:", json.dumps(probe), flush=True)
+    if "abort" in probe:
+        return None, {"probe": probe}, None
+    mc2 = MCMC(kern, num_warmup=0, num_samples=samples - PROBE, num_chains=chains, thinning=thin,
+               chain_method="vectorized", progress_bar=False)
+    mc2.post_warmup_state = mc.last_state
+    mc2.run(mc.last_state.rng_key, d, task, extra_fields=xf)
+    s1, s2 = mc.get_samples(group_by_chain=True), mc2.get_samples(group_by_chain=True)
+    smp = {k: np.concatenate([np.asarray(s1[k]), np.asarray(s2[k])], 1) for k in s1}
+    ex2 = mc2.get_extra_fields(group_by_chain=True)
+    ex = {k: np.concatenate([np.asarray(ex1[k]), np.asarray(ex2[k])], 1) for k in xf}
     glob = {k: np.asarray(smp[k]) for k in GLOBALS}
     sm = summary(glob)
-    ex = mc.get_extra_fields()
 
     def r(x, nd=4):          # NaN-safe: a NaN R-hat/ESS is recorded as None (a validity fail), never a crash
         x = float(x)
         return None if not np.isfinite(x) else round(x, nd) if nd else round(x)
     rh = {k: np.asarray(sm[k]["r_hat"]) for k in GLOBALS}
     ne = {k: np.asarray(sm[k]["n_eff"]) for k in GLOBALS}
-    dg = {"divergences": int(ex["diverging"].sum()), "draws": int(ex["diverging"].size),
+    dg = {"probe": probe, "divergences": int(ex["diverging"].sum()), "draws": int(ex["diverging"].size),
           "mean_leapfrog": r(np.mean(ex["num_steps"]), 1),
           "rhat_max_globals": r(max(np.max(v) for v in rh.values())),
           "ess_min_globals": r(min(np.min(v) for v in ne.values()), 0),
@@ -257,7 +303,7 @@ FIT_SECS = []                                  # wall seconds of each fit done i
 
 
 def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin=5, tree=10, subsample=0,
-             max_minutes=0, est_minutes=60, roles="hp", center=False):
+             max_minutes=0, est_minutes=60, roles="hp", center=False, seed=99):
     """One fold = a hitter fit and a pitcher fit. Each fit is saved as soon as it ends and skipped if its file exists
     (resumable after a kill or preemption). With max_minutes, a fit that would not finish in the budget is not started.
     Returns False when the budget stops the run."""
@@ -287,7 +333,14 @@ def run_fold(S, task, Y, method="svi", warmup=1000, samples=1000, chains=4, thin
         dg = {"pitcher": pit, "method": method, "entities": int(len(E)), "lines": int(len(d["e"])),
               "T": int(d["dims"][1]), "center": center, "mu0": np.round(d["mu0"], 3).tolist()}
         if method == "nuts":
-            pr, nd, glob = fit_nuts(d, task, warmup, samples, chains, thin, tree)
+            dg["seed"] = seed
+            pr, nd, glob = fit_nuts(d, task, warmup, samples, chains, thin, tree, seed)
+            if pr is None:                     # probe abort: diag only, no draws file (a rerun retries the fit)
+                dg.update(nd, secs=round(time.time() - t0), warmup=warmup, samples=samples, chains=chains, tree=tree)
+                with open(RES / f"prospect_{TAG}_npy_diag.jsonl", "a") as f:
+                    f.write(json.dumps({"file": part.name, "task": task, "Y": Y, "devices": str(jax.devices()),
+                                        "diag": dg}, default=str) + "\n")
+                continue
             np.savez_compressed(RES / f"{part.stem}_globals.npz", **glob)   # raw global draws by chain, for diagnosis
             dg.update(nd, warmup=warmup, samples=samples, chains=chains, thin=thin, tree=tree)
         else:
@@ -376,6 +429,7 @@ if __name__ == "__main__":
     ap.add_argument("--max-minutes", type=float, default=0, help="stop before a fit that would not finish in time")
     ap.add_argument("--roles", default="hp", choices=["hp", "h", "p"], help="h hitters, p pitchers")
     ap.add_argument("--center", action="store_true", help="§104 amendment A (pitchers): centred theta_last")
+    ap.add_argument("--seed", type=int, default=99, help="§104 amendment B: one rerun of a failed fit uses 100")
     ap.add_argument("--est-minutes", type=float, default=60, help="first-fit estimate until one fit has been timed")
     a = ap.parse_args()
     if a.prior_check:
@@ -385,7 +439,7 @@ if __name__ == "__main__":
         for f in a.folds or []:
             task, y = f.split(":")
             if not run_fold(S, task, int(y), a.method, a.warmup, a.samples, a.chains, a.thin, a.tree, a.subsample,
-                            a.max_minutes, a.est_minutes, a.roles, a.center):
+                            a.max_minutes, a.est_minutes, a.roles, a.center, a.seed):
                 break
         if a.nuts:
             nuts_check(S)

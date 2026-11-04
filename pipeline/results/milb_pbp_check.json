@@ -1,0 +1,43 @@
+{
+ "player_season_levels": 59945,
+ "excluded": {
+  "non_pa_plays": "caught stealing / pickoff / WP / PB / balk end-of-inning plays",
+  "mexican_league_pa": 674058
+ },
+ "match": {
+  "PA": {
+   "within_1pct": 0.9981,
+   "total_ratio": 1.0002
+  },
+  "SO": {
+   "within_1pct": 0.9987,
+   "total_ratio": 0.9999
+  },
+  "BB": {
+   "within_1pct": 0.999,
+   "total_ratio": 0.9997
+  },
+  "HR": {
+   "within_1pct": 0.9994,
+   "total_ratio": 0.9992
+  }
+ },
+ "pa_within_1pct_by_season": {
+  "2010": 0.999,
+  "2011": 0.9986,
+  "2012": 0.9979,
+  "2013": 0.9973,
+  "2014": 0.9925,
+  "2015": 0.9979,
+  "2016": 0.9933,
+  "2017": 0.9985,
+  "2018": 0.9995,
+  "2019": 0.9961,
+  "2021": 1.0,
+  "2022": 1.0,
+  "2023": 1.0,
+  "2024": 0.9997,
+  "2025": 1.0,
+  "2026": 1.0
+ }
+}

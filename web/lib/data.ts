@@ -662,3 +662,26 @@ export async function getCoaches(level: Level = "mlb"): Promise<any | null> {
 export async function getProspectValue(level: Level = "mlb"): Promise<any | null> {
   return fetchFromR2<any>(lv(level, "prospects/value.json"), { shared: true }).catch(() => null);
 }
+
+/** Team-page organization files (pipeline/org_export.py, docs/team-pages-plan.md): every affiliate, Rookie..AAA. */
+export async function getOrgIndex(): Promise<any | null> {
+  return fetchFromR2<any>("orgs/index.json", { shared: true }).catch(() => null);
+}
+export async function getOrgFarm(abbr: string, season: number | string): Promise<any | null> {
+  return fetchFromR2<any>(`orgs/${abbr}/${season}/farm.json`).catch(() => null);
+}
+export async function getOrgDepth(abbr: string, season: number | string): Promise<any | null> {
+  return fetchFromR2<any>(`orgs/${abbr}/${season}/depth.json`).catch(() => null);
+}
+
+export async function getOrgRoster(abbr: string): Promise<any | null> {
+  return fetchFromR2<any>(`orgs/${abbr}/roster.json`).catch(() => null);
+}
+
+export async function getOrgDraft(abbr: string): Promise<any | null> {
+  return fetchFromR2<any>(`orgs/${abbr}/draft.json`).catch(() => null);
+}
+
+export async function getOrgIdentity(): Promise<any | null> {
+  return fetchFromR2<any>("orgs/identity.json").catch(() => null);
+}

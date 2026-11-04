@@ -4058,6 +4058,82 @@ validity bar and gates. The failed uncentred pitcher fit is kept as `prospect_10
 not scored. Runtime: the GPU fits use jax 0.4.38 / numpyro 0.16.1 (Thunder's virtual GPU breaks jax 0.12; see `GPU_RUN.md`), and
 the laptop fits used jax 0.12 / numpyro 0.22.
 
+**§104 amendment B (2026-11-03, recorded before any NPY dev, post-hoc or read score).** *Handling (6189d03, no spec change):*
+chains start from the SVI fit (overdispersed, 2 × scale) and a probe after warm-up + 100 draws aborts a fit whose chains have
+uneven step sizes (> 5×) or sit at the tree cap (≥ 95% of 1,023 leapfrog steps). GPU run 3: centred pitchers 2017 (R̂ 1.013)
+and 2018 (R̂ 1.044) pass; centred pitchers 2016 fail on sd_eta[HR] alone (R̂ 1.067; the other 11 globals ≤ 1.015, 0
+divergences); uncentred hitters 2017 and 2018 abort at the tree cap. *Triggered (amendment A):* a probe abort is a bar failure
+(no draws to pass with), so **hitters move to the centred spec in all four folds** (2015-18; one spec across dev, post-hoc and
+read). The passing uncentred hitter fits are kept as `prospect_104_npy_val{2015,2016}_h_uncentred.parquet` and are not scored.
+*New rule:* a fit that fails the bar gets **exactly one rerun with a new seed (100)**, and the rerun result stands, pass or
+fail. It applies now to pitchers 2016 (seed-99 fit kept as `prospect_104_npy_val2016_p_seed99_failed.parquet`, not scored) and
+to any later fit. `--read104` refuses to run unless both 2018 fits pass the bar in the diag log.
+
+### §104 value read (read once, 2026-11-03; `results/prospect_104_read.json`): gate (b) FAILS
+List 2018, 8,880 rows, player-clustered bootstrap (2,000). All 8 NPY fits passed the bar (amendment B).
+
+| value (EV) | NDCG@100 | Δ vs B1 | Spearman | sleeper p@50 (Δ pp vs B1) |
+|---|---|---|---|---|
+| B1 | .502 [.379, .581] | — | .296 | .06 |
+| v0u | .466 [.382, .561] | −.036 [−.088, +.058] | .404 | .36 (+30 [+16, +44]) |
+| LGB | .489 [.387, .570] | −.014 [−.084, +.067] | .402 | .30 (+24 [+10, +38]) |
+| **NPY** | .486 [.372, .561] | **−.016 [−.103, +.081]** | .406 | .32 (+26 [+12, +40]) |
+
+Gate (b) needs NPY ΔNDCG@100 vs B1 > 0 with the CI excluding 0 and no loss to LGB: Δ −.016, CI spans 0, and NPY − LGB
+−.003 [−.108, +.091]. **No value ranking ships; §99f stays withdrawn.** Diagnosis: *handling* — none found (the first
+attempt died on a missing lightgbm import before any fit or score, nothing written; rerun in the anaconda env that ran
+`--dev104`); *data* — same store and fold logic as dev/post-hoc; *modeling* — every model beats B1 by 24-30 pp on sleeper
+p@50 (CIs exclude 0) and on Spearman, but none beats it on top-100 NDCG, which B1 (the draft/rank baseline) sets on 2018.
+The sleeper gain is not the gate metric and is recorded only as a finding; using it needs a new pre-registration with a
+fresh holdout (none is left in 1990s-2018 lists with matured labels).
+
+### Prospect program R0: re-baseline on line-WAR labels (dev/post-hoc, spent lists only, 2026-11-03; `pipeline/prospect_r0.py`, `results/prospect_r0.json`)
+Plan: `docs/prospect-program.md`. Harness: `pipeline/prospect_eval.py`. No sealed list touched.
+
+*Value, lists 2015-18 (34,922 rows; y1 = war6 ≥ 1, base .035; 82 stars).* Each cell is the out-of-time Δ log loss of
+LR(y ~ consensus + X) minus LR(y ~ consensus) (consensus = B1's rank + draft inputs), player-clustered CI, MDE.
+Model scores are mapped leave-one-year-out (dev only).
+
+| X added to consensus | Δ log loss, y1 | MDE |
+|---|---|---|
+| age, level, draft, yrs pro (forward) | −.0036 [−.0048, −.0023] | .0018 |
+| + 3 rate stats (forward) | **−.0088 [−.0104, −.0072]** | .0023 |
+| + 3 rate stats (loyo) | −.0093 [−.0114, −.0075] | .0029 |
+| B1 EV (old, playing-time label) | −.0007 [−.0013, .0000] | .0010 |
+| v0u / LGB / NPY EV (old label) | −.0029 / −.0023 / −.0050 | .0016-.0026 |
+| B1 / v0u / LGB EV retrained on war6 | −.0006 / −.0026 / −.0024 | .0008-.0018 |
+
+- **A plain logistic on age, level, draft and three rate stats adds about twice what any §104 model adds** over the
+  consensus, and retraining the §104 models on the WAR label does not change that. The hurdle EV (P(arrive) × E[value])
+  throws away stats signal that a direct classifier keeps. The gap is a modeling choice, not the inference engine.
+- **Stars cannot be tested on spent data:** with 82 stars, no arm (ladder included) shows a gain beyond its MDE.
+  Star odds stay descriptive until a pooled sealed read can carry them, or are dropped as a gate.
+- Reported only, on war6: sleeper p@50 B1 .075; v0u .23, LGB .22, NPY .265 (old label); v0u .205, LGB .19 (retrained).
+  Spearman ≈ .08 for every arm (82% of rows are zero), so it is not informative here.
+
+*Arrival, lists 2015-21 (62,623 rows, debut_k4, base .102), §99h dev predictions re-scored.* Log loss / Brier / ECE:
+B1 .334 / .083 / .062; LGB .235 / .070 / .032; H_fix **.217 / .062 / .021**. H_fix vs B1 Δ log loss −.118 [−.124, −.111]
+(MDE .009); vs LGB −.018 [−.021, −.015] (MDE .005).
+- **Subgroup calibration fails where overall ECE passes:** org-listed players (n 4,958) ECE **.112** with the right mean
+  (.511 vs .508), so the spread is too confident both ways. Top-100 (n 567) is under-forecast (.842 vs .880).
+  Unlisted (57,098) ECE .014; hitters .018, pitchers .024. The §99h bar (overall ECE ≤ .02) would not catch this, so G2
+  adds a per-list-state calibration bar, and a list-state recalibration is tried on dev first.
+
+### §104 sleeper pre-checks (post-hoc, spent lists 2015-18, 2026-11-03; `pipeline/prospect_sleeper_check.py`)
+Not a gate. Pool = unlisted or org rank > 20 (32,846 of 34,922 rows, 651 hits, rate .020). Sleeper p@50 per class, mean:
+
+| | B1 | −age_rel | level + youth | LR age/level/draft | LR + 3 rates | v0u | LGB | NPY |
+|---|---|---|---|---|---|---|---|---|
+| 2015-18 | .100 | .075 | .085 | .095 | .150 | .280 | .255 | .290 |
+
+- Youth for level alone does not find sleepers (.075, below B1). The models beat the best plain baseline (LR + 3 rate
+  stats, trained on the same tyear ≤ Y − 4 split): v0u +13 pp [+4.5, +20], NPY +14 pp [+5.5, +22.5].
+- Power (2.8 × player-clustered bootstrap SE): one class detects ΔNDCG@100 ≥ .10-.12 and Δp@50 ≥ .20; four pooled classes
+  detect ΔNDCG ≥ .05-.06 and Δp@50 ≥ .10-.12. The 2018 read could not detect the dev-sized NDCG gain (+.03-.05), so its
+  failure is inconclusive, not evidence of no gain. Even four classes do not resolve NPY vs B1 on NDCG (+.028 [−.012, +.068]).
+- A four-class sleeper test is well powered against B1 (effect ≈ .19, MDE ≈ .11) and marginal against LR + rates
+  (≈ .13-.14 vs ≈ .11-.12).
+
 ### §104 dev results (2026-10-29; `results/prospect_104_dev.json`; NPY pending the GPU run)
 Player-clustered bootstrap, 1,000 draws. Fixed splits, OOF Platt, full draft, health and org coverage fixes.
 

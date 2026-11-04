@@ -3,6 +3,7 @@ import { getTrades } from "@/lib/data";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
 import { Signed } from "@/components/ui/shared-ui";
 import { SortableTable, SortTh } from "@/components/ui/sortable-table";
+import { DealCard, deadlineWindow, md } from "./deal";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,6 @@ export const metadata = { title: "Trades" };
 type Q = { season?: string; team?: string; when?: string; sort?: string };
 
 const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020];
-const md = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 export default async function TradesPage({ searchParams }: { searchParams?: Promise<Q> }) {
   const q = (await searchParams) ?? {};
@@ -38,9 +38,7 @@ export default async function TradesPage({ searchParams }: { searchParams?: Prom
     return `/trades?${p.toString()}`;
   };
 
-  // the deadline window = its date and the two days before (deals land on the feed a day either side)
-  const dl = data.deadline ? new Date(`${data.deadline}T12:00:00Z`).getTime() : null;
-  const inWindow = (d: string) => dl != null && Math.abs(new Date(`${d}T12:00:00Z`).getTime() - dl) <= 2 * 864e5;
+  const inWindow = deadlineWindow(data.deadline);
   // a deal's size = the swing between what the best-off and worst-off club got back
   const swing = (t: any) => { const v = Object.values<number | null>(t.got).map((x) => x ?? 0); return Math.max(...v) - Math.min(...v); };
   const deals = (data.trades ?? [])
@@ -107,37 +105,7 @@ export default async function TradesPage({ searchParams }: { searchParams?: Prom
         <div className="space-y-3">
           <p className="text-[11px] text-text-dim">{deals.length} deal{deals.length === 1 ? "" : "s"}{team ? ` involving ${team}` : ""}</p>
           {deals.slice(0, 120).map((t: any) => (
-            <div key={`${t.date}-${t.desc}`} className="glass-panel p-3">
-              <div className="mb-2 flex items-baseline gap-2 text-[11px] text-text-dim">
-                <span className="font-data">{md(t.date)}</span>
-                {inWindow(t.date) && <span className="rounded border border-usf-gold/40 px-1 text-[9px] uppercase tracking-wider text-usf-gold">deadline</span>}
-              </div>
-              <div className={`grid gap-3 ${t.clubs.length > 2 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-                {t.clubs.map((c: string) => (
-                  <div key={c}>
-                    <div className="mb-1 flex items-center gap-1.5 text-xs">
-                      <PixelTeamLogo team={c} size={16} />
-                      <span className="font-semibold text-text-primary">{c} got</span>
-                      <span className="ml-auto"><Signed v={t.got[c]} dp={1} /></span>
-                    </div>
-                    <table className="w-full text-xs font-data">
-                      <tbody>
-                        {t.players.filter((p: any) => p.to === c).map((p: any) => (
-                          <tr key={p.id} className="border-t border-white/[0.04]">
-                            <td className="py-0.5 font-sans">
-                              <Link prefetch={false} href={`/player/${p.id}?season=${season}`} className="text-text-secondary hover:underline">{p.name}</Link>
-                              <span className="ml-1 text-[10px] text-text-dim">{p.pos ?? ""}{p.rank ? ` · ${p.rank}` : ""}</span>
-                            </td>
-                            <td className="py-0.5 text-right text-[10px] text-text-dim">{p.pa ? `${p.pa} PA` : p.bf ? `${p.bf} BF` : p.debut ? `debut ${p.debut}` : "no MLB"}</td>
-                            <td className="py-0.5 pl-2 text-right w-[52px]">{p.rvSince == null ? <span className="text-text-dim">—</span> : <Signed v={p.rvSince} dp={1} />}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DealCard key={`${t.date}-${t.desc}`} t={t} season={season} deadline={inWindow(t.date)} />
           ))}
           {deals.length > 120 && <p className="text-[11px] text-text-dim">Showing the first 120; pick a club to narrow.</p>}
         </div>

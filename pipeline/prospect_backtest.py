@@ -594,6 +594,14 @@ def read104():
     out = RES / "prospect_104_read.json"
     assert not out.exists(), "§104 read already done"
     assert (RES / "prospect_104_npy_val2018.parquet").exists(), "run the NPY (NUTS) fold val:2018 first (GPU_RUN.md)"
+    diag = {}                                  # §104 validity bar: last diag line per 2018 fit (a rerun supersedes)
+    for line in (RES / "prospect_104_npy_diag.jsonl").read_text().splitlines():
+        r = json.loads(line)
+        diag[r["file"]] = r["diag"]
+    for f in ("prospect_104_npy_val2018_h.parquet", "prospect_104_npy_val2018_p.parquet"):
+        g = diag.get(f, {})
+        assert (g.get("rhat_max_globals") or 99) <= 1.05 and g.get("divergences", 1) <= 0.01 * g.get("draws", 0), \
+            f"{f} fails the §104 validity bar: {json.dumps({k: g.get(k) for k in ('rhat_max_globals', 'divergences', 'draws', 'probe')})}"
     S = load()
     o, _ = run_fold(S, 2018, "val", ["B1", "v0u", "LGB"])
     v = merge_npy(o, "val", VAL104_READ, tag="104")

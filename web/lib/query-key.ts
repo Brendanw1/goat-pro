@@ -11,7 +11,7 @@
 /** Path pattern → the query keys that page reads. Order matters only for readability. */
 export const QUERY_ROUTES: [RegExp, string[]][] = [
   [/^\/prospects$/, ["year", "view", "team", "pos", "riser", "fy", "fsort", "forder"]],
-  [/^\/teams\/[A-Za-z0-9]{1,5}$/, ["season", "psort", "hsort", "pdir", "hdir"]],
+  [/^\/teams\/[A-Za-z0-9]{1,5}$/, ["season", "psort", "hsort", "pdir", "hdir", "tab", "fv", "lv", "dy"]],
   [/^\/minors$/, ["kind", "season", "level", "min", "sort", "dir", "page", "src", "team", "age"]],
   [/^\/minors\/player\/\d+$/, ["season"]],
   [/^\/games\/\d+$/, ["level"]],

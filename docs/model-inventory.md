@@ -51,7 +51,7 @@ In progress (owner, 2026-10-29): MiLB → MLB translation (§88), role conversio
 MLB-unique stats audit for college (`docs/college-port-audit.md`).
 
 Queued for later, in order (after the swing program, `docs/swing-program.md`):
-0. **Combined prospect ranking / sleeper model** (owner, 2026-10-29). A hierarchical Bayesian model that pools
+0. **Combined prospect ranking / sleeper model** (owner, 2026-10-29). **Working plan since 2026-11-03: `docs/prospect-program.md`** (foundation F1-F7, then R0-R5). A hierarchical Bayesian model that pools
    MiLB lines by level and age (partial pooling across levels, orgs and seasons), the §88 MLEs, AAA Statcast grades,
    Pipeline ranks and draft slot as priors, and the outcome = MLB arrival and value (our WAR, §85).
    Research first: the KB, portal-scout's prospect value / translation score, and the MLB_Draft_Model tiers (arrival,
@@ -73,6 +73,8 @@ Queued for later, in order (after the swing program, `docs/swing-program.md`):
    accuracy vs chance as the identity test. Site: fold Prospects, Trades and Draft into tabs on the team page
    (Overview / Roster / Identity / Farm / Draft / Trades). That also cuts the top nav. Visuals must each
    tell one story with n shown.
+   **Site half in progress (owner go 2026-11-04): `docs/team-pages-plan.md`** — six tabs with every MiLB level; the
+   identity test is its Phase 4 Stage B read.
 1. Pre-2020 MLB backfill, using the college TrackMan-era methods.
 2. State-space player projections.
 3. Surplus value: projected WAR against salary and control years.

@@ -25,9 +25,11 @@ def season_age(birth: pd.Series, season: pd.Series) -> pd.Series:
     return ((ref - b).dt.days / 365.25).round(1)
 
 
-def combine(df: pd.DataFrame, counts: list[str]) -> pd.DataFrame:
-    """Sum a player's teams within one season x level; team becomes 'N teams'."""
-    key = ["mlbam_id", "season", "level"]
+KEY = ["mlbam_id", "season", "level"]
+
+
+def combine(df: pd.DataFrame, counts: list[str], key: list[str] = KEY) -> pd.DataFrame:
+    """Sum a player's teams within one season x level (or any finer key); team becomes 'N teams'."""
     agg = df.groupby(key, sort=False)[counts].sum()
     first = df.groupby(key, sort=False)[["player_name", "birth_date", "bats", "throws", "position"]].first()
     teams = df.groupby(key, sort=False)["team_name"].agg(lambda t: t.iloc[0] if t.nunique() == 1 else f"{t.nunique()} teams")
@@ -38,11 +40,12 @@ def r(x, nd=1):
     return None if x is None or not np.isfinite(x) else round(float(x), nd)
 
 
-def pitchers(df: pd.DataFrame) -> pd.DataFrame:
-    df = combine(df, ["OUTS", "BF", "H", "HR", "BB", "IBB", "HBP", "SO", "GO", "AO", "ER", "R", "G", "GS"])
+def pitchers(df: pd.DataFrame, key: list[str] = KEY, league: pd.DataFrame | None = None) -> pd.DataFrame:
+    """`league` = the full level's lines when `df` is a subset (an org), so FIP's constant stays the level's."""
+    lg = (df if league is None else league).groupby(["season", "level"])[["ER", "OUTS", "HR", "BB", "HBP", "SO"]].sum()
+    df = combine(df, ["OUTS", "BF", "H", "HR", "BB", "IBB", "HBP", "SO", "GO", "AO", "ER", "R", "G", "GS"], key)
     ip = df["OUTS"] / 3
     raw = (13 * df["HR"] + 3 * (df["BB"] + df["HBP"]) - 2 * df["SO"])
-    lg = df.groupby(["season", "level"])[["ER", "OUTS", "HR", "BB", "HBP", "SO"]].sum()
     lg_ip = lg["OUTS"] / 3
     cfip = 9 * lg["ER"] / lg_ip - (13 * lg["HR"] + 3 * (lg["BB"] + lg["HBP"]) - 2 * lg["SO"]) / lg_ip
     df["cfip"] = [cfip[(s, l)] for s, l in zip(df["season"], df["level"])]
@@ -58,8 +61,8 @@ def pitchers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def hitters(df: pd.DataFrame) -> pd.DataFrame:
-    df = combine(df, ["PA", "AB", "H", "2B", "3B", "HR", "BB", "IBB", "HBP", "SF", "SH", "SO", "SB", "CS", "GIDP", "G"])
+def hitters(df: pd.DataFrame, key: list[str] = KEY) -> pd.DataFrame:
+    df = combine(df, ["PA", "AB", "H", "2B", "3B", "HR", "BB", "IBB", "HBP", "SF", "SH", "SO", "SB", "CS", "GIDP", "G"], key)
     tb = df["H"] + df["2B"] + 2 * df["3B"] + 3 * df["HR"]
     with np.errstate(divide="ignore", invalid="ignore"):
         df["avg"] = df["H"] / df["AB"]
