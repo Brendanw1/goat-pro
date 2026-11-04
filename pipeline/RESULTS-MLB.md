@@ -4087,6 +4087,38 @@ p@50 (CIs exclude 0) and on Spearman, but none beats it on top-100 NDCG, which B
 The sleeper gain is not the gate metric and is recorded only as a finding; using it needs a new pre-registration with a
 fresh holdout (none is left in 1990s-2018 lists with matured labels).
 
+### Prospect program R0: re-baseline on line-WAR labels (dev/post-hoc, spent lists only, 2026-11-03; `pipeline/prospect_r0.py`, `results/prospect_r0.json`)
+Plan: `docs/prospect-program.md`. Harness: `pipeline/prospect_eval.py`. No sealed list touched.
+
+*Value, lists 2015-18 (34,922 rows; y1 = war6 ≥ 1, base .035; 82 stars).* Each cell is the out-of-time Δ log loss of
+LR(y ~ consensus + X) minus LR(y ~ consensus) (consensus = B1's rank + draft inputs), player-clustered CI, MDE.
+Model scores are mapped leave-one-year-out (dev only).
+
+| X added to consensus | Δ log loss, y1 | MDE |
+|---|---|---|
+| age, level, draft, yrs pro (forward) | −.0036 [−.0048, −.0023] | .0018 |
+| + 3 rate stats (forward) | **−.0088 [−.0104, −.0072]** | .0023 |
+| + 3 rate stats (loyo) | −.0093 [−.0114, −.0075] | .0029 |
+| B1 EV (old, playing-time label) | −.0007 [−.0013, .0000] | .0010 |
+| v0u / LGB / NPY EV (old label) | −.0029 / −.0023 / −.0050 | .0016-.0026 |
+| B1 / v0u / LGB EV retrained on war6 | −.0006 / −.0026 / −.0024 | .0008-.0018 |
+
+- **A plain logistic on age, level, draft and three rate stats adds about twice what any §104 model adds** over the
+  consensus, and retraining the §104 models on the WAR label does not change that. The hurdle EV (P(arrive) × E[value])
+  throws away stats signal that a direct classifier keeps. The gap is a modeling choice, not the inference engine.
+- **Stars cannot be tested on spent data:** with 82 stars, no arm (ladder included) shows a gain beyond its MDE.
+  Star odds stay descriptive until a pooled sealed read can carry them, or are dropped as a gate.
+- Reported only, on war6: sleeper p@50 B1 .075; v0u .23, LGB .22, NPY .265 (old label); v0u .205, LGB .19 (retrained).
+  Spearman ≈ .08 for every arm (82% of rows are zero), so it is not informative here.
+
+*Arrival, lists 2015-21 (62,623 rows, debut_k4, base .102), §99h dev predictions re-scored.* Log loss / Brier / ECE:
+B1 .334 / .083 / .062; LGB .235 / .070 / .032; H_fix **.217 / .062 / .021**. H_fix vs B1 Δ log loss −.118 [−.124, −.111]
+(MDE .009); vs LGB −.018 [−.021, −.015] (MDE .005).
+- **Subgroup calibration fails where overall ECE passes:** org-listed players (n 4,958) ECE **.112** with the right mean
+  (.511 vs .508), so the spread is too confident both ways. Top-100 (n 567) is under-forecast (.842 vs .880).
+  Unlisted (57,098) ECE .014; hitters .018, pitchers .024. The §99h bar (overall ECE ≤ .02) would not catch this, so G2
+  adds a per-list-state calibration bar, and a list-state recalibration is tried on dev first.
+
 ### §104 sleeper pre-checks (post-hoc, spent lists 2015-18, 2026-11-03; `pipeline/prospect_sleeper_check.py`)
 Not a gate. Pool = unlisted or org rank > 20 (32,846 of 34,922 rows, 651 hits, rate .020). Sleeper p@50 per class, mean:
 

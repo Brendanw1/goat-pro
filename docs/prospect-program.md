@@ -104,7 +104,12 @@ its pre-registered gate.
 
 ## Research and tests (in order, each a RESULTS-MLB section)
 
-- [ ] **R0. Re-baseline on the new label.**
+- [x] **R0. Re-baseline on the new label** (2026-11-03, RESULTS-MLB "Prospect program R0").
+  - A plain LR on age/level/draft + 3 rates adds −.0088 log loss over consensus. That is about 2× any §104 model's EV,
+    old label or new.
+  - Stars cannot be tested on spent data (82 events).
+  - Arrival H_fix wins clearly, but is miscalibrated within org-listed players (ECE .11): add a per-list-state bar to G2.
+  - Consequence for R3: model the outcome directly (a classifier or distribution per target). Don't use the hurdle EV.
   - Re-score B1, v0u, LGB and the §99h hazard on F2 labels through F6, on spent classes only.
   - This tells us whether the playing-time label hid or inflated anything. No sealed data is touched.
 - [ ] **R1. Skill layer.** A hierarchical PA-level model per player-season: K, BB, contact, power, BABIP, GB/FB and

@@ -78,26 +78,34 @@ def _lr(tr, cols, y):
     return lambda te: m.predict_proba(((te[cols].astype(float).fillna(med)) - mu) / sd)[:, 1]
 
 
-def out_of_time(d, y, cols, years, lag=4, year="tyear", by_role=True):
-    """Rolling origin: for each test year Y, fit LR(y ~ cols) on rows with year <= Y - lag, predict year Y."""
+def out_of_time(d, y, cols, years, lag=4, year="tyear", by_role=True, loyo=False):
+    """Rolling origin: for each test year Y, fit LR(y ~ cols) on rows with year <= Y - lag, predict year Y.
+    loyo=True (dev only, for model scores that exist only on the test years): fit on the other test years instead."""
     out = pd.Series(np.nan, index=d.index)
     for Y in years:
         for role in ((False, True) if by_role else (None,)):
             sel = (d.pitcher == role) if by_role else pd.Series(True, index=d.index)
-            tr, te = d[sel & (d[year] <= Y - lag)], d[sel & (d[year] == Y)]
+            fit = d[year].isin([v for v in years if v != Y]) if loyo else (d[year] <= Y - lag)
+            tr, te = d[sel & fit], d[sel & (d[year] == Y)]
             if len(te) and tr[y].nunique() == 2:
                 c = cols(role) if callable(cols) else cols
                 out[te.index] = _lr(tr, c, y)(te)
     return out
 
 
-def incremental(d, y, score, years, lag=4, task="value", read=None, n=1000):
-    """The gate shape: out-of-time log loss of y ~ consensus vs y ~ consensus + score, paired by player."""
+def incremental(d, y, score, years, lag=4, task="value", read=None, n=1000, loyo=False):
+    """The gate shape: out-of-time log loss of y ~ consensus vs y ~ consensus + score, paired by player.
+    `score` is a column name or a list of columns. loyo is dev only and is refused on a named read."""
     guard(task, years, read)
+    if loyo and read:
+        raise PermissionError("leave-one-year-out mapping is dev only; a read maps forward in time")
     d = d.copy()
-    d["p_cons"] = out_of_time(d, y, CONSENSUS, years, lag)
-    d["p_full"] = out_of_time(d, y, CONSENSUS + [score], years, lag)
+    extra = [score] if isinstance(score, str) else list(score)
+    d["p_cons"] = out_of_time(d, y, CONSENSUS, years, lag, loyo=loyo)
+    d["p_full"] = out_of_time(d, y, CONSENSUS + extra, years, lag, loyo=loyo)
     t = d[d.tyear.isin(years)].dropna(subset=["p_cons", "p_full"])
+    if t.empty:
+        raise ValueError("no scored rows: forward mapping needs training-year rows (tyear <= Y - lag) in d")
     return {"n": len(t), "logloss_cons": round(logloss(t[y], t.p_cons), 5), "logloss_full": round(logloss(t[y], t.p_full), 5),
             "d_logloss": boot(t, lambda x: logloss(x[y], x.p_full) - logloss(x[y], x.p_cons), n=n),
             "d_brier": boot(t, lambda x: brier(x[y], x.p_full) - brier(x[y], x.p_cons), n=n)}
