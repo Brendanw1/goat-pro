@@ -125,6 +125,25 @@ to the Farm tab.
 - Deadline window highlight (the trades page already computes it).
 
 
+### 3b. Identity Stage B — DRAFT pre-registration (owner OK needed before any fit)
+
+Question: does a club leave a tell on its players that a model can read, beyond chance, and is it stable year to year?
+- Units: player-seasons 2021-26. MLB hitters 200+ PA, pitchers 200+ BF; farm hitters/pitchers 150+ PA/BF, labelled by
+  parent org. Players who changed org that season are dropped (the label would be ambiguous).
+- Features: the Stage A style traits at the player level (MLB: the same board columns; farm: the level-relative
+  rates and age), standardised within season x level. No team, park or league ids. Park-sensitive outcomes (ISO, GB%)
+  stay in but are read separately in a no-outcome variant (approach and shape only: swing/chase/contact/pull, velo,
+  IVB, zone, first-pitch strike).
+- Model: L2 multinomial logistic, C picked in inner folds. Outer folds grouped by player (a player never in train and
+  test), 5 folds.
+- Score: top-1 accuracy and log loss vs a permutation null (labels shuffled within season x level, 1,000 draws).
+- Stability: fit on season t, score season t+1 on (a) players who stayed and (b) players who arrived that offseason.
+  (b) is the test of a club shaping players, not just picking them.
+- Pass (per group: MLB hitters, MLB pitchers, farm): pooled accuracy above the null's 99th percentile, and t to t+1
+  accuracy above the null's 95th percentile on stayers. Arrivals are reported, not gated.
+- Read once on all seasons. Result on the Identity tab with its verdict; until then "identity test pending". A fail
+  is diagnosed (data, handling or model) and recorded, and Stage A stays descriptive either way.
+
 ## Checklist (tick with the commit hash)
 
 Built so far (2026-11-04): `pipeline/org_export.py` (orgs/index.json + per club-season farm.json and depth.json, 30
@@ -168,7 +187,7 @@ Phase 4 — Identity
 - [x] P4.1 Stage A profile bake + tab (descriptive). `orgs/identity.json` (farm level-relative traits + five-class
   draft traits per org-season); MLB traits computed on the page with Overview's `teamMeans` (moved to `agg.ts`).
   Pitch mix not in v1 (the board rows carry no usage; add from arsenal/ if wanted). Verified on TB 2026.
-- [ ] P4.2 Stage B pre-registration in RESULTS-MLB (owner OK before any fit).
+- [ ] P4.2 Stage B pre-registration: DRAFT in §3b above; moves to RESULTS-MLB on the owner's OK, before any fit.
 - [ ] P4.3 Stage B read once; result on the tab with its verdict; docs; publish.
 
 Phase 5 — close
