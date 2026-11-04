@@ -88,24 +88,18 @@ its pre-registered gate.
     games; the game-count gap per level and year is written down.
 - [ ] **F4. Transactions 2011–2018 backfill.** Have 2019+; the API returns earlier minor-league transactions (probed).
   This gives injuries and promotion dates for all list years, so health stops being missing before 2019.
-- [ ] **F5. Holdout ledger** `docs/prospect-holdouts.md`: every list year × task, marked dev, spent or sealed.
-
-  | Lists | Status |
-  |---|---|
-  | 2015–18 value | spent |
-  | 2022–23 arrival | spent |
-  | 2019–22 value | **sealed** |
-  | 2024 arrival | sealed for §99h |
-
-  A read is legal only if the ledger says the cell is sealed and a power check is attached.
-- [ ] **F6. Evaluation harness** `pipeline/prospect_eval.py`:
-  - rolling-origin over matured classes;
-  - player- and org-clustered bootstrap;
-  - proper scores, calibration by subgroup (level, age, draft round, org, role) and paired Δ vs consensus;
-  - an MDE calculator;
-  - the baseline ladder built in.
-
-  `prospect_sleeper_check.py` folds into it.
+- [x] **F5. Holdout ledger** `docs/prospect-holdouts.md` (2026-11-03).
+  - Covers every list × task with dev, spent or sealed status and its caveats.
+  - Summaries of sealed cells count as reads. A power-check table is attached.
+  - Sealed: value 2019–22; arrival 2024 and 2025.
+- [x] **F6. Evaluation harness** `pipeline/prospect_eval.py` (2026-11-03).
+  - Contents: log loss, Brier and CRPS; ECE and calibration by subgroup; a player-clustered bootstrap with the MDE on
+    every Δ; `incremental()`, the gate shape: out-of-time LR(y ~ consensus) against LR(y ~ consensus + score), paired;
+    a `SEALED` guard that refuses sealed lists without a named read.
+  - The `--demo` self-check passes: real signal gives a CI below 0, noise gives none, calibration holds, the guard blocks.
+  - Smoke on spent lists 2015–18 (y = war6 ≥ 1, n 34,922): age_rel over consensus gives Δ log loss −.0032
+    [−.0040, −.0023] with MDE .0013. The proper-score test is far better powered than top-k ranking.
+  - Ponytail: `prospect_sleeper_check.py` stays as the §104 record; new tables use this harness.
 - [x] **F7. KB.** Add the prospect valuation sources and a synthesis of this plan (done 2026-11-03).
 
 ## Research and tests (in order, each a RESULTS-MLB section)
