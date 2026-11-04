@@ -673,3 +673,7 @@ export async function getOrgFarm(abbr: string, season: number | string): Promise
 export async function getOrgDepth(abbr: string, season: number | string): Promise<any | null> {
   return fetchFromR2<any>(`orgs/${abbr}/${season}/depth.json`).catch(() => null);
 }
+
+export async function getOrgRoster(abbr: string): Promise<any | null> {
+  return fetchFromR2<any>(`orgs/${abbr}/roster.json`).catch(() => null);
+}

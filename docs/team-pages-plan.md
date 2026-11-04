@@ -58,6 +58,7 @@ web_export family: it reads only data/milb, so it needs none of the bake's share
 - `orgs/{abbr}/{season}/farm.json` — affiliates with team lines + level ranks; org leaderboards; top prospects.
 - `orgs/{abbr}/{season}/depth.json` — position × level grid.
 - `orgs/{abbr}/draft.json` — every class 2011–26 for the club.
+- `orgs/{abbr}/roster.json` — current 40-man: games by level this season + IL stints (added in P2.1).
 - `orgs/{abbr}/identity.json` — the descriptive profile (and, after its read, the test result).
 - Roster and Trades read the existing `rosters40/*` and `trades/*` keys, filtered by club on the page; no new keys
   unless a phase finds one is needed (then it is added here first).
@@ -142,11 +143,15 @@ Phase 1 — Farm + Depth (the owner's first ask)
 - [x] P1.2 Farm tab UI; browser-verified on 3 clubs (one deep farm, one thin, one with a DSL-heavy roster).
 - [x] P1.3 Bake `depth.json`; Depth UI; browser-verified; spot-check 5 players' games vs the fielding table.
 - [x] P1.4 Overview affiliates strip (links each affiliate to the Farm tab).
-- [ ] P1.5 Glossary + docs; publish phase 1.
+- [x] P1.5 Glossary + docs (e7a60e8); orgs/ keys synced to R2 2026-11-04. Code deploy waits on the push (origin moved
+  22 commits via PRs; a local `vercel --prod` would roll those back, so deploy = PR merge, owner OK pending).
 
 Phase 2 — Roster + Trades
-- [ ] P2.1 Roster tab from `rosters40` + levels played + IL from `transactions_full`.
-- [ ] P2.2 Trades tab from `trades/*` filtered by club, WAR since, ranks at the time.
+- [x] P2.1 Roster tab from `rosters40` + levels played + IL from `transactions_full`. New key
+  `orgs/{abbr}/roster.json` (current 40-man only: games by level + IL stints, last line season). Activations often
+  omit the list, so any "activated"/"reinstated" closes an open stint; 39 of 960 stints open league-wide.
+- [x] P2.2 Trades tab from `trades/*` filtered by club; the trades table carries Statcast run value since, not WAR
+  (kept as is, labelled), plus Pipeline rank at the time. Deal card shared with /trades (`trades/deal.tsx`).
 - [ ] P2.3 Docs; publish phase 2.
 
 Phase 3 — Draft

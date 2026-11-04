@@ -8,6 +8,8 @@ import { TeamTheme } from "@/components/ui/team-theme";
 import { ordinal } from "@/lib/percentiles";
 import { fmtIp } from "@/lib/ip";
 import FarmTab, { AffiliateStrip } from "./farm";
+import RosterTab from "./roster";
+import TradesTab from "./trades";
 
 export const metadata = { title: "Team" };
 
@@ -35,7 +37,7 @@ const fmt = (v: unknown, nd?: number): string =>
 type Q = { season?: string; psort?: string; hsort?: string; pdir?: string; hdir?: string; tab?: string; fv?: string; lv?: string };
 
 /** Team-page tabs (docs/team-pages-plan.md). Only built tabs are listed, so a mid-plan publish never shows an empty one. */
-const TABS: [string, string][] = [["overview", "Overview"], ["farm", "Farm"]];
+const TABS: [string, string][] = [["overview", "Overview"], ["roster", "Roster"], ["farm", "Farm"], ["trades", "Trades"]];
 
 /** Team aggregates: each stat is the club's weighted mean over its board rows (weight = the stat's own
  * denominator), ranked against every club that season. A player who changed clubs counts for each club
@@ -268,7 +270,7 @@ export default async function TeamPage({ params, searchParams }: {
           </Link>
         ))}
       </nav>
-      {tab === "farm" ? <FarmTab abbr={abbr} season={season} q={q as Record<string, string>} link={link} /> : (<>
+      {tab === "roster" ? <RosterTab abbr={abbr} /> : tab === "trades" ? <TradesTab abbr={abbr} season={season} link={link} /> : tab === "farm" ? <FarmTab abbr={abbr} season={season} q={q as Record<string, string>} link={link} /> : (<>
       <AffiliateStrip abbr={abbr} season={season} link={link} />
       <div className="grid gap-5 lg:grid-cols-2">
         <TeamSummary title={`Pitching staff, ${season}`} aggs={P_AGG} team={abbr} rows={allP} />

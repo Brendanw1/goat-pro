@@ -157,6 +157,51 @@ def depth(L, season, org, h_rows, p_rows):
     return grid
 
 
+def roster(L, season):
+    """Per club, its current 40-man (rosters40/teams.json): games by level this season and this season's IL stints.
+
+    Stints from transactions_full: "placed ... on the N-day injured list" opens one, any "activated" / "reinstated" closes it (activations often
+    omit the list), a
+    "transferred" to the 60-day keeps it open and updates the list. The placing team is the transaction's toTeam.
+    """
+    r40 = json.loads((ROOT / "data" / "export" / "web" / "rosters40" / "teams.json").read_text())["teams"]
+    canon = {"ARI": "AZ", "OAK": "ATH"}
+    games = {}
+    for kind in ("hitters", "pitchers"):
+        d = L[kind][L[kind].season == season]
+        for (org, pid, lv), g in d.groupby(["org", "mlbam_id", "level"]).G.sum().items():
+            e = games.setdefault((org, int(pid)), {})
+            e[lv] = max(e.get(lv, 0), int(g))
+        m = pd.read_parquet(SRC / f"mlb_{kind}.parquet")
+        m = m[(m.season == season) & m.team_id.isin(ABBR)]
+        for (tid, pid), g in m.groupby(["team_id", "mlbam_id"]).G.sum().items():
+            e = games.setdefault((ABBR[tid], int(pid)), {})
+            e["MLB"] = max(e.get("MLB", 0), int(g))
+    tr = pd.read_parquet(SRC / "transactions_full.parquet")
+    tr = tr[(tr.date >= f"{season}-01-01") & (tr.date <= f"{season}-12-31")
+            & tr.desc.str.contains("injured list| activated | reinstated ", case=False, na=False)].sort_values("date")
+    stints = {}
+    for t in tr.itertuples():
+        verb = next((v for v in ("placed", "activated", "reinstated", "transferred") if f" {v} " in t.desc), None)
+        lst = next((w for w in t.desc.replace("-", " ").split() if w.isdigit()), None)
+        s_ = stints.setdefault(int(t.id), [])
+        if verb == "placed" and "injured list" in t.desc:
+            if s_ and s_[-1]["to"] is None:  # a fresh placement (e.g. minors 7-day -> MLB 60-day) ends the open one
+                s_[-1]["to"] = t.date
+            s_.append({"from": t.date, "to": None, "list": f"{lst}-day" if lst else "IL", "team": t.to})
+        elif verb == "transferred" and s_ and s_[-1]["to"] is None:
+            s_[-1]["list"] = f"{lst}-day" if lst else s_[-1]["list"]
+        elif verb in ("activated", "reinstated") and s_ and s_[-1]["to"] is None:
+            s_[-1]["to"] = t.date
+    out = {}
+    for team in r40:
+        org = canon.get(team["abbr"], team["abbr"])
+        out[org] = {"season": int(season), "players": {
+            p["id"]: {"lv": games.get((org, int(p["id"])), {}), "il": stints.get(int(p["id"]), [])}
+            for p in team["players"]}}
+    return out
+
+
 def main():
     L = load()
     for kind in L:
@@ -197,6 +242,10 @@ def main():
         c["seasons"].append(int(season))
         c["affiliates"][str(int(season))] = [{"level": t.level, "team": t.team_name, "league": t.league_name,
                                               "teamId": int(t.team_id)} for t in aff.itertuples()]
+    last = int(teams.season.max())
+    for org, ro in roster(L, last).items():
+        (OUT / org / "roster.json").write_text(json.dumps(ro, separators=(",", ":")))
+        n_files += 1
     (OUT / "index.json").write_text(json.dumps(index, separators=(",", ":")))
     print(f"orgs: {len(index['clubs'])} clubs, {n_files} files")
 
