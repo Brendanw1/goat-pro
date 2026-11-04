@@ -141,7 +141,7 @@ Phase 1 — Farm + Depth (the owner's first ask)
 - [x] P1.1 Bake `orgs/{abbr}/{season}/farm.json` (affiliates + ranks, org totals, top prospects, leaderboards).
 - [x] P1.2 Farm tab UI; browser-verified on 3 clubs (one deep farm, one thin, one with a DSL-heavy roster).
 - [x] P1.3 Bake `depth.json`; Depth UI; browser-verified; spot-check 5 players' games vs the fielding table.
-- [ ] P1.4 Overview affiliates strip.
+- [x] P1.4 Overview affiliates strip (links each affiliate to the Farm tab).
 - [ ] P1.5 Glossary + docs; publish phase 1.
 
 Phase 2 — Roster + Trades

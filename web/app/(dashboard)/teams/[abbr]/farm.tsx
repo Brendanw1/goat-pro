@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getOrgFarm, getOrgDepth, getProspectsSeason, getPitchers, getHitters } from "@/lib/data";
+import { getOrgIndex, getOrgFarm, getOrgDepth, getProspectsSeason, getPitchers, getHitters } from "@/lib/data";
 
 /**
  * The Farm tab (docs/team-pages-plan.md, phase 1): every affiliate Rookie through AAA, ranked against its level, the
@@ -252,6 +252,23 @@ export default async function FarmTab({ abbr, season, q, link }: { abbr: string;
           <Leaders farm={farm} lv={lv} link={link} aaaP={aaaP} aaaH={aaaH} />
         </>
       )}
+    </div>
+  );
+}
+
+/** Overview's one-line farm strip: this season's affiliates, each linking into the Farm tab. */
+export async function AffiliateStrip({ abbr, season, link }: { abbr: string; season: number; link: Link_ }) {
+  const idx = await getOrgIndex();
+  const aff: any[] = idx?.clubs?.[abbr]?.affiliates?.[String(season)] ?? [];
+  if (!aff.length) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+      <span className="text-[10px] uppercase tracking-wider text-text-dim">Affiliates</span>
+      {aff.map((a) => (
+        <Link key={a.teamId} prefetch={false} href={link({ tab: "farm" })} className="text-text-secondary hover:text-text-primary">
+          <span className="text-text-dim">{a.level === "ROK" ? a.league : a.level}</span> {a.team}
+        </Link>
+      ))}
     </div>
   );
 }

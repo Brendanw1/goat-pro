@@ -7,7 +7,7 @@ import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 import { ordinal } from "@/lib/percentiles";
 import { fmtIp } from "@/lib/ip";
-import FarmTab from "./farm";
+import FarmTab, { AffiliateStrip } from "./farm";
 
 export const metadata = { title: "Team" };
 
@@ -269,6 +269,7 @@ export default async function TeamPage({ params, searchParams }: {
         ))}
       </nav>
       {tab === "farm" ? <FarmTab abbr={abbr} season={season} q={q as Record<string, string>} link={link} /> : (<>
+      <AffiliateStrip abbr={abbr} season={season} link={link} />
       <div className="grid gap-5 lg:grid-cols-2">
         <TeamSummary title={`Pitching staff, ${season}`} aggs={P_AGG} team={abbr} rows={allP} />
         <TeamSummary title={`Lineup, ${season}`} aggs={H_AGG} team={abbr} rows={allH} />
