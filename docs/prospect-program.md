@@ -86,8 +86,8 @@ its pre-registered gate.
     130k games at AAA through A, so about 36 h in the background. Rookie ball goes second.
   - Checks: season totals (PA, K, BB, HR) match `hist_hitters` / `hitters` within 1% per player-season; no duplicate
     games; the game-count gap per level and year is written down.
-- [ ] **F4. Transactions 2011–2018 backfill.** Have 2019+; the API returns earlier minor-league transactions (probed).
-  This gives injuries and promotion dates for all list years, so health stops being missing before 2019.
+- [x] **F4. Transactions 2011–2018 backfill.** Have 2019+; the API returns earlier minor-league transactions (probed).
+  This gives injuries and promotion dates for all list years, so health stops being missing before 2019. **Done 2026-11-04** (`pipeline/milb_transactions.py` → `data/milb/transactions_full.parquet`): 448,701 rows, 35,946 players, 2011–26, MLB + AAA..Single-A, full months. Injured/disabled-list rows 3,261 (2011) to 6,452 (2026). Holds 100% of the old `transactions.parquet` rows; that file (2019+, MLB + AAA, months cut at the 28th, ~4.5% of rows lost) stays for its current readers, and new prospect work reads the full file.
 - [x] **F5. Holdout ledger** `docs/prospect-holdouts.md` (2026-11-03).
   - Covers every list × task with dev, spent or sealed status and its caveats.
   - Summaries of sealed cells count as reads. A power-check table is attached.
