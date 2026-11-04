@@ -50,8 +50,9 @@ until this ships.
 
 ## Bake design
 
-One new bake family `orgs` in `pipeline/web_export.py`, its code in a new `pipeline/org_export.py` (the
-`minors_export.py` pattern) so web_export grows by a call, not by hundreds of lines. Keys, per club and season:
+`pipeline/org_export.py`, standalone like `minors_export.py` (run after it; it imports minors_export's formulas,
+whose combine/FIP helpers now take a key and the full level's lines, output byte-identical for /minors). Not a
+web_export family: it reads only data/milb, so it needs none of the bake's shared blocks. Keys, per club and season:
 
 - `orgs/index.json` — clubs, seasons, affiliates per season (level, team, league), counts.
 - `orgs/{abbr}/{season}/farm.json` — affiliates with team lines + level ranks; org leaderboards; top prospects.
@@ -124,16 +125,22 @@ to the Farm tab.
 
 ## Checklist (tick with the commit hash)
 
+Built so far (2026-11-04): `pipeline/org_export.py` (orgs/index.json + per club-season farm.json and depth.json, 30
+clubs × 2021–26, ~36 MB), `web/app/(dashboard)/teams/[abbr]/farm.tsx` (Farm + Depth sub-view), tab bar in `view.tsx`
+(TABS lists only built tabs), loaders `getOrgIndex/getOrgFarm/getOrgDepth`, query keys `tab`, `fv`, `lv`.
+Verified in the browser on LAD 2026 (Farm + Depth) and COL 2021 (2021's placeholder league names); every depth entry
+named (fallback to any line table or people.parquet).
+
 Phase 0 — groundwork
-- [ ] P0.1 Claim in COLLABORATION.md; this plan committed.
-- [ ] P0.2 `org_export.py`: affiliate → org map per season (incl. Rookie ACL/FCL/DSL), checks: every affiliated team
+- [x] P0.1 Claim in COLLABORATION.md; this plan committed. (27e08cd)
+- [x] P0.2 `org_export.py`: affiliate → org map per season (incl. Rookie ACL/FCL/DSL), checks: every affiliated team
   in the lines maps to exactly one org per season; 30 orgs × levels counts written to `orgs/index.json`.
-- [ ] P0.3 Tab bar + query-string tab state on `/teams/[abbr]`; Overview = today's page, unchanged; build passes.
+- [x] P0.3 Tab bar + query-string tab state on `/teams/[abbr]`; Overview = today's page, unchanged; build passes.
 
 Phase 1 — Farm + Depth (the owner's first ask)
-- [ ] P1.1 Bake `orgs/{abbr}/{season}/farm.json` (affiliates + ranks, org totals, top prospects, leaderboards).
-- [ ] P1.2 Farm tab UI; browser-verified on 3 clubs (one deep farm, one thin, one with a DSL-heavy roster).
-- [ ] P1.3 Bake `depth.json`; Depth UI; browser-verified; spot-check 5 players' games vs the fielding table.
+- [x] P1.1 Bake `orgs/{abbr}/{season}/farm.json` (affiliates + ranks, org totals, top prospects, leaderboards).
+- [x] P1.2 Farm tab UI; browser-verified on 3 clubs (one deep farm, one thin, one with a DSL-heavy roster).
+- [x] P1.3 Bake `depth.json`; Depth UI; browser-verified; spot-check 5 players' games vs the fielding table.
 - [ ] P1.4 Overview affiliates strip.
 - [ ] P1.5 Glossary + docs; publish phase 1.
 

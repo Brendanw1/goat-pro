@@ -7,6 +7,7 @@ import { logoUrl } from "@/lib/team-pixel";
 import { TeamTheme } from "@/components/ui/team-theme";
 import { ordinal } from "@/lib/percentiles";
 import { fmtIp } from "@/lib/ip";
+import FarmTab from "./farm";
 
 export const metadata = { title: "Team" };
 
@@ -31,7 +32,10 @@ const H_COLS = [
 const fmt = (v: unknown, nd?: number): string =>
   typeof v === "number" && Number.isFinite(v) ? (nd != null ? v.toFixed(nd) : String(v)) : "—";
 
-type Q = { season?: string; psort?: string; hsort?: string; pdir?: string; hdir?: string };
+type Q = { season?: string; psort?: string; hsort?: string; pdir?: string; hdir?: string; tab?: string; fv?: string; lv?: string };
+
+/** Team-page tabs (docs/team-pages-plan.md). Only built tabs are listed, so a mid-plan publish never shows an empty one. */
+const TABS: [string, string][] = [["overview", "Overview"], ["farm", "Farm"]];
 
 /** Team aggregates: each stat is the club's weighted mean over its board rows (weight = the stat's own
  * denominator), ranked against every club that season. A player who changed clubs counts for each club
@@ -222,11 +226,13 @@ export default async function TeamPage({ params, searchParams }: {
 
   const seasons = [...new Set([...prows, ...hrows].map((r: any) => r.season))].sort((a: number, b: number) => b - a);
   const season = seasons.includes(Number(q.season)) ? Number(q.season) : seasons[0];
+  const tab = TABS.some(([k]) => k === q.tab) ? q.tab! : "overview";
   const pFiltered = prows.filter((r: any) => r.season === season);
   const hFiltered = hrows.filter((r: any) => r.season === season);
   const link = (over: Partial<Q>) => {
     const p = new URLSearchParams();
-    const m = { season: String(season), psort: q.psort ?? "rvPer100", hsort: q.hsort ?? "woba", pdir: q.pdir, hdir: q.hdir, ...over };
+    const m = { season: String(season), psort: q.psort ?? "rvPer100", hsort: q.hsort ?? "woba", pdir: q.pdir, hdir: q.hdir,
+      tab: q.tab, fv: q.fv, lv: q.lv, ...over };
     for (const [k, v] of Object.entries(m)) if (v) p.set(k, String(v));
     return `/teams/${abbr.toLowerCase()}?${p.toString()}`;
   };
@@ -254,6 +260,15 @@ export default async function TeamPage({ params, searchParams }: {
           </Link>
         ))}
       </div>
+      <nav className="flex flex-wrap gap-1 border-b border-border-subtle">
+        {TABS.map(([k, label]) => (
+          <Link key={k} prefetch={false} href={link({ tab: k === "overview" ? undefined : k, fv: undefined, lv: undefined })}
+            className={`px-3 py-1.5 text-[12px] -mb-px border-b-2 ${k === tab ? "border-usf-gold text-text-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}>
+            {label}
+          </Link>
+        ))}
+      </nav>
+      {tab === "farm" ? <FarmTab abbr={abbr} season={season} q={q as Record<string, string>} link={link} /> : (<>
       <div className="grid gap-5 lg:grid-cols-2">
         <TeamSummary title={`Pitching staff, ${season}`} aggs={P_AGG} team={abbr} rows={allP} />
         <TeamSummary title={`Lineup, ${season}`} aggs={H_AGG} team={abbr} rows={allH} />
@@ -361,6 +376,7 @@ export default async function TeamPage({ params, searchParams }: {
         <Board title="Pitchers" rows={pFiltered} cols={P_COLS} sort={q.psort ?? "rvPer100"} sortBase="psort" dirQ={q.pdir} link={link} />
         <Board title="Hitters" rows={hFiltered} cols={H_COLS} sort={q.hsort ?? "woba"} sortBase="hsort" dirQ={q.hdir} link={link} />
       </div>
+      </>)}
     </div>
   );
 }
