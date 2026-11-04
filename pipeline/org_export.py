@@ -302,6 +302,32 @@ def draft(L):
                               .to_dict("records")]}
     txt = json.dumps(out, allow_nan=False)  # raises on any NaN left
     assert "school" not in txt, "AGENTS rule 1: a school field reached the draft output"
+    return out, R
+
+
+def identity(H, P, R):
+    """Identity tab, Stage A (descriptive): farm and draft style per org-season; the page adds the MLB traits.
+
+    Farm traits are level-relative: each player's stat minus his (season, level) league mean, then the org's PA- (or
+    BF-) weighted mean, so an org with more low-level teams doesn't read young or high-K by construction. Draft traits
+    pool the five classes up to the season: HS share and bonus over slot (sum(bonus - slot) / sum(slot), slotted picks).
+    """
+    out = {}
+    for D, w, stats, pre in ((H, "PA", ["age", "kPct", "bbPct", "iso"], "fh_"), (P, "BF", ["age", "kPct", "bbPct", "gbPct"], "fp_")):
+        D = D[D[w] > 0].copy()
+        for c in stats:
+            D[c] = D[c] - D.groupby(["season", "level"])[c].transform(lambda x, ww=D[w]: (x * ww[x.index]).sum() / ww[x.index].sum())
+        for (org, season), g in D.groupby(["org", "season"]):
+            o = out.setdefault(int(season), {}).setdefault(org, {})
+            for c in stats:
+                o[pre + c] = r((g[c] * g[w]).sum() / g[w].sum(), 3)
+    for season, orgs in out.items():
+        win = R[(R.year <= season) & (R.year > season - 5)]
+        for org, o in orgs.items():
+            g = win[win.org == org]
+            o["d_hs"] = r((g.cls == "HS").sum() / max(g.cls.notna().sum(), 1), 3)
+            sl = g[g.bonus.notna() & g.slot.notna()]
+            o["d_overslot"] = r((sl.bonus - sl.slot).sum() / sl.slot.sum(), 3) if len(sl) and sl.slot.sum() else None
     return out
 
 
@@ -345,7 +371,10 @@ def main():
         c["seasons"].append(int(season))
         c["affiliates"][str(int(season))] = [{"level": t.level, "team": t.team_name, "league": t.league_name,
                                               "teamId": int(t.team_id)} for t in aff.itertuples()]
-    for org, dr in draft(L).items():
+    drafts, R = draft(L)
+    (OUT / "identity.json").write_text(json.dumps(identity(H, P, R), separators=(",", ":"), allow_nan=False))
+    n_files += 1
+    for org, dr in drafts.items():
         (OUT / org / "draft.json").write_text(json.dumps(dr, separators=(",", ":")))
         n_files += 1
     last = int(teams.season.max())

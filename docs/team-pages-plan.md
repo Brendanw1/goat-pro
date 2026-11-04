@@ -59,7 +59,8 @@ web_export family: it reads only data/milb, so it needs none of the bake's share
 - `orgs/{abbr}/{season}/depth.json` — position × level grid.
 - `orgs/{abbr}/draft.json` — every class 2011–26 for the club.
 - `orgs/{abbr}/roster.json` — current 40-man: games by level this season + IL stints (added in P2.1).
-- `orgs/{abbr}/identity.json` — the descriptive profile (and, after its read, the test result).
+- `orgs/identity.json` — one file, every org-season: the descriptive farm + draft traits (and, after its read, the
+  test result). (Planned per club; one file is smaller than 30 and the page needs all 30 for the z-scores.)
 - Roster and Trades read the existing `rosters40/*` and `trades/*` keys, filtered by club on the page; no new keys
   unless a phase finds one is needed (then it is added here first).
 
@@ -161,10 +162,12 @@ Phase 3 — Draft
   last draft only. School type: school_class where present (33%), else the school's type; only the bucket ships.
 - [x] P3.2 Draft tab UI; rule-1 check is an assert in the bake (no `school` anywhere, `allow_nan=False`). Verified
   on PIT (Chandler +$2.1M over slot, Skenes -$521K, trade flags match).
-- [ ] P3.3 Docs; publish phase 3.
+- [x] P3.3 Docs (68e998e); draft keys synced.
 
 Phase 4 — Identity
-- [ ] P4.1 Stage A profile bake + tab (descriptive).
+- [x] P4.1 Stage A profile bake + tab (descriptive). `orgs/identity.json` (farm level-relative traits + five-class
+  draft traits per org-season); MLB traits computed on the page with Overview's `teamMeans` (moved to `agg.ts`).
+  Pitch mix not in v1 (the board rows carry no usage; add from arsenal/ if wanted). Verified on TB 2026.
 - [ ] P4.2 Stage B pre-registration in RESULTS-MLB (owner OK before any fit).
 - [ ] P4.3 Stage B read once; result on the tab with its verdict; docs; publish.
 
