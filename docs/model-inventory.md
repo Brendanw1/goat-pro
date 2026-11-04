@@ -73,6 +73,8 @@ Queued for later, in order (after the swing program, `docs/swing-program.md`):
    accuracy vs chance as the identity test. Site: fold Prospects, Trades and Draft into tabs on the team page
    (Overview / Roster / Identity / Farm / Draft / Trades). That also cuts the top nav. Visuals must each
    tell one story with n shown.
+   **Site half in progress (owner go 2026-11-04): `docs/team-pages-plan.md`** — six tabs with every MiLB level; the
+   identity test is its Phase 4 Stage B read.
 1. Pre-2020 MLB backfill, using the college TrackMan-era methods.
 2. State-space player projections.
 3. Surplus value: projected WAR against salary and control years.
