@@ -10,6 +10,7 @@ import { fmtIp } from "@/lib/ip";
 import FarmTab, { AffiliateStrip } from "./farm";
 import RosterTab from "./roster";
 import TradesTab from "./trades";
+import DraftTab from "./draft";
 
 export const metadata = { title: "Team" };
 
@@ -34,10 +35,10 @@ const H_COLS = [
 const fmt = (v: unknown, nd?: number): string =>
   typeof v === "number" && Number.isFinite(v) ? (nd != null ? v.toFixed(nd) : String(v)) : "—";
 
-type Q = { season?: string; psort?: string; hsort?: string; pdir?: string; hdir?: string; tab?: string; fv?: string; lv?: string };
+type Q = { season?: string; psort?: string; hsort?: string; pdir?: string; hdir?: string; tab?: string; fv?: string; lv?: string; dy?: string };
 
 /** Team-page tabs (docs/team-pages-plan.md). Only built tabs are listed, so a mid-plan publish never shows an empty one. */
-const TABS: [string, string][] = [["overview", "Overview"], ["roster", "Roster"], ["farm", "Farm"], ["trades", "Trades"]];
+const TABS: [string, string][] = [["overview", "Overview"], ["roster", "Roster"], ["farm", "Farm"], ["draft", "Draft"], ["trades", "Trades"]];
 
 /** Team aggregates: each stat is the club's weighted mean over its board rows (weight = the stat's own
  * denominator), ranked against every club that season. A player who changed clubs counts for each club
@@ -234,7 +235,7 @@ export default async function TeamPage({ params, searchParams }: {
   const link = (over: Partial<Q>) => {
     const p = new URLSearchParams();
     const m = { season: String(season), psort: q.psort ?? "rvPer100", hsort: q.hsort ?? "woba", pdir: q.pdir, hdir: q.hdir,
-      tab: q.tab, fv: q.fv, lv: q.lv, ...over };
+      tab: q.tab, fv: q.fv, lv: q.lv, dy: q.dy, ...over };
     for (const [k, v] of Object.entries(m)) if (v) p.set(k, String(v));
     return `/teams/${abbr.toLowerCase()}?${p.toString()}`;
   };
@@ -264,13 +265,13 @@ export default async function TeamPage({ params, searchParams }: {
       </div>
       <nav className="flex flex-wrap gap-1 border-b border-border-subtle">
         {TABS.map(([k, label]) => (
-          <Link key={k} prefetch={false} href={link({ tab: k === "overview" ? undefined : k, fv: undefined, lv: undefined })}
+          <Link key={k} prefetch={false} href={link({ tab: k === "overview" ? undefined : k, fv: undefined, lv: undefined, dy: undefined })}
             className={`px-3 py-1.5 text-[12px] -mb-px border-b-2 ${k === tab ? "border-usf-gold text-text-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}>
             {label}
           </Link>
         ))}
       </nav>
-      {tab === "roster" ? <RosterTab abbr={abbr} /> : tab === "trades" ? <TradesTab abbr={abbr} season={season} link={link} /> : tab === "farm" ? <FarmTab abbr={abbr} season={season} q={q as Record<string, string>} link={link} /> : (<>
+      {tab === "roster" ? <RosterTab abbr={abbr} /> : tab === "draft" ? <DraftTab abbr={abbr} dy={q.dy} link={link} /> : tab === "trades" ? <TradesTab abbr={abbr} season={season} link={link} /> : tab === "farm" ? <FarmTab abbr={abbr} season={season} q={q as Record<string, string>} link={link} /> : (<>
       <AffiliateStrip abbr={abbr} season={season} link={link} />
       <div className="grid gap-5 lg:grid-cols-2">
         <TeamSummary title={`Pitching staff, ${season}`} aggs={P_AGG} team={abbr} rows={allP} />

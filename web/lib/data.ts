@@ -677,3 +677,7 @@ export async function getOrgDepth(abbr: string, season: number | string): Promis
 export async function getOrgRoster(abbr: string): Promise<any | null> {
   return fetchFromR2<any>(`orgs/${abbr}/roster.json`).catch(() => null);
 }
+
+export async function getOrgDraft(abbr: string): Promise<any | null> {
+  return fetchFromR2<any>(`orgs/${abbr}/draft.json`).catch(() => null);
+}

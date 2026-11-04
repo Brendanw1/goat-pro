@@ -202,6 +202,109 @@ def roster(L, season):
     return out
 
 
+BANDS = [(1, 50, "1-50"), (51, 150, "51-150"), (151, 300, "151-300"), (301, 10_000, "301+")]
+LV_RANK = {"ROK": 1, "A": 2, "A+": 3, "AA": 4, "AAA": 5, "MLB": 6}
+
+
+def school_type(cls, school):
+    """HS / 4YR / JC for the Draft tab. AGENTS rule 1: only this category ships, never the school.
+
+    The draft feed's school_class when present (a third of 2011-26 picks), else the listed school's type: "HS",
+    "High School" or "Academy" -> HS; community / junior college -> JC; any other school -> 4YR.
+    """
+    if isinstance(cls, str) and cls:
+        return "HS" if cls.startswith("HS") else "JC" if cls.startswith("JC") else "4YR"
+    sc = school if isinstance(school, str) else ""
+    if not sc:
+        return None
+    if " HS" in sc or sc.endswith("HS") or "High School" in sc or "Academy" in sc:
+        return "HS"
+    if any(k in sc for k in ("CC", "Community College", "JC", "Junior College", "J.C.")):
+        return "JC"
+    return "4YR"
+
+
+def draft(L):
+    """Every 2011-26 pick: club, school type, bonus vs slot, highest level, MLB debut, line WAR to date, latest org.
+
+    Reach rates by pick band (club vs league) use the matured 2011-19 classes. MLB seasons come from line_war
+    (2011-26; the MLB line tables start in 2020); MiLB levels from the hist (2010-19) and current (2021-26) lines.
+    """
+    j = json.loads((SRC / "draft.json").read_text())
+    d = pd.DataFrame([x for y in j.values() for x in y])
+    d = d[d.teamId.isin(ABBR) & d.id.notna()].assign(org=lambda x: x.teamId.map(ABBR))  # one 2011 pick has no player
+    full = pd.read_parquet(SRC / "draft_full.parquet")[["id", "year", "school_class", "bonus", "slot"]]
+    d = d.merge(full, on=["id", "year"], how="left", suffixes=("", "_f"))
+    d["cls"] = [school_type(c, sc) for c, sc in zip(d.school_class, d.school)]
+    d["bonus"] = d.bonus.fillna(d.bonus_f)
+    lines = pd.concat([pd.read_parquet(SRC / f"{f}.parquet", columns=["mlbam_id", "season", "level", "team_id"])
+                       for f in ("hist_hitters", "hist_pitchers", "hitters", "pitchers")])
+    lines = lines[lines.level.isin(LV_RANK)]
+    best = lines.assign(r=lines.level.map(LV_RANK)).groupby("mlbam_id").r.max()
+    war = pd.read_parquet(SRC / "line_war.parquet")
+    mlb = war.groupby("id").agg(debut=("season", "min"), war=("war", "sum"), last_mlb=("season", "max"))
+    orgs = pd.read_parquet(SRC / "team_orgs.parquet")[["season", "team_id", "org_id"]]
+    last_minor = lines.merge(orgs, on=["season", "team_id"], how="left").sort_values("season").groupby("mlbam_id").last()
+    mlb_t = pd.concat([pd.read_parquet(SRC / f"mlb_{k}.parquet", columns=["mlbam_id", "season", "team_id"])
+                       for k in ("hitters", "pitchers")]).sort_values("season").groupby("mlbam_id").last()
+    traded = {}
+    for y in range(2020, 2027):
+        f = ROOT / "data" / "export" / "web" / "trades" / f"{y}.json"
+        for t in json.loads(f.read_text())["trades"] if f.exists() else []:
+            for p in t["players"]:
+                traded.setdefault((int(p["id"]), p["from"]), {"date": t["date"], "to": p["to"]})
+    last_drafted = d.groupby("id").year.max()
+    rows = []
+    for x in d.itertuples():
+        pid = int(x.id)
+        redrafted = int(last_drafted[x.id]) if last_drafted[x.id] > x.year else None
+        hi = 6 if pid in mlb.index else best.get(pid)
+        hi = None if hi is None or pd.isna(hi) else int(hi)
+        m = mlb.loc[pid] if pid in mlb.index else None
+        # latest club: whichever of the MLB line (2020+) or the minors line is more recent
+        now, seen = None, None
+        if pid in last_minor.index and not pd.isna(last_minor.loc[pid].org_id):
+            now, seen = ABBR.get(int(last_minor.loc[pid].org_id)), int(last_minor.loc[pid].season)
+        if pid in mlb_t.index and (seen is None or int(mlb_t.loc[pid].season) >= seen):
+            now, seen = ABBR.get(int(mlb_t.loc[pid].team_id)), int(mlb_t.loc[pid].season)
+        tr_ = traded.get((pid, x.org))
+        if tr_ and seen is not None and int(tr_["date"][:4]) >= seen:  # season lines can't order a mid-season trade
+            now = tr_["to"]
+        if redrafted:  # didn't sign, drafted again later: his career belongs to the later pick
+            hi, m, now, seen, tr_ = None, None, None, None, None
+        band = next(b for lo, hi_, b in BANDS if lo <= x.pick <= hi_)
+        rows.append({"org": x.org, "year": int(x.year), "pick": int(x.pick), "round": x.round, "band": band, "id": str(pid),
+                     "name": x.name, "cls": x.cls, "bonus": None if pd.isna(x.bonus) else int(x.bonus),
+                     "slot": None if pd.isna(x.slot) or not x.slot else int(x.slot),  # 0 = no slot (round 11+)
+                     "hi": None if hi is None else {v: k for k, v in LV_RANK.items()}[hi],
+                     "debut": None if m is None else int(m.debut), "war": None if m is None else r(m.war, 1),
+                     "now": now, "seen": seen, "traded": tr_, "redrafted": redrafted})
+    R = pd.DataFrame(rows)
+    mat = R[R.year <= 2019].assign(aa=lambda x: x.hi.map(LV_RANK).fillna(0) >= 4,
+                                   aaa=lambda x: x.hi.map(LV_RANK).fillna(0) >= 5,
+                                   mlb=lambda x: x.hi.map(LV_RANK).fillna(0) >= 6)
+    lg = mat.groupby("band")[["aa", "aaa", "mlb"]].mean()
+    club = mat.groupby(["org", "band"])[["aa", "aaa", "mlb"]].agg(["mean", "size"])
+    cls_lg = R.groupby("cls").size() / R.cls.notna().sum()
+    out = {}
+    for org, g in R.groupby("org"):
+        rates = []
+        for _, _, b in BANDS:
+            c = club.loc[(org, b)] if (org, b) in club.index else None
+            rates.append({"band": b, "n": 0 if c is None else int(c[("aa", "size")]),
+                          **{k: None if c is None else r(c[(k, "mean")], 3) for k in ("aa", "aaa", "mlb")},
+                          **{f"lg_{k}": r(lg.loc[b, k], 3) for k in ("aa", "aaa", "mlb")}})
+        cls = (g.groupby("cls").size() / g.cls.notna().sum()).to_dict()
+        out[org] = {"org": org, "classes": sorted(g.year.unique().tolist()), "rates": rates, "matured": "2011-19",
+                    "cls": {k: r(v, 3) for k, v in cls.items()}, "lgCls": {k: r(v, 3) for k, v in cls_lg.items()},
+                    "picks": [{k: (None if isinstance(v, float) and v != v else v) for k, v in rec.items()}
+                              for rec in g.drop(columns=["org"]).sort_values(["year", "pick"], ascending=[False, True])
+                              .to_dict("records")]}
+    txt = json.dumps(out, allow_nan=False)  # raises on any NaN left
+    assert "school" not in txt, "AGENTS rule 1: a school field reached the draft output"
+    return out
+
+
 def main():
     L = load()
     for kind in L:
@@ -242,6 +345,9 @@ def main():
         c["seasons"].append(int(season))
         c["affiliates"][str(int(season))] = [{"level": t.level, "team": t.team_name, "league": t.league_name,
                                               "teamId": int(t.team_id)} for t in aff.itertuples()]
+    for org, dr in draft(L).items():
+        (OUT / org / "draft.json").write_text(json.dumps(dr, separators=(",", ":")))
+        n_files += 1
     last = int(teams.season.max())
     for org, ro in roster(L, last).items():
         (OUT / org / "roster.json").write_text(json.dumps(ro, separators=(",", ":")))

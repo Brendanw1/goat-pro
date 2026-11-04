@@ -152,11 +152,15 @@ Phase 2 — Roster + Trades
   omit the list, so any "activated"/"reinstated" closes an open stint; 39 of 960 stints open league-wide.
 - [x] P2.2 Trades tab from `trades/*` filtered by club; the trades table carries Statcast run value since, not WAR
   (kept as is, labelled), plus Pipeline rank at the time. Deal card shared with /trades (`trades/deal.tsx`).
-- [ ] P2.3 Docs; publish phase 2.
+- [x] P2.3 Docs (4665d0e); roster keys synced. Code deploy rides the same pending push as phase 1.
 
 Phase 3 — Draft
-- [ ] P3.1 Bake `orgs/{abbr}/draft.json` (classes, outcomes, hit rates by club vs league).
-- [ ] P3.2 Draft tab UI; rule-1 check (no `school` field anywhere in the bake output).
+- [x] P3.1 Bake `orgs/{abbr}/draft.json` (classes, outcomes, hit rates by club vs league). Club from `draft.json`
+  (teamId; draft_full has none). MLB debut + WAR from line_war (MLB lines start 2020). Bands by overall pick (1-50,
+  51-150, 151-300, 301+), matured classes 2011-19. 1,715 of 15,115 picks were redrafted later: outcomes go to the
+  last draft only. School type: school_class where present (33%), else the school's type; only the bucket ships.
+- [x] P3.2 Draft tab UI; rule-1 check is an assert in the bake (no `school` anywhere, `allow_nan=False`). Verified
+  on PIT (Chandler +$2.1M over slot, Skenes -$521K, trade flags match).
 - [ ] P3.3 Docs; publish phase 3.
 
 Phase 4 — Identity
