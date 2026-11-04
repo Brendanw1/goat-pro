@@ -4,18 +4,20 @@
     python pipeline/milb_pbp.py --seasons 2016 --limit 3              # smoke test
     python pipeline/milb_pbp.py --demo                                # parser self-check, no network
 
-Etiquette (public API, non-commercial, attributed per its copyright notice): one connection, one request at a time,
-gzip + a `fields=` filter (~7 KB per game against ~390 KB plain), a User-Agent naming the project, 60 s backoff that
-doubles the pause on any 429/5xx, and a stop after 10 failures in a row. Nothing raw is kept: one row per PA goes to
+Etiquette (public API, non-commercial, attributed per its copyright notice): two connections sharing a cap of 3 requests
+a second (the server takes 3-4 s on an uncached old game, so one connection idled at ~0.7 games/s), gzip + a `fields=` filter (~7 KB per game against ~390 KB plain), a User-Agent naming the project, 60 s backoff that
+holds both connections and doubles the gap on any 429/5xx, and a stop after 10 failures in a row. Nothing raw is kept: one row per PA goes to
 data/milb/pbp/{season}/part-*.parquet, and data/milb/pbp/done.txt lists every finished gamePk.
 """
 import argparse
 import gzip
 import json
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
@@ -31,13 +33,22 @@ FIELDS = ("allPlays,result,eventType,rbi,about,halfInning,inning,count,balls,str
           "coordinates,coordX,coordY,atBatIndex")
 
 
+CONNS, GAP = 2, 1 / 3                                         # 2 connections, >= 1/3 s between request starts
+
+
 class Client:
     def __init__(self):
-        self.pause, self.fails = 0.0, 0
+        self.gap, self.fails, self.next_t, self.lock = GAP, 0, 0.0, threading.Lock()
+
+    def _wait(self):
+        with self.lock:                                       # shared token: request starts are spaced >= gap apart
+            t = max(time.monotonic(), self.next_t)
+            self.next_t = t + self.gap
+        time.sleep(max(0.0, t - time.monotonic()))
 
     def get(self, url):
         while True:
-            time.sleep(self.pause)
+            self._wait()
             req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Encoding": "gzip"})
             try:
                 with urllib.request.urlopen(req, timeout=60) as r:
@@ -55,9 +66,10 @@ class Client:
         self.fails += 1
         if self.fails >= 10:
             sys.exit(f"stopping: 10 failures in a row ({why})")
-        self.pause = min(max(self.pause * 2, 0.5), 8.0)
-        print(f"  backoff 60 s after {why}; pause now {self.pause:.1f} s", flush=True)
-        time.sleep(60)
+        with self.lock:                                       # holds every connection for 60 s
+            self.gap = min(max(self.gap * 2, 0.5), 8.0)
+            self.next_t = time.monotonic() + 60
+        print(f"  backoff 60 s after {why}; gap now {self.gap:.1f} s", flush=True)
 
 
 def schedule(c, season):
@@ -118,13 +130,15 @@ def run(seasons, limit=None):
                 done.update(ids)
                 buf.clear()
                 ids.clear()
-        for i, g in enumerate(todo.to_dict("records"), 1):
-            doc = c.get(f"{API}/game/{g['game_pk']}/playByPlay?fields={FIELDS}")
-            buf += parse(doc, g)
-            ids.append(g["game_pk"])
-            if i % 1000 == 0:
-                flush()
-                print(f"  {s} {i}/{len(todo)}  {i / (time.time() - t0):.1f} games/s", flush=True)
+        recs = todo.to_dict("records")
+        with ThreadPoolExecutor(CONNS) as ex:                 # results come back in order; buffering stays on this thread
+            docs = ex.map(lambda g: c.get(f"{API}/game/{g['game_pk']}/playByPlay?fields={FIELDS}"), recs)
+            for i, (g, doc) in enumerate(zip(recs, docs), 1):
+                buf += parse(doc, g)
+                ids.append(g["game_pk"])
+                if i % 1000 == 0:
+                    flush()
+                    print(f"  {s} {i}/{len(todo)}  {i / (time.time() - t0):.1f} games/s", flush=True)
         flush()
         print(f"{s} done in {(time.time() - t0) / 60:.0f} min", flush=True)
 
