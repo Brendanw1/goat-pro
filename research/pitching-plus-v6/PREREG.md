@@ -98,3 +98,14 @@ Candidates tested at the lockbox: the frozen design (and the Thunder net if it r
 correction over candidates x {next RV/100, next K-BB%}. PASS if, vs the blend B3: delta r on next RV/100 > 0 (Holm
 one-sided p < .05), and delta r on next K-BB% has 95% CI lower bound > -.03 (non-inferiority). Whiff% is reported,
 not a gate. Also reported vs Stuff+ alone. Then, and only then, the sealed 2015-19 bank may be read once.
+
+## Amendment 1 (2026-11-04, after rungs a-b were read, before rung f was run)
+
+- Ladder rungs run on 100% of training-fold pitches, not 40%: a full fit takes about 2 minutes, so the subsample was
+  not needed. The 40% runs of M0/T1/T2/M1 stay in EXPERIMENTS.md as tries.
+- Added rung **f2, location-shrunk scoring** (exploratory; it was not in the original ladder, so it is labelled
+  post-hoc in every table): the same trained model is scored with plate location moved toward the pitcher's own
+  leave-one-game-out target for that pitch type and hand, loc = target + lambda x (actual - target), lambda in
+  {0, .25, .5, .75, 1}. One artifact; only the scoring input changes. lambda is chosen on dev folds by J and the
+  choice counts as five tries. It is kept only under the same J rule, and the lockbox read would test it as its own
+  Holm candidate.
