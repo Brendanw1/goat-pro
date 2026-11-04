@@ -4,9 +4,9 @@
     python pipeline/milb_pbp.py --seasons 2016 --limit 3              # smoke test
     python pipeline/milb_pbp.py --demo                                # parser self-check, no network
 
-Etiquette (public API, non-commercial, attributed per its copyright notice): two connections sharing a cap of 3 requests
+Etiquette (public API, non-commercial, attributed per its copyright notice): three connections sharing a cap of 3 requests
 a second (the server takes 3-4 s on an uncached old game, so one connection idled at ~0.7 games/s), gzip + a `fields=` filter (~7 KB per game against ~390 KB plain), a User-Agent naming the project, 60 s backoff that
-holds both connections and doubles the gap on any 429/5xx, and a stop after 10 failures in a row. Nothing raw is kept: one row per PA goes to
+holds every connection and doubles the gap on any 429/5xx, and a stop after 10 failures in a row. Nothing raw is kept: one row per PA goes to
 data/milb/pbp/{season}/part-*.parquet, and data/milb/pbp/done.txt lists every finished gamePk.
 """
 import argparse
@@ -33,7 +33,7 @@ FIELDS = ("allPlays,result,eventType,rbi,about,halfInning,inning,count,balls,str
           "coordinates,coordX,coordY,atBatIndex")
 
 
-CONNS, GAP = 2, 1 / 3                                         # 2 connections, >= 1/3 s between request starts
+CONNS, GAP = 3, 1 / 3                                         # 3 connections, >= 1/3 s between request starts
 
 
 class Client:
