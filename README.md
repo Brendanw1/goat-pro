@@ -49,6 +49,7 @@ labelled **descriptive, not a forecast**, or does not ship.
 | K+ (strikeout projection) | forecast gate passed | §50 |
 | Prevention+ (run-prevention stack) | forecast gate passed | §52 |
 | Prevention+ per pitch type (Prev+ on the arsenal table) | forecast gate passed | §101 |
+| Pitch Quality (PQ, 20-80 per pitch type, MLB + AAA) | descriptive: SW/CB/CH (MLB), CH (AAA) "describe"; SL/FS "limited"; FF/SI/CT not graded | `pipeline/PREREG-pitch-quality.md` |
 | Control+ | shown; its walk projection is not confirmed | §55 |
 | Pitching+ | shown; ties SIERA, not confirmed | §56 |
 | P7 family on AAA | confirmed | §66 |

@@ -49,9 +49,9 @@ export async function getPitchers(level: Level = "mlb"): Promise<PitcherRowAny[]
   }
 }
 
-export async function getArsenalPitchType(pitchType: string): Promise<any[]> {
+export async function getArsenalPitchType(pitchType: string, level: Level = "mlb"): Promise<any[]> {
   try {
-    const data = await fetchFromR2<any[]>(`arsenal/${pitchType.toLowerCase()}.json`);
+    const data = await fetchFromR2<any[]>(lv(level, `arsenal/${pitchType.toLowerCase()}.json`));
     return data || [];
   } catch {
     return [];
@@ -59,8 +59,8 @@ export async function getArsenalPitchType(pitchType: string): Promise<any[]> {
 }
 
 /** One type's arsenal rows with the board context joined (age, Deception+, slot band, ΔIVB/ΔHB vs slot). */
-export async function getArsenalBoardRows(pitchType: string): Promise<any[]> {
-  const [arsenal, board, pitchers] = await Promise.all([getArsenalPitchType(pitchType), getSlotBoard(), getPitchers()]);
+export async function getArsenalBoardRows(pitchType: string, level: Level = "mlb"): Promise<any[]> {
+  const [arsenal, board, pitchers] = await Promise.all([getArsenalPitchType(pitchType, level), getSlotBoard(level), getPitchers(level)]);
   return enrichArsenal(arsenal, board as any, pitchers);
 }
 
@@ -103,8 +103,8 @@ async function perSeasonFile(dir: string, id: string, season: string | number | 
 }
 
 /** The slot board file (A3/A4): release + grades per pitcher, joined with arsenal rows at query time. */
-export async function getSlotBoard(): Promise<SlotBoardFileAny | null> {
-  return fetchFromR2<SlotBoardFileAny>("slot_board.json", { shared: true }).catch(() => null);
+export async function getSlotBoard(level: Level = "mlb"): Promise<SlotBoardFileAny | null> {
+  return fetchFromR2<SlotBoardFileAny>(lv(level, "slot_board.json"), { shared: true }).catch(() => null);
 }
 type SlotBoardFileAny = Record<string, any>;
 

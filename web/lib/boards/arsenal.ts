@@ -10,6 +10,7 @@ import { filterMeta, pageOf, project, rowKeys, type BoardPage, type BoardState, 
 import { RV100_TIP } from "@/lib/rv-cells";
 import { SLOT_BANDS } from "@/lib/arm-slot";
 import { AGE_TIP, DECEPTION_COL_TIP, DIVB_SLOT_TIP, DHB_SLOT_TIP } from "./slot";
+import { PQ_TIP } from "@/lib/pitch-quality";
 
 export const PREV_PITCH_TIP = "Prevention+ (pitch): how many runs this pitch should save next season, judged from how it misses bats, gets chases and called strikes, avoids hard contact, and plays off the fastball. 100 = average, 10 = one SD. A forecast, tested on held-out pitchers (RESULTS-MLB §101). MLB only, 150+ pitches of the type.";
 
@@ -35,6 +36,7 @@ export const COLS = [
   { key: "stuffPlus", label: "Whiff+", w: "w-[112px]", align: "right", model: true },
   { key: "pitchingPlus", label: "Pitching+", w: "w-[84px]", align: "right", model: true },
   { key: "prevPitch", label: "Prev+", w: "w-[64px]", align: "right", model: true, tip: PREV_PITCH_TIP },
+  { key: "pitchQuality", label: "PQ", w: "w-[52px]", align: "right", model: true, tip: PQ_TIP },
   { key: "deceptionPlus", label: "Deception+", w: "w-[80px]", align: "right", tip: DECEPTION_COL_TIP },
 ] as const;
 
@@ -52,7 +54,7 @@ export const ARSENAL_FILTER_COLUMNS: FilterColumn[] = [
 export const ARSENAL_SORT_KEYS = COLS.map((c) => c.key as string);
 
 /** What the cells and the name badges (confidence) read — the route sends nothing else. */
-export const ARSENAL_ROW_KEYS = rowKeys("pitcher", ARSENAL_SORT_KEYS, ["confidence", "stuffGradeFrom", "nStuffPitches", "gyro", "band", "ivbSlotPeer", "hbSlotPeer", "hbArm"]);
+export const ARSENAL_ROW_KEYS = rowKeys("pitcher", ARSENAL_SORT_KEYS, ["confidence", "stuffGradeFrom", "nStuffPitches", "gyro", "pitchQualityTier", "pitchQualityClaim", "band", "ivbSlotPeer", "hbSlotPeer", "hbArm"]);
 
 export interface ArsenalMeta { teams: string[]; seasons: number[]; filters: FilterMeta }
 

@@ -24,7 +24,7 @@ export function useBoardPage<P extends BoardPage<unknown>>(endpoint: string, sta
   const q = useQuery({
     queryKey: ["board", endpoint, qs],
     queryFn: async ({ signal }) => {
-      const r = await fetch(qs ? `${endpoint}?${qs}` : endpoint, { signal });
+      const r = await fetch(qs ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}${qs}` : endpoint, { signal });
       if (!r.ok) throw new Error(`${endpoint}: ${r.status}`);
       return (await r.json()) as P;
     },

@@ -12,5 +12,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Unknown pitch type", code: "BAD_PITCH" }, { status: 404 });
   }
   const state = fromParams(request.nextUrl.searchParams, ARSENAL_DEFAULTS, ARSENAL_SORT_KEYS, ARSENAL_FILTER_COLUMNS);
-  return NextResponse.json(queryArsenal(await getArsenalBoardRows(code), state));
+  const level = request.nextUrl.searchParams.get("level") === "aaa" ? "aaa" : "mlb";
+  return NextResponse.json(queryArsenal(await getArsenalBoardRows(code, level), state));
 }
