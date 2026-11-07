@@ -40,6 +40,7 @@ import { BackLink } from "@/components/ui/back-link";
 import { LocationMixPanel } from "@/components/ui/location-mix-panel";
 import { ArsenalOverview } from "@/components/ui/arsenal-overview";
 import { RV100_TIP } from "@/lib/rv-cells";
+import { PQ_TIP, PQ_SPLIT_TIP, PQ_NULL_TIP, pqColor, pqMarker, pqTitle } from "@/lib/pitch-quality";
 import { TrendPanel } from "@/components/ui/trend-panel";
 import { RollingPanel } from "@/components/ui/rolling-panel";
 import { ProjectionBand, LeagueScatter } from "@/components/ui/league-views";
@@ -280,6 +281,18 @@ const prevPitchTitle = (p: any) => {
 };
 const PLATOON_TIP = "Whiff+ of this pitch vs left- / right-handed hitters (shrunk toward its overall grade), with usage vs that hand. Both hands share one scale, so the usual same-side edge shows. Descriptive: the observed whiff split forecast next season's split better than this one (RESULTS-MLB §73).";
 
+/** One Pitch Quality grade (20-80): the ladder colour, muted when not confident, a small tier marker beneath. */
+function PqCell({ v, tier, title, w }: { v: unknown; tier?: string | null; title: string; w: string }) {
+  if (typeof v !== "number") return <div className={`${w} text-right text-xs text-text-dim`} title={title}>—</div>;
+  const mark = pqMarker(tier);
+  return (
+    <div className={`${w} text-right text-xs font-data leading-tight`} title={title}>
+      <span className="font-medium" style={{ color: pqColor(v, tier) ?? "#F0F2F4" }}>{Math.round(v)}</span>
+      {mark && <span className="block text-[9px] text-text-dim whitespace-nowrap">{mark}</span>}
+    </div>
+  );
+}
+
 /** Shrunk per-hand Whiff+ over usage vs that hand; neutral colour, since §73 did not confirm it as a forecast. */
 function PlatoonCell({ pitch, h }: { pitch: any; h: "LHH" | "RHH" }) {
   const v = pitch[`stuffVs${h}Shrunk`];
@@ -409,6 +422,8 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
     (a: any, b: any) => (b.n_bip || b.nBip || 0) - (a.n_bip || a.nBip || 0),
   );
 
+  const hasPq = rows.some((p: any) => typeof p.pitchQuality === "number");
+  const hasPqSplit = rows.some((p: any) => typeof p.pitchQualityVsLHH === "number" || typeof p.pitchQualityVsRHH === "number");
   const hasPlatoon = rows.some((p: any) => typeof p.stuffVsLHHShrunk === "number" || typeof p.stuffVsRHHShrunk === "number");
 
   /** The pitch table. `compact` is the Overview's version beside the movement plot; the Arsenal tab carries every column. */
@@ -436,10 +451,13 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
             <div className="w-[52px] text-right">Chase%</div>
             <div className="w-[100px] text-right text-usf-gold" title={STUFF_TIP}>Whiff+</div>
             <div className="w-[84px] text-right" title={PREV_PITCH_TIP}>Prev+</div>
+            {hasPq && <div className="w-[64px] text-right" title={PQ_TIP}>PQ</div>}
             {!compact && <div className="w-[84px] text-right" title={PITCHING_TIP}>Pitching+</div>}
             {!compact && <div className="w-[54px] text-right" title={RV100_TIP}>RV/100</div>}
             {!compact && <div className="w-[54px] text-right" title="xRV/100 (D-03): expected run value per 100 pitches of this type, cross-fit model (§71/§78). Descriptive; 30+ pitches.">xRV/100</div>}
             {!compact && <div className="w-[54px] text-right" title="RV − xRV on this type: results minus expectation, positive = beat it">RV−xRV</div>}
+            {!compact && hasPqSplit && <div className="w-[64px] text-right" title={PQ_SPLIT_TIP}>PQ v L</div>}
+            {!compact && hasPqSplit && <div className="w-[64px] text-right" title={PQ_SPLIT_TIP}>PQ v R</div>}
             {!compact && hasPlatoon && <div className="w-[76px] text-right" title={PLATOON_TIP}>vs LHH</div>}
             {!compact && hasPlatoon && <div className="w-[76px] text-right" title={PLATOON_TIP}>vs RHH</div>}
           </div>
@@ -496,6 +514,7 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                 <div className="w-[84px] text-right text-xs font-data leading-tight" title={prevPitchTitle(pitch)}>
                   {gradeCell(pitch.prevPitch, "prevPitch")}
                 </div>
+                {hasPq && <PqCell w="w-[64px]" v={pitch.pitchQuality} tier={pitch.pitchQualityTier} title={pqTitle(pitch, level === "aaa")} />}
                 {!compact && (
                   <div className="w-[84px] text-right text-xs font-data leading-tight" title={PITCHING_TIP}>
                     {gradeCell(pitch.pitchingPlus, "pitchingPlus")}
@@ -518,6 +537,10 @@ export function PlayerProfileView({ profile, percentiles, playerId, slot, vaaPct
                     {typeof pitch.xrvLuck === "number" && Number.isFinite(pitch.xrvLuck) ? signed2(pitch.xrvLuck) : "—"}
                   </div>
                 )}
+                {!compact && hasPqSplit && (["LHH", "RHH"] as const).map((h) => (
+                  <PqCell key={h} w="w-[64px]" v={pitch[`pitchQualityVs${h}`]} tier={pitch[`pitchQualityTier${h}`]}
+                    title={typeof pitch[`pitchQualityVs${h}`] === "number" ? `PQ vs ${h} (describes)` : PQ_NULL_TIP} />
+                ))}
                 {!compact && hasPlatoon && (["LHH", "RHH"] as const).map((h) => <PlatoonCell key={h} pitch={pitch} h={h} />)}
               </div>
             );

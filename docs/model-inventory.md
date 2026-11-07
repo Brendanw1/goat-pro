@@ -37,6 +37,7 @@ tables below are the original plan and are kept as written.
 | **Deception+** | passed its gates, shipped | `PREREG-deception-plus.md` |
 | Topo Level-1 class as the grading key | failed on K% and RV (wins on CSW% and stability); not adopted | §40 |
 | **Prevention+ (per pitch type)** | confirmed as a forecast (sealed ΔR² +.06 to +.07 vs last RV, Whiff+ and xRV per pitch); shipped 2026-10-29: Prev+ column on the profile arsenal table (vs LHH / RHH in the tooltip) | §101 |
+| **Pitch Quality (PQ)**, 20-80 per pitch type, MLB + AAA | shipped 2026-11-06 descriptive (no type adds to Whiff+): MLB SW/CB/CH and AAA CH "describes", SL/FS (and AAA SL/CB/FS) "limited"; FF/SI/CT fail reliability (not graded); AAA on the MLB scale failed the scale check (AAA scale only); splits MLB CB/CH, AAA CH | `pipeline/PREREG-pitch-quality.md` |
 | Velocity/steepness under-credit checks | not confirmed; models unchanged | §83, §84 |
 | **WAR** | shipped (r .92 / .81 vs bWAR, team wins r .91) | §85 |
 | Possible trade candidates (/rosters panel, D-47) | shipped 2026-10-30 as a **transparent rule, not a model** (§107 has no held-out signal to fit weights): §105 removal score in the league 50th–90th pct band + best-of-two-seasons own WAR below club median + behind the starter slots at his position; ≤8 per club; descriptive, no contracts/options/no-trade (D-44 v1 is an estimator, not contracts); 2026-10-30 fix: Pipeline top-100 / org top-10 players (this year or last) never qualify | §85, §105, §107 |

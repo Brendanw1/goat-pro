@@ -1,0 +1,975 @@
+{
+ "prereg": "pipeline/PREREG-pitch-quality.md",
+ "levels": {
+  "mlb": {
+   "FF": {
+    "pitches": 1475913,
+    "1_reliability": {
+     "units": 3597,
+     "mean_half": 197.1,
+     "r": 0.5802,
+     "n70": 332.8,
+     "n60": 214.0,
+     "n50": 142.6
+    },
+    "1_pass": false,
+    "4_holm_reject": false,
+    "display": null
+   },
+   "SI": {
+    "pitches": 707593,
+    "1_reliability": {
+     "units": 2140,
+     "mean_half": 155.3,
+     "r": 0.5025,
+     "n70": 358.8,
+     "n60": 230.7,
+     "n50": 153.8
+    },
+    "1_pass": false,
+    "4_holm_reject": false,
+    "display": null
+   },
+   "CT": {
+    "pitches": 347801,
+    "1_reliability": {
+     "units": 1164,
+     "mean_half": 138.4,
+     "r": 0.4883,
+     "n70": 338.5,
+     "n60": 217.6,
+     "n50": 145.1
+    },
+    "1_pass": false,
+    "4_holm_reject": false,
+    "display": null
+   },
+   "SL": {
+    "pitches": 707189,
+    "1_reliability": {
+     "units": 2402,
+     "mean_half": 136.3,
+     "r": 0.5129,
+     "n70": 302.1,
+     "n60": 194.2,
+     "n50": 129.5
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 1288,
+     "r_whiff": 0.0817
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 1515,
+     "pitchers": 647,
+     "r": 0.0447,
+     "ci": [
+      -0.0149,
+      0.1074
+     ],
+     "pass": false
+    },
+    "4_adds": {
+     "units": 1515,
+     "r_whiff": 0.1963,
+     "r_joint": 0.1973,
+     "dr": 0.0009,
+     "ci": [
+      -0.0076,
+      0.0095
+     ],
+     "p": 0.8355
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 195,
+     "full": 303,
+     "low": 130,
+     "claim": "limited data",
+     "tier": "provisional"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 1994,
+       "mean_half": 90.9,
+       "r": 0.4613,
+       "n70": 247.9,
+       "n60": 159.3,
+       "n50": 106.2
+      },
+      "A2": {
+       "units": 1648,
+       "pitchers": 706,
+       "r": 0.0527,
+       "ci": [
+        -0.0025,
+        0.1102
+       ],
+       "pass": false
+      },
+      "display": null
+     },
+     "opposite": {
+      "A1": {
+       "units": 1299,
+       "mean_half": 89.0,
+       "r": 0.4409,
+       "n70": 263.3,
+       "n60": 169.3,
+       "n50": 112.9
+      },
+      "A2": {
+       "units": 1151,
+       "pitchers": 519,
+       "r": 0.0463,
+       "ci": [
+        -0.0191,
+        0.1162
+       ],
+       "pass": false
+      },
+      "display": null
+     }
+    }
+   },
+   "SW": {
+    "pitches": 263472,
+    "1_reliability": {
+     "units": 964,
+     "mean_half": 126.3,
+     "r": 0.5193,
+     "n70": 272.8,
+     "n60": 175.4,
+     "n50": 116.9
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 551,
+     "r_whiff": 0.1412
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 583,
+     "pitchers": 268,
+     "r": 0.1071,
+     "ci": [
+      0.0044,
+      0.2063
+     ],
+     "pass": true
+    },
+    "4_adds": {
+     "units": 583,
+     "r_whiff": 0.1337,
+     "r_joint": 0.1417,
+     "dr": 0.0079,
+     "ci": [
+      -0.0482,
+      0.0628
+     ],
+     "p": 0.7545
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 176,
+     "full": 273,
+     "low": 117,
+     "claim": "describes",
+     "tier": "provisional"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 823,
+       "mean_half": 89.3,
+       "r": 0.4577,
+       "n70": 247.0,
+       "n60": 158.8,
+       "n50": 105.8
+      },
+      "A2": {
+       "units": 639,
+       "pitchers": 293,
+       "r": 0.0679,
+       "ci": [
+        -0.0324,
+        0.1641
+       ],
+       "pass": false
+      },
+      "display": null
+     },
+     "opposite": {
+      "A1": {
+       "units": 469,
+       "mean_half": 78.2,
+       "r": 0.3033,
+       "n70": 419.2,
+       "n60": 269.5,
+       "n50": 179.7
+      },
+      "A2": {
+       "units": 411,
+       "pitchers": 196,
+       "r": 0.0372,
+       "ci": [
+        -0.0631,
+        0.1377
+       ],
+       "pass": false
+      },
+      "display": null
+     }
+    }
+   },
+   "CB": {
+    "pitches": 397863,
+    "1_reliability": {
+     "units": 1516,
+     "mean_half": 118.7,
+     "r": 0.5361,
+     "n70": 239.7,
+     "n60": 154.1,
+     "n50": 102.7
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 916,
+     "r_whiff": 0.1838
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 959,
+     "pitchers": 401,
+     "r": 0.1402,
+     "ci": [
+      0.0631,
+      0.2142
+     ],
+     "pass": true
+    },
+    "4_adds": {
+     "units": 959,
+     "r_whiff": 0.1293,
+     "r_joint": 0.1676,
+     "dr": 0.0382,
+     "ci": [
+      -0.0091,
+      0.0822
+     ],
+     "p": 0.1175
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 155,
+     "full": 240,
+     "low": 103,
+     "claim": "describes",
+     "tier": "provisional"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 727,
+       "mean_half": 69.5,
+       "r": 0.4627,
+       "n70": 188.4,
+       "n60": 121.1,
+       "n50": 80.7
+      },
+      "A2": {
+       "units": 735,
+       "pitchers": 325,
+       "r": 0.1178,
+       "ci": [
+        0.0454,
+        0.1911
+       ],
+       "pass": true
+      },
+      "display": {
+       "first": 189,
+       "full": 189,
+       "low": 81,
+       "claim": "describes"
+      }
+     },
+     "opposite": {
+      "A1": {
+       "units": 1199,
+       "mean_half": 90.1,
+       "r": 0.4622,
+       "n70": 244.5,
+       "n60": 157.2,
+       "n50": 104.8
+      },
+      "A2": {
+       "units": 1041,
+       "pitchers": 429,
+       "r": 0.1422,
+       "ci": [
+        0.0717,
+        0.2129
+       ],
+       "pass": true
+      },
+      "display": {
+       "first": 158,
+       "full": 245,
+       "low": 105,
+       "claim": "describes"
+      }
+     }
+    }
+   },
+   "CH": {
+    "pitches": 491916,
+    "1_reliability": {
+     "units": 1863,
+     "mean_half": 117.8,
+     "r": 0.61,
+     "n70": 175.8,
+     "n60": 113.0,
+     "n50": 75.3
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 967,
+     "r_whiff": 0.1118
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 1227,
+     "pitchers": 500,
+     "r": 0.0874,
+     "ci": [
+      0.0219,
+      0.1567
+     ],
+     "pass": true
+    },
+    "4_adds": {
+     "units": 1227,
+     "r_whiff": 0.1624,
+     "r_joint": 0.1591,
+     "dr": -0.0033,
+     "ci": [
+      -0.0252,
+      0.0175
+     ],
+     "p": 0.7635
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 176,
+     "full": 176,
+     "low": 76,
+     "claim": "describes",
+     "tier": "full"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 442,
+       "mean_half": 69.1,
+       "r": 0.5023,
+       "n70": 159.7,
+       "n60": 102.7,
+       "n50": 68.4
+      },
+      "A2": {
+       "units": 472,
+       "pitchers": 218,
+       "r": 0.1184,
+       "ci": [
+        0.0264,
+        0.2126
+       ],
+       "pass": true
+      },
+      "display": {
+       "first": 160,
+       "full": 160,
+       "low": 69,
+       "claim": "describes"
+      }
+     },
+     "opposite": {
+      "A1": {
+       "units": 1694,
+       "mean_half": 99.8,
+       "r": 0.5755,
+       "n70": 171.8,
+       "n60": 110.4,
+       "n50": 73.6
+      },
+      "A2": {
+       "units": 1473,
+       "pitchers": 590,
+       "r": 0.0858,
+       "ci": [
+        0.025,
+        0.1454
+       ],
+       "pass": true
+      },
+      "display": {
+       "first": 172,
+       "full": 172,
+       "low": 74,
+       "claim": "describes"
+      }
+     }
+    }
+   },
+   "FS": {
+    "pitches": 113930,
+    "1_reliability": {
+     "units": 383,
+     "mean_half": 136.5,
+     "r": 0.5945,
+     "n70": 217.3,
+     "n60": 139.7,
+     "n50": 93.1
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 262,
+     "r_whiff": 0.1484
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 246,
+     "pitchers": 106,
+     "r": 0.0082,
+     "ci": [
+      -0.1493,
+      0.1611
+     ],
+     "pass": false
+    },
+    "4_adds": {
+     "units": 246,
+     "r_whiff": 0.0097,
+     "r_joint": -0.0084,
+     "dr": -0.0181,
+     "ci": [
+      -0.0492,
+      0.0149
+     ],
+     "p": 0.2965
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 140,
+     "full": 218,
+     "low": 94,
+     "claim": "limited data",
+     "tier": "provisional"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 192,
+       "mean_half": 76.7,
+       "r": 0.5221,
+       "n70": 163.8,
+       "n60": 105.3,
+       "n50": 70.2
+      },
+      "A2": {
+       "units": 169,
+       "pitchers": 77,
+       "r": 0.0021,
+       "ci": [
+        -0.1514,
+        0.1656
+       ],
+       "pass": false
+      },
+      "display": null
+     },
+     "opposite": {
+      "A1": {
+       "units": 339,
+       "mean_half": 98.3,
+       "r": 0.5044,
+       "n70": 225.5,
+       "n60": 145.0,
+       "n50": 96.6
+      },
+      "A2": {
+       "units": 274,
+       "pitchers": 115,
+       "r": 0.0043,
+       "ci": [
+        -0.1343,
+        0.1262
+       ],
+       "pass": false
+      },
+      "display": null
+     }
+    }
+   }
+  },
+  "aaa": {
+   "FF": {
+    "pitches": 892657,
+    "1_reliability": {
+     "units": 2849,
+     "mean_half": 147.5,
+     "r": 0.4579,
+     "n70": 407.5,
+     "n60": 261.9,
+     "n50": 174.6
+    },
+    "1_pass": false,
+    "4_holm_reject": false,
+    "display": null
+   },
+   "SI": {
+    "pitches": 387956,
+    "1_reliability": {
+     "units": 1485,
+     "mean_half": 116.1,
+     "r": 0.4067,
+     "n70": 395.1,
+     "n60": 254.0,
+     "n50": 169.3
+    },
+    "1_pass": false,
+    "4_holm_reject": false,
+    "display": null
+   },
+   "CT": {
+    "pitches": 232101,
+    "1_reliability": {
+     "units": 994,
+     "mean_half": 100.8,
+     "r": 0.3502,
+     "n70": 436.3,
+     "n60": 280.5,
+     "n50": 187.0
+    },
+    "1_pass": false,
+    "4_holm_reject": false,
+    "display": null
+   },
+   "SL": {
+    "pitches": 466180,
+    "1_reliability": {
+     "units": 1925,
+     "mean_half": 108.2,
+     "r": 0.4795,
+     "n70": 274.1,
+     "n60": 176.2,
+     "n50": 117.5
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 1003,
+     "r_whiff": -0.0415
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 751,
+     "pitchers": 524,
+     "r": 0.0076,
+     "ci": [
+      -0.0714,
+      0.0878
+     ],
+     "pass": false
+    },
+    "4_adds": {
+     "units": 743,
+     "r_whiff": 0.1224,
+     "r_joint": 0.1178,
+     "dr": -0.0046,
+     "ci": [
+      -0.0191,
+      0.0086
+     ],
+     "p": 0.5395
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 177,
+     "full": 275,
+     "low": 118,
+     "claim": "limited data",
+     "tier": "provisional"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 1511,
+       "mean_half": 77.6,
+       "r": 0.4331,
+       "n70": 236.8,
+       "n60": 152.2,
+       "n50": 101.5
+      },
+      "A2": {
+       "units": 819,
+       "pitchers": 564,
+       "r": 0.0487,
+       "ci": [
+        -0.0213,
+        0.1166
+       ],
+       "pass": false
+      },
+      "display": null
+     },
+     "opposite": {
+      "A1": {
+       "units": 987,
+       "mean_half": 64.0,
+       "r": 0.3788,
+       "n70": 244.8,
+       "n60": 157.4,
+       "n50": 104.9
+      },
+      "A2": {
+       "units": 584,
+       "pitchers": 410,
+       "r": 0.0435,
+       "ci": [
+        -0.0422,
+        0.1201
+       ],
+       "pass": false
+      },
+      "display": null
+     }
+    }
+   },
+   "SW": {
+    "pitches": 171057,
+    "1_reliability": {
+     "units": 760,
+     "mean_half": 99.5,
+     "r": 0.4222,
+     "n70": 317.6,
+     "n60": 204.2,
+     "n50": 136.1
+    },
+    "1_pass": false,
+    "4_holm_reject": false,
+    "display": null
+   },
+   "CB": {
+    "pitches": 191980,
+    "1_reliability": {
+     "units": 959,
+     "mean_half": 80.3,
+     "r": 0.4801,
+     "n70": 202.9,
+     "n60": 130.4,
+     "n50": 87.0
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 488,
+     "r_whiff": 0.0576
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 357,
+     "pitchers": 258,
+     "r": 0.0769,
+     "ci": [
+      -0.0319,
+      0.1767
+     ],
+     "pass": false
+    },
+    "4_adds": {
+     "units": 356,
+     "r_whiff": 0.1159,
+     "r_joint": 0.1166,
+     "dr": 0.0007,
+     "ci": [
+      -0.0497,
+      0.0539
+     ],
+     "p": 0.9815
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 131,
+     "full": 203,
+     "low": 87,
+     "claim": "limited data",
+     "tier": "provisional"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 354,
+       "mean_half": 57.5,
+       "r": 0.3433,
+       "n70": 256.8,
+       "n60": 165.1,
+       "n50": 110.1
+      },
+      "A2": {
+       "units": 237,
+       "pitchers": 174,
+       "r": 0.0371,
+       "ci": [
+        -0.087,
+        0.1487
+       ],
+       "pass": false
+      },
+      "display": null
+     },
+     "opposite": {
+      "A1": {
+       "units": 638,
+       "mean_half": 60.9,
+       "r": 0.3137,
+       "n70": 310.7,
+       "n60": 199.7,
+       "n50": 133.1
+      },
+      "A2": {
+       "units": 400,
+       "pitchers": 285,
+       "r": 0.065,
+       "ci": [
+        -0.0459,
+        0.1747
+       ],
+       "pass": false
+      },
+      "display": null
+     }
+    }
+   },
+   "CH": {
+    "pitches": 290095,
+    "1_reliability": {
+     "units": 1361,
+     "mean_half": 87.4,
+     "r": 0.4654,
+     "n70": 234.3,
+     "n60": 150.6,
+     "n50": 100.4
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 638,
+     "r_whiff": 0.0533
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 539,
+     "pitchers": 367,
+     "r": 0.139,
+     "ci": [
+      0.0414,
+      0.2313
+     ],
+     "pass": true
+    },
+    "4_adds": {
+     "units": 536,
+     "r_whiff": 0.1611,
+     "r_joint": 0.1843,
+     "dr": 0.0232,
+     "ci": [
+      -0.0242,
+      0.0678
+     ],
+     "p": 0.3525
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 151,
+     "full": 235,
+     "low": 101,
+     "claim": "describes",
+     "tier": "provisional"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 259,
+       "mean_half": 56.2,
+       "r": 0.4726,
+       "n70": 146.2,
+       "n60": 94.0,
+       "n50": 62.7
+      },
+      "A2": {
+       "units": 198,
+       "pitchers": 140,
+       "r": 0.1923,
+       "ci": [
+        0.0551,
+        0.3191
+       ],
+       "pass": true
+      },
+      "display": {
+       "first": 147,
+       "full": 147,
+       "low": 63,
+       "claim": "describes"
+      }
+     },
+     "opposite": {
+      "A1": {
+       "units": 1197,
+       "mean_half": 73.4,
+       "r": 0.4314,
+       "n70": 225.8,
+       "n60": 145.2,
+       "n50": 96.8
+      },
+      "A2": {
+       "units": 708,
+       "pitchers": 480,
+       "r": 0.0889,
+       "ci": [
+        0.0101,
+        0.1637
+       ],
+       "pass": true
+      },
+      "display": {
+       "first": 146,
+       "full": 226,
+       "low": 97,
+       "claim": "describes"
+      }
+     }
+    }
+   },
+   "FS": {
+    "pitches": 49522,
+    "1_reliability": {
+     "units": 234,
+     "mean_half": 84.2,
+     "r": 0.5053,
+     "n70": 192.3,
+     "n60": 123.6,
+     "n50": 82.4
+    },
+    "1_pass": true,
+    "2_distinct": {
+     "units": 69,
+     "r_whiff": 0.1815
+    },
+    "2_pass": true,
+    "3_next": {
+     "units": 86,
+     "pitchers": 64,
+     "r": 0.204,
+     "ci": [
+      -0.0638,
+      0.4253
+     ],
+     "pass": false
+    },
+    "4_adds": {
+     "units": 84,
+     "r_whiff": -0.1538,
+     "r_joint": 0.0334,
+     "dr": 0.1872,
+     "ci": [
+      -0.0162,
+      0.3888
+     ],
+     "p": 0.0695
+    },
+    "4_holm_reject": false,
+    "display": {
+     "first": 193,
+     "full": 193,
+     "low": 83,
+     "claim": "limited data",
+     "tier": "full"
+    },
+    "sides": {
+     "same": {
+      "A1": {
+       "units": 72,
+       "mean_half": 53.7,
+       "r": 0.3124,
+       "n70": 275.8,
+       "n60": 177.3,
+       "n50": 118.2
+      },
+      "A2": {
+       "units": 46,
+       "pitchers": 36,
+       "r": -0.148,
+       "ci": [
+        -0.4568,
+        0.2058
+       ],
+       "pass": false
+      },
+      "display": null
+     },
+     "opposite": {
+      "A1": {
+       "units": 190,
+       "mean_half": 64.7,
+       "r": 0.3658,
+       "n70": 261.7,
+       "n60": 168.2,
+       "n50": 112.1
+      },
+      "A2": {
+       "units": 112,
+       "pitchers": 87,
+       "r": 0.1128,
+       "ci": [
+        -0.0945,
+        0.2852
+       ],
+       "pass": false
+      },
+      "display": null
+     }
+    }
+   }
+  }
+ },
+ "aaa_mlb_scale": {
+  "SL": {
+   "pitchers": 63,
+   "gap_sd": -0.5198,
+   "ci": [
+    -0.7154,
+    -0.3091
+   ],
+   "valid": false
+  },
+  "CB": {
+   "pitchers": 29,
+   "valid": false
+  },
+  "CH": {
+   "pitchers": 43,
+   "gap_sd": -0.7176,
+   "ci": [
+    -0.9528,
+    -0.461
+   ],
+   "valid": false
+  },
+  "FS": {
+   "pitchers": 8,
+   "valid": false
+  }
+ }
+}

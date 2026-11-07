@@ -17,13 +17,16 @@ export async function generateMetadata({
 
 export default async function ArsenalPitchPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ pitch: string }>;
+  searchParams?: Promise<{ level?: string }>;
 }) {
   const { pitch } = await params;
+  const level = (await searchParams)?.level === "aaa" ? "aaa" : "mlb";
   const [data, percentiles] = await Promise.all([
-    getArsenalBoardRows(pitch),
-    getPercentiles(),
+    getArsenalBoardRows(pitch, level),
+    getPercentiles(null, level),
   ]);
   const code = pitch.toUpperCase();
 
@@ -33,6 +36,9 @@ export default async function ArsenalPitchPage({
       <span className="sr-only">{DESCRIPTIVE_LINE}</span>
       <ArsenalExpanded
         pitchType={code}
+        level={level}
+        // PQ is not graded for every type (four-seamers, sinkers, cutters): no column at all rather than a column of dashes.
+        hasPq={data.some((r: any) => typeof r.pitchQuality === "number")}
         // Meta and the first page only; ff.json alone is 11 MB (lib/boards/shared.ts).
         {...arsenalProps(data)}
         breakpoints={percentiles?.pitchers_per_type?.[code] ?? null}

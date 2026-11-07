@@ -75,3 +75,58 @@ read here is a dev read on all pairs, and nothing here is cited as confirmation 
 `pipeline/pitch_quality.py` (`--demo` self-check, `fit`, `read`, `export`), `pipeline/results/pitch_quality_gates.json`
 (every number above), `pipeline/results/pitch_quality_units.csv` (unit grades for the bake). Results appended below
 once, after the read.
+
+## Results (read once, 2026-11-06)
+
+Fit: 4,505,677 MLB and 2,681,548 AAA pitches, 5 pitcher folds (per-pitch r with RV xBIP .281 MLB, .343 AAA). One
+handling fix before any number was seen: the first `read` stopped on a season whose reference had one unit (SD NaN);
+`to2080` now returns no grade there. Numbers: `results/pitch_quality_gates.json`.
+
+Rule 1 = split-half r at the mean half, pitches for r .70 / .60. Rule 3 = r with next type RV/100 xBIP [95%].
+Rule 4 = Δr over Whiff+ [95%], Holm. No type passes rule 4, so no type "adds to Whiff+".
+
+| Level | Type | 1: r, n70 / n60 | 2: r Whiff+ | 3: units, r [95%] | 4: Δr [95%] | Shown |
+|---|---|---|---|---|---|---|
+| MLB | FF | .58, 333 / 214 | | | | **no** (rule 1) |
+| MLB | SI | .50, 359 / 231 | | | | **no** (rule 1) |
+| MLB | CT | .49, 339 / 218 | | | | **no** (rule 1) |
+| MLB | SL | .51, 302 / 194 | .08 | 1,515, .045 [-.015, .107] | +.001 [-.008, +.010] | limited (rule 3), prov from 195 |
+| MLB | SW | .52, 273 / 175 | .14 | 583, .107 [.004, .206] | +.008 [-.048, +.063] | describes, prov 176, full 273 |
+| MLB | CB | .54, 240 / 154 | .18 | 959, .140 [.063, .214] | +.038 [-.009, +.082] | describes, prov 155, full 240 |
+| MLB | CH | .61, 176 / 113 | .11 | 1,227, .087 [.022, .157] | -.003 [-.025, +.018] | describes, full 176 |
+| MLB | FS | .59, 217 / 140 | .15 | 246, .008 [-.149, .161] | -.018 [-.049, +.015] | limited (rule 3), prov from 140 |
+| AAA | FF | .46, 408 / 262 | | | | **no** (rule 1) |
+| AAA | SI | .41, 395 / 254 | | | | **no** (rule 1) |
+| AAA | CT | .35, 436 / 281 | | | | **no** (rule 1) |
+| AAA | SL | .48, 274 / 176 | -.04 | 751, .008 [-.071, .088] | -.005 [-.019, +.009] | limited (rule 3), from 177 |
+| AAA | SW | .42, 318 / 204 | | | | **no** (rule 1) |
+| AAA | CB | .48, 203 / 130 | .06 | 357, .077 [-.032, .177] | +.001 [-.050, +.054] | limited (rule 3), from 131 |
+| AAA | CH | .47, 234 / 151 | .05 | 539, .139 [.041, .231] | +.023 [-.024, +.068] | describes, prov 151, full 234 |
+| AAA | FS | .51, 192 / 124 | .18 | 86, .204 [-.064, .425] | +.187 [-.016, +.389] | limited (rule 3), from 193 |
+
+**Splits.** Shown (A1 and A2 pass): MLB curveball and changeup, both sides; AAA changeup, both sides. Every other
+side of a shown type fails A2 (lower bound <= 0) or A1.
+
+**AAA on the MLB scale: fails for every type.** Same pitcher, same season: slider gap -.52 SD [-.72, -.31] (63
+pitchers), changeup -.72 [-.95, -.46] (43); curveball (29) and splitter (8) are under 30 pitchers. AAA grades are shown
+on the AAA scale only.
+
+### Diagnosis of the failures
+
+- **Fastballs and cutters, rule 1 (MLB n60 214-231, AAA 254-281): modeling + data.** The grade is a run value from shape
+  and location, and for fastballs the location part moves game to game; MLB pitchers are a narrow population, so the
+  true spread between them is small next to that noise (college four-seam needed 185 on a wider population). Not a
+  handling error as far as checked: the same split-half function passes changeups at 176, and the fold scores
+  correlate with the outcome per pitch at the level of the §71 model (.28 vs .20 for xRV v1 on a wider target).
+- **Slider, splitter (MLB), slider / curveball / splitter (AAA), rule 3: modeling.** Reliable this season, but the
+  per-type average of a context-free run value does not track next season's run value of that pitch; the slider read has
+  1,515 units, so it is not power. It agrees with §71 (xRV did not forecast run value) and §51 (shape-only run value
+  failed). AAA splitter is power (86 units).
+- **Rule 4 everywhere: modeling.** PQ correlates only .05-.18 with Whiff+; its next-season signal is small and
+  overlaps what Whiff+ already carries in run value. Nothing "adds".
+- **AAA scale check: data.** AAA pitches grade lower for the same pitcher in the same season. Candidates: the AAA ABS
+  zone (normalised height uses the AAA zone), the §14 tracking offsets, and selection (pitchers sent down while
+  struggling). Not separable here; the MLB-scale AAA grade is not shown.
+
+**What ships:** the shown cells above, with their claim ("describes" or "limited"), on profiles (MLB and AAA, with the
+muted "not confident" tier from the r .50 count) and on the arsenal leaderboards (MLB and AAA, shown tiers only).

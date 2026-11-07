@@ -565,6 +565,26 @@ def prev_pitch_scores() -> dict:
             for x in d[d["site"].notna()].itertuples()}
 
 
+def pitch_quality(level: str) -> dict:
+    """Pitch Quality (PREREG-pitch-quality.md; pitch_quality.py read), 20-80 per site type, MLB and AAA:
+    (mlbam, season, site) -> the profile fields. A "low" tier is a muted not-confident grade (profiles only);
+    `board` is False for it, so leaderboards never show it. AAA grades are on the AAA scale, with the MLB-scale
+    grade beside them where the scale check passed."""
+    fp = ROOT / "pipeline" / "results" / "pitch_quality_units.csv"
+    if not fp.exists():
+        return {}
+    d = pd.read_csv(fp)
+    d = d[(d["level"] == level) & d["grade"].notna()]
+    num = lambda v: None if pd.isna(v) else int(v)  # noqa: E731
+    txt = lambda v: None if pd.isna(v) else str(v)  # noqa: E731
+    return {(int(x.pitcher), int(x.season), x.site): {
+        "pitchQuality": int(x.grade), "pitchQualityTier": x.tier, "pitchQualityClaim": x.claim,
+        "pitchQualityNeed": num(x.need), "pitchQualityMlb": num(x.grade_mlb),
+        "pitchQualityVsLHH": num(x.grade_LHH), "pitchQualityTierLHH": txt(x.tier_LHH),
+        "pitchQualityVsRHH": num(x.grade_RHH), "pitchQualityTierRHH": txt(x.tier_RHH),
+        "board": x.tier != "low"} for x in d.itertuples()}
+
+
 def xrv_by_site(floor: int = 0) -> dict:
     """§71/§78 per-pitch-type xRV (descriptive, MLB): (mlbam, season, site code) -> (xRV/100, RV/100),
     folded by fold_to_site (n-weighted); the floor applies to the folded n."""
@@ -1791,6 +1811,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
     if "arsenal" in fams:
         card_pool = {}
         _prev_ars = prev_pitch_scores() if level == "mlb" else {}  # §101 per-pitch Prevention+ on the arsenal boards
+        _pq_ars = pitch_quality(level)  # Pitch Quality on the arsenal boards (never the muted low tier)
         for _, t in bytype.iterrows():
             site = t["site"]
             if site not in SITE_TYPES or t["n"] < SABR_FLOORS["row"]:
@@ -1817,6 +1838,9 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                 "nStuffPitches": int(sn), "stuffGradeFrom": None,
                 "pitchingPlus": f(pg, 1) if pg is not None else None,
                 "prevPitch": f(_pv, 1) if (_pv := _prev_ars.get((*key, site), (None,))[0]) is not None else None,  # §101, MLB, n >= 150
+                **({"pitchQuality": _q["pitchQuality"], "pitchQualityTier": _q["pitchQualityTier"],
+                    "pitchQualityClaim": _q["pitchQualityClaim"]}
+                   if (_q := _pq_ars.get((*key, site))) and _q["board"] else {"pitchQuality": None}),
                 "confidence": gr["confidence"],
             }
             arsenal_rows.setdefault(site, []).append(row)
@@ -2055,6 +2079,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "d": round(float(d[j]), 2),
                     "dv": [round(velo - src[3], 1), round(ivb - src[4], 1), round(hb - src[5], 1)]}
         _prev_pt = prev_pitch_scores() if level == "mlb" else {}  # §101 per-pitch Prevention+ (forecast)
+        _pq_pt = pitch_quality(level)  # Pitch Quality, 20-80, MLB + AAA (PREREG-pitch-quality.md)
         # D-07 (§73, descriptive): Whiff+ per type vs each batter hand, shrunk + CI, and usage by hand
         platoon = {}
         plf = ROOT / "pipeline" / "results" / "platoon_splits.csv"
@@ -2150,6 +2175,7 @@ def _bake_inner(out: Path, seasons: list[int], only: set[str] | None, player: in
                     "nStuffPitches": int(sn),
                     **({"prevPitch": f(_pv[0], 1), "prevVsLHH": f(_pv[1], 1), "prevVsRHH": f(_pv[2], 1)}
                        if (_pv := _prev_pt.get((pid, season, site))) else {}),
+                    **{k: v for k, v in _pq_pt.get((pid, season, site), {}).items() if k != "board"},
                     "stuffGradeFrom": None if (pid, season, site) in type_grade else p_host.get(site),
                     "gyro": site == "SL" and (pid, season, "SL") in type_gyro or None,
                     "twin": twin_of(pid, site, b["velo"], b["ivb"], b["hb"]),

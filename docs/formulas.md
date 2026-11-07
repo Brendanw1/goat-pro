@@ -189,6 +189,15 @@ When a formula changes, update this table and the glossary in the same commit.
   Whiff+ per pitch, usage, shape, putaway, + type one-hots and season. Site fit = all pitchers' 2020→25 pairs (the seal is spent).
 - Grade = 100 + 10·(ŷ − .0530) / .4665 (frozen dev scale). vs LHH / vs RHH: the same model on that hand's rows (100+ pitches), descriptive.
 
+## Pitch Quality (pipeline/pitch_quality.py → results/pitch_quality_units.csv → players/ and arsenal/ rows, MLB + AAA; PREREG-pitch-quality.md)
+
+- Per pitch PQ = 100 × xRV (runs, pitcher-positive): the §78 xRV v2 legs (outcome multiclass + xwOBA contact leg; shape, release, location,
+  count, same hand, season), 5 folds grouped by pitcher on MLB 2020–26. MLB and AAA pitches are each scored by the fold model that left their pitcher out.
+- Unit = level × pitcher × season × site type; raw = mean PQ. Grade = 50 + 10·(raw − mean) / SD, the mean and SD over that level × season × type's
+  units at the first display count; clipped 20–80, rounded to 5. Sides: the same over that side's units at its count; mapped to vs LHH / vs RHH by hand.
+- Tiers from the game-half split-half r (Spearman-Brown): full at the r .70 count, provisional from the r .60 count, "not confident" (profiles only)
+  from the r .50 count; "limited data" types (gate 3 failed) show from their first count with no claim.
+
 ## Swing Quality (pipeline/swing_quality.py → swingq/swingq.json; RESULTS-MLB §98)
 
 - Per tracked ball in play: ŷ = Ridge(α 1) on SplineTransformer(6 knots, degree 3) of §91's features (bat speed, swing length, attack angle,

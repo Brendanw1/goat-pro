@@ -12,6 +12,7 @@ import {
   ARSENAL_DEFAULTS, ARSENAL_FILTER_COLUMNS, ARSENAL_FILTER_DEFAULTS, COLS, type ArsenalMeta,
 } from "@/lib/boards/arsenal";
 import { PITCHING_TIP, STUFF_TIP, gradeColor } from "@/lib/grades";
+import { pqColor, pqTitle } from "@/lib/pitch-quality";
 import { RV100_TIP } from "@/lib/rv-cells";
 import { SLOT_BANDS } from "@/lib/arm-slot";
 import { PixelTeamLogo } from "@/components/ui/pixel-team-logo";
@@ -22,12 +23,14 @@ import { useBoardPage } from "@/lib/boards/use-board-page";
 // Columns, defaults and the filter/sort live in lib/boards/arsenal.ts, shared
 // with the route that pages this board on the server.
 
+const MLB_ONLY = new Set<string>(["pitchingPlus", "prevPitch", "deceptionPlus"]);
+
 function fmt(value: any, key: string): string {
   if (value === null || value === undefined) return "—";
   if (key === "spin") return String(Math.round(value));
   if (key === "n_pitches") return String(Math.round(value));
   if (key === "age") return String(Math.floor(value)); // season age (June 30), whole years as on the pitchers board
-  if (["stuffPlus", "pitchingPlus", "prevPitch", "deceptionPlus"].includes(key)) return Math.round(value).toString();
+  if (["stuffPlus", "pitchingPlus", "prevPitch", "deceptionPlus", "pitchQuality"].includes(key)) return Math.round(value).toString();
   if (key === "dIvbSlot" || key === "dHbSlot") return (value > 0 ? "+" : "") + value.toFixed(1);
   if (key === "season") return String(Math.round(value));
   if (key === "rv100") return (value > 0 ? "+" : "") + value.toFixed(2);
@@ -38,11 +41,17 @@ function fmt(value: any, key: string): string {
 
 export function ArsenalExpanded({
   pitchType,
+  level = "mlb",
+  hasPq = true,
   meta,
   initial,
   breakpoints,
 }: {
   pitchType: string;
+  /** "aaa" reads the AAA bake's rows (MLB models scored on AAA pitches) and links to the minors profile. */
+  level?: "mlb" | "aaa";
+  /** False when no row of this type carries a Pitch Quality grade. */
+  hasPq?: boolean;
   meta: ArsenalMeta;
   /** The default first page, computed by the server page. */
   initial: BoardPage<any>;
@@ -54,7 +63,8 @@ export function ArsenalExpanded({
   const [colFilters, setColFilters] = useUrlFilters();
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
-  const columns = COLS;
+  // MLB-only models (Pitching+, Prev+, Deception+) have no AAA values: dropped there rather than shown blank.
+  const columns = COLS.filter((c) => !(level === "aaa" && MLB_ONLY.has(c.key)) && (hasPq || c.key !== "pitchQuality"));
 
   // Filters
   const [filters, setFilters] = useState<Record<string, any>>(ARSENAL_FILTER_DEFAULTS);
@@ -72,7 +82,7 @@ export function ArsenalExpanded({
 
   // Filter, sort and page run on the server (lib/boards/arsenal.ts).
   const { data: res, fetching, error } = useBoardPage(
-    `/api/data/board/arsenal/${pitchType}`,
+    `/api/data/board/arsenal/${pitchType}${level === "aaa" ? "?level=aaa" : ""}`,
     { search: "", filters, colFilters, sortBy, sortDir, page },
     ARSENAL_DEFAULTS,
     initial,
@@ -95,15 +105,24 @@ export function ArsenalExpanded({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <BackLink
           fallback="/arsenal"
-          className="px-3 py-1 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] transition-all"
+          className="whitespace-nowrap px-3 py-1 rounded-lg text-xs bg-white/[0.05] border border-border-subtle text-text-secondary hover:bg-white/[0.08] transition-all"
         />
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: config.color }} />
           <h1 className="text-lg font-bold text-text-primary">{config.label}</h1>
           <span className="text-xs text-text-dim">({total} pitchers)</span>
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto" role="group" aria-label="Level">
+          {(["mlb", "aaa"] as const).map((l) => (
+            <Link key={l} prefetch={false} href={`/arsenal/${pitchType.toLowerCase()}${l === "aaa" ? "?level=aaa" : ""}`}
+              aria-current={level === l ? "page" : undefined}
+              className={`px-2.5 py-1 rounded-md text-[11px] border ${level === l ? "border-usf-gold/60 text-text-primary bg-white/[0.06]" : "border-border-subtle text-text-secondary hover:bg-white/[0.04]"}`}>
+              {l.toUpperCase()}
+            </Link>
+          ))}
         </div>
       </div>
 
@@ -192,12 +211,13 @@ export function ArsenalExpanded({
                     const isName = col.key === "name";
                     const isModel = "model" in col && col.model;
                     // Deception+ is good-high like the grades; ΔIVB / ΔHB vs slot stay uncoloured (a style).
-                    const color = isModel || col.key === "deceptionPlus" ? gradeColor(raw) : undefined;
+                    const isPq = col.key === "pitchQuality";
+                    const color = isPq ? pqColor(raw, row.pitchQualityTier) : isModel || col.key === "deceptionPlus" ? gradeColor(raw) : undefined;
                     const gradeNote = (col.key === "dIvbSlot" || col.key === "dHbSlot") && typeof raw === "number"
                       ? (col.key === "dIvbSlot"
                         ? `IVB ${row.ivb} vs ${row.ivbSlotPeer} for his band`
                         : `Arm-side HB ${row.hbArm} vs ${row.hbSlotPeer} for his band`) + ` (${row.band})`
-                      : isModel || col.key === "deceptionPlus" ? tipOf(col.key) : undefined;
+                      : isPq ? pqTitle(row, level === "aaa") : isModel || col.key === "deceptionPlus" ? tipOf(col.key) : undefined;
                     return (
                       <td
                         key={col.key}
@@ -208,12 +228,12 @@ export function ArsenalExpanded({
                         title={isName ? value : gradeNote}
                       >
                         {isName ? (
-                          <Link prefetch={false} href={`/player/${row.id}?season=${row.season}`} className="hover:underline">
+                          <Link prefetch={false} href={`${level === "aaa" ? "/minors/player" : "/player"}/${row.id}?season=${row.season}`} className="hover:underline">
                             <PixelTeamLogo team={row.team} size={16} className="mr-1.5" />
                             {value}
                             {row.gyro ? <span className="ml-1.5"><GyroTag /></span> : null}
                           </Link>
-                        ) : isModel && typeof raw === "number" ? (
+                        ) : isModel && !isPq && level === "mlb" && typeof raw === "number" ? (
                           <>
                             {Math.round(raw)}
                             <GradePct metric={col.key} value={raw} n={gradedN(row)} code={pitchType} season={row.season} />
@@ -241,8 +261,10 @@ export function ArsenalExpanded({
         </div>
       </div>
       <p className="text-[10px] text-text-dim">
-        {breakpoints ? "Percentile chips rank each grade among that season's MLB pitchers' " : "No percentile population baked for "}
-        {config.label.toLowerCase()} (50+ pitches of the type, that season).
+        {level === "aaa"
+          ? "AAA: MLB-trained models scored on AAA pitches (display only); PQ is graded against AAA pitchers of the same type and season, no percentile chips."
+          : <>{breakpoints ? "Percentile chips rank each grade among that season's MLB pitchers' " : "No percentile population baked for "}
+            {config.label.toLowerCase()} (50+ pitches of the type, that season).</>}
         {" "}Whiff+ / Pitching+ are per pitch class × batter side: {config.label} rows share the class grade where types are pooled — the Shared-grade note on each profile says when.
       </p>
     </div>
