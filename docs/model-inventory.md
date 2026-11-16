@@ -46,6 +46,8 @@ tables below are the original plan and are kept as written.
 | Pitch decay / buyback, usage optimizer, count policy, predictability | research only: decay confirmed, the rest no edge | §59–§63 |
 
 ML hardening plan for every model (template, sealed-data bank, top-8 attack order): `docs/ml-hardening-plan.md`.
+Model scorecards (one evaluation battery for every pitcher grade, against naive and Marcel baselines; selection set):
+`docs/model-scorecards.md`, built by `pipeline/scorecard.py`.
 
 In progress (owner, 2026-10-29): MiLB → MLB translation (§88), role conversion
 (§87), would-it-dong across 30 parks (§86), postseason + matchup view, and the

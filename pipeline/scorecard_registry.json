@@ -1,0 +1,15 @@
+{
+ "crossfit_v2_s4_bb": {"label": "Whiff+ (s4_bb)", "status": "shipped", "where": "§47, §82"},
+ "whiff_plus": {"label": "Whiff+ (s4_bb) per pitch", "status": "shipped", "where": "§47, §82"},
+ "kplus": {"label": "K+", "status": "shipped", "where": "§50"},
+ "prevention": {"label": "Prevention+", "status": "shipped", "where": "§52"},
+ "pitching_plus_raw": {"label": "Pitching+", "status": "shipped (descriptive)", "where": "§56"},
+ "location_plus_ctrl": {"label": "Control+", "status": "shipped (descriptive)", "where": "§53-§55"},
+ "crossfit_v2_grades": {"label": "Stuff+ v2 cross-fit (csw_norm)", "status": "superseded", "where": "§17-§20"},
+ "baseline_naive_kbb": {"label": "Baseline: K-BB% in S", "status": "baseline", "where": ""},
+ "baseline_naive_k": {"label": "Baseline: K% in S", "status": "baseline", "where": ""},
+ "baseline_naive_rv100": {"label": "Baseline: RV/100 in S", "status": "baseline", "where": ""},
+ "baseline_marcel_kbb": {"label": "Baseline: Marcel K-BB%", "status": "baseline", "where": ""},
+ "baseline_marcel_k": {"label": "Baseline: Marcel K%", "status": "baseline", "where": ""},
+ "baseline_marcel_rv100": {"label": "Baseline: Marcel RV/100", "status": "baseline", "where": ""}
+}
