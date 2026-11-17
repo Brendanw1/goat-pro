@@ -1,0 +1,101 @@
+{
+ "note": "MLB 2021-26, selection set; see ceiling.py docstring",
+ "floor_taken": 50,
+ "targets": {
+  "k": {
+   "pairs": 2699,
+   "unweighted": {
+    "rel_s": 0.581,
+    "rel_s1": 0.574,
+    "yoy": 0.503,
+    "talent_yoy": 0.87,
+    "ceiling": 0.659,
+    "oracle": 0.758
+   },
+   "weighted": {
+    "rel_s": 0.66,
+    "rel_s1": 0.752,
+    "yoy": 0.599,
+    "talent_yoy": 0.85,
+    "ceiling": 0.737,
+    "oracle": 0.867
+   }
+  },
+  "bb": {
+   "pairs": 2699,
+   "unweighted": {
+    "rel_s": 0.413,
+    "rel_s1": 0.421,
+    "yoy": 0.344,
+    "talent_yoy": 0.824,
+    "ceiling": 0.535,
+    "oracle": 0.649
+   },
+   "weighted": {
+    "rel_s": 0.467,
+    "rel_s1": 0.583,
+    "yoy": 0.44,
+    "talent_yoy": 0.843,
+    "ceiling": 0.644,
+    "oracle": 0.764
+   }
+  },
+  "kbb": {
+   "pairs": 2699,
+   "unweighted": {
+    "rel_s": 0.475,
+    "rel_s1": 0.488,
+    "yoy": 0.369,
+    "talent_yoy": 0.767,
+    "ceiling": 0.535,
+    "oracle": 0.698
+   },
+   "weighted": {
+    "rel_s": 0.576,
+    "rel_s1": 0.665,
+    "yoy": 0.474,
+    "talent_yoy": 0.765,
+    "ceiling": 0.624,
+    "oracle": 0.816
+   }
+  },
+  "gb": {
+   "pairs": 2698,
+   "unweighted": {
+    "rel_s": 0.597,
+    "rel_s1": 0.593,
+    "yoy": 0.558,
+    "talent_yoy": 0.938,
+    "ceiling": 0.722,
+    "oracle": 0.77
+   },
+   "weighted": {
+    "rel_s": 0.68,
+    "rel_s1": 0.772,
+    "yoy": 0.671,
+    "talent_yoy": 0.926,
+    "ceiling": 0.814,
+    "oracle": 0.878
+   }
+  },
+  "rv100": {
+   "pairs": 2699,
+   "unweighted": {
+    "rel_s": 0.216,
+    "rel_s1": 0.287,
+    "yoy": 0.215,
+    "talent_yoy": 0.864,
+    "ceiling": 0.463,
+    "oracle": 0.536
+   },
+   "weighted": {
+    "rel_s": 0.278,
+    "rel_s1": 0.387,
+    "yoy": 0.24,
+    "talent_yoy": 0.732,
+    "ceiling": 0.455,
+    "oracle": 0.622
+   }
+  }
+ }
+}

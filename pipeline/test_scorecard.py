@@ -20,3 +20,18 @@ def test_baselines_score_zero_against_themselves():
     m = sc.season_card(q[["mlbam", "season"]].assign(grade=q["k_m"]), sc.COMMON)
     assert m["marcel"]["k"]["est"] == 0
     assert abs(m["partial"]["k"]["est"]) < 1e-3   # partial r of Marcel given itself: 0 up to float noise
+
+
+def test_weighting_changes_only_the_weights(monkeypatch):
+    """--weighted with every pitcher at the same PA must reproduce the unweighted card."""
+    oc = sc.outcomes()
+    sc.CACHE["oc"], sc.CACHE["mc"] = oc, sc.marcel(oc)
+    g = oc[["mlbam", "season"]].assign(grade=oc["k"])
+    base = sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"]
+    monkeypatch.setattr(sc, "WEIGHTED", True)
+    assert sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"] != base
+    sc.CACHE["oc"] = oc.assign(pa=100)
+    sc.CACHE["mc"] = sc.marcel(sc.CACHE["oc"])
+    flat = sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"]
+    monkeypatch.setattr(sc, "WEIGHTED", False)
+    assert abs(flat - sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"]) < 1e-9
