@@ -10,7 +10,7 @@ a reliability needs both halves):
   talent_yoy      yoy / sqrt(rel_s * rel_s1): how much true talent carries over (the rest is real change)
   ceiling         talent_yoy * sqrt(rel_s1) = yoy / sqrt(rel_s): perfect knowledge of S talent, scored on noisy S+1
   oracle          sqrt(rel_s1): perfect knowledge of S+1 talent. oracle - ceiling is the room in predicting change.
-Each is given unweighted (judge.py as it stands) and weighted by next-season PA (scorecard.py --weighted).
+Each is given unweighted (judge.py as it stands) and weighted by next-season PA (scorecard.py default since Fable 1.2; --unweighted for the old read).
 A grade can pass `ceiling` only by forecasting change (age, a new pitch), never by knowing the level better.
 """
 import json

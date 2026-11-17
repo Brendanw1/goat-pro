@@ -23,10 +23,11 @@ def test_baselines_score_zero_against_themselves():
 
 
 def test_weighting_changes_only_the_weights(monkeypatch):
-    """--weighted with every pitcher at the same PA must reproduce the unweighted card."""
+    """Weighted (the default) with every pitcher at the same PA must reproduce the unweighted card."""
     oc = sc.outcomes()
     sc.CACHE["oc"], sc.CACHE["mc"] = oc, sc.marcel(oc)
     g = oc[["mlbam", "season"]].assign(grade=oc["k"])
+    monkeypatch.setattr(sc, "WEIGHTED", False)
     base = sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"]
     monkeypatch.setattr(sc, "WEIGHTED", True)
     assert sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"] != base
@@ -35,3 +36,25 @@ def test_weighting_changes_only_the_weights(monkeypatch):
     flat = sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"]
     monkeypatch.setattr(sc, "WEIGHTED", False)
     assert abs(flat - sc.season_card(g, sc.COMMON)["pred"]["rv100"]["est"]) < 1e-9
+
+
+def test_projection_error_and_power():
+    """An oracle grade (next K minus Marcel K) gets a large MSE skill and a calibration slope near 1 even though beta
+    is fit on the other pairs; MDE on a 20% seal is sqrt(5) wider."""
+    oc = sc.outcomes()
+    mc = sc.marcel(oc)
+    sc.CACHE["oc"], sc.CACHE["mc"] = oc, mc
+    nxt = oc[["mlbam", "season", "k"]].assign(season=oc["season"] - 1)
+    q = mc[["mlbam", "season", "k"]].merge(nxt, on=["mlbam", "season"], suffixes=("_m", ""))
+    card = sc.season_card(q[["mlbam", "season"]].assign(grade=q["k"] - q["k_m"]), sc.COMMON)
+    assert card["mse_skill"]["k"]["est"] > .9
+    assert abs(card["cal_slope"]["k"]["est"] - 1) < .1
+    assert card["ll_skill"]["k"]["est"] > 0
+    p = card["partial"]["composite"]
+    assert abs(p["mde_seal20"] - p["mde"] * 5 ** .5) < 1e-3
+
+
+def test_shuffled_grade_rarely_passes():
+    """Fable 1.7: a grade shuffled across pitchers passes 'adds to Marcel' or MSE skill in few of 10 runs."""
+    res = sc.null_check(10, draws=300)
+    assert res["false_pass_partial"] <= .2 and res["false_pass_mse_skill"] <= .2

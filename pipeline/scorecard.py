@@ -3,7 +3,8 @@
     python scorecard.py                       # every results/*_grades.csv + the naive / Marcel baselines
     python scorecard.py results/kplus_grades.csv [more.csv ...]
     python scorecard.py --pitches cache/pred_s4_bb.parquet --pred pred --label whiff --mask swing --name whiff_plus
-    python scorecard.py --weighted            # every r weighted by next-season PA -> docs/model-scorecards-weighted.md
+    python scorecard.py --unweighted          # descriptive board, unweighted -> docs/model-scorecards-unweighted.md
+    python scorecard.py --null 200            # false-pass rate of the battery on grades shuffled across pitchers
 
 Writes results/scorecards/<name>.json per model and rebuilds docs/model-scorecards.md (the leaderboard).
 
@@ -25,9 +26,13 @@ season_full over 2020..2025), pitchers resampled once across pairs (cluster_w).
   deciles       mean next outcome, top decile minus bottom decile, and monotonicity (Spearman over the 10 means)
 Outcomes: K/PA, BB/PA (sign flipped: fewer is better), (K-BB)/PA, RV/100, xRV/100. Composite = mean over
 K, K-BB, RV/100, xRV/100, the judge.py composite.
---weighted: every correlation is weighted by the pitcher's next-season PA, so a 60-pitch call-up no longer counts
-as much as a 200-inning starter (the unweighted read is mostly sampling noise in the target: ceiling.py). It writes
-results/scorecards_weighted/ and its own leaderboard; the default (judge.py-exact) files are untouched.
+Weighting (default since Fable 1.2): every statistic is weighted by the pitcher's next-season PA, so a 60-pitch
+call-up no longer counts as much as a 200-inning starter (the unweighted read is mostly sampling noise in the target:
+ceiling.py). --unweighted reproduces judge.py's unweighted dr and writes results/scorecards_unweighted/ and
+docs/model-scorecards-unweighted.md, a descriptive board only.
+Forecast error (Fable 1.1): projection = Marcel + beta x grade, beta fit on the other pairs; MSE skill, binomial
+log-loss skill (K, BB) and calibration slope vs Marcel; change r (grade change vs outcome change); MDE at power .80
+on all pitchers and on a 20% seal (Fable 1.10).
 Leaderboard extras: K side = mean r over K/PA and (K-BB)/PA; run side = mean over RV/100 and xRV/100 (the composite
 is half strikeouts, so a K-only grade can top it without moving runs); share of ceiling = next r / the target's noise
 ceiling (results/ceilings.json, from ceiling.py); `*` on Pairs = under 95% of the largest population on the board,
@@ -53,15 +58,16 @@ PIPE = Path(__file__).resolve().parent
 sys.path.insert(0, str(PIPE))
 from judge import _r, cluster_w  # noqa: E402
 
-WEIGHTED = "--weighted" in sys.argv
-RES, OUT = PIPE / "results", PIPE / "results" / ("scorecards_weighted" if WEIGHTED else "scorecards")
-DOC = PIPE.parent / "docs" / ("model-scorecards-weighted.md" if WEIGHTED else "model-scorecards.md")
+WEIGHTED = "--unweighted" not in sys.argv   # default since Fable 1.2: verdicts are PA-weighted
+RES, OUT = PIPE / "results", PIPE / "results" / ("scorecards" if WEIGHTED else "scorecards_unweighted")
+DOC = PIPE.parent / "docs" / ("model-scorecards.md" if WEIGHTED else "model-scorecards-unweighted.md")
 REG = json.loads((PIPE / "scorecard_registry.json").read_text())
 OUTCOMES = {"k": 1, "bb": -1, "kbb": 1, "rv100": 1, "xrv100": 1}   # orientation: + = good for the pitcher
 COMPOSITE = ("k", "kbb", "rv100", "xrv100")
 COMMON = [(s, s + 1) for s in range(2023, 2026)]   # every grade file covers these: the like-for-like window
 FULL = [(s, s + 1) for s in range(2020, 2026)]
 DRAWS, SEED, R_MARCEL, W = 2000, 13, 1200, (5, 4, 3)
+Z_MDE = 1.96 + 0.84   # two-sided .05, power .80: minimum detectable effect = Z_MDE x se
 TRAIN = (2023, 2024)
 
 
@@ -110,20 +116,65 @@ def _b(x, w):
 
 
 def summ(v):
-    """v: pooled (1 + draws) vector -> point, se, 95% CI."""
-    return {"est": round(float(v[0]), 4), "se": round(float(v[1:].std()), 4),
-            "ci": [round(float(x), 4) for x in np.percentile(v[1:], [2.5, 97.5])]}
+    """v: pooled (1 + draws) vector -> point, se, 95% CI, and the minimum detectable effect (power .80) on all
+    pitchers and on a 20% pitcher seal (se x sqrt(5))."""
+    se = float(v[1:].std())
+    return {"est": round(float(v[0]), 4), "se": round(se, 4),
+            "ci": [round(float(x), 4) for x in np.percentile(v[1:], [2.5, 97.5])],
+            "mde": round(Z_MDE * se, 4), "mde_seal20": round(Z_MDE * se * 5 ** .5, 4)}
+
+
+def _wmean(x, w):
+    return (x * w).sum(1) / w.sum(1)
+
+
+def crossfit_beta(ds, ws):
+    """Per pair and outcome, the slope of (next - Marcel) on the pair-centred grade, fit on the OTHER pairs
+    (point weights), so the projection Marcel + beta x grade never sees the pair it is scored on."""
+    sx = {o: [] for o in OUTCOMES}
+    for d, w in zip(ds, ws):
+        w0 = w[0]
+        g = d["grade"].to_numpy(float)
+        g = g - np.average(g, weights=w0)
+        for o in OUTCOMES:
+            e = (d[f"n_{o}"] - d[f"m_{o}"]).to_numpy(float)
+            e = e - np.average(e, weights=w0)
+            sx[o].append(((w0 * g * e).sum(), (w0 * g * g).sum()))
+    return [{o: (sum(a for j, (a, _) in enumerate(sx[o]) if j != i) / sum(b for j, (_, b) in enumerate(sx[o]) if j != i))
+             for o in OUTCOMES} for i in range(len(ds))]
+
+
+def projection_error(d, w, beta):
+    """Fable 1.1: error of a projection that uses the grade, against Marcel alone. Per outcome: MSE skill
+    1 - MSE(Marcel + beta g) / MSE(Marcel), calibration slope of next on the projection, and for K and BB (rates per
+    PA) the binomial log loss per PA, as skill vs Marcel. All under the card's weights."""
+    g = d["grade"].to_numpy(float)
+    G = _b(g, w) - _wmean(_b(g, w), w)[:, None]
+    out = {"mse_skill": {}, "cal_slope": {}, "ll_skill": {}}
+    for o, sgn in OUTCOMES.items():
+        Y, M = _b(d[f"n_{o}"], w), _b(d[f"m_{o}"], w)
+        P = M + beta[o] * G
+        out["mse_skill"][o] = 1 - _wmean((Y - P) ** 2, w) / _wmean((Y - M) ** 2, w)
+        pc = P - _wmean(P, w)[:, None]
+        out["cal_slope"][o] = _wmean(pc * (Y - _wmean(Y, w)[:, None]), w) / _wmean(pc * pc, w)
+        if o in ("k", "bb"):
+            y = sgn * Y
+            ll = lambda p: -_wmean(y * np.log(p) + (1 - y) * np.log(1 - p), w)  # noqa: E731
+            out["ll_skill"][o] = 1 - ll(np.clip(sgn * P, 1e-4, 1 - 1e-4)) / ll(np.clip(sgn * M, 1e-4, 1 - 1e-4))
+    return out
 
 
 def season_card(g, pairs):
     oc, mc = CACHE["oc"], CACHE["mc"]
     ds = pair_frames(g, oc, mc, pairs)
     ws = cluster_w([d["mlbam"] for d in ds], np.random.default_rng(SEED), DRAWS)
-    acc = {k: [] for k in ("rel", "pred", "ic", "naive", "marcel", "partial", "dr2", "desc")}
+    if WEIGHTED:   # bootstrap count x exposure in the target season
+        ws = [w * d["n_pa"].to_numpy(float) for d, w in zip(ds, ws)]
+    betas = crossfit_beta(ds, ws)
+    acc = {k: [] for k in ("rel", "pred", "ic", "naive", "marcel", "partial", "dr2", "desc", "change",
+                           "mse_skill", "cal_slope", "ll_skill")}
     per_pair = {}
-    for (s0, s1), d, w in zip(pairs, ds, ws):
-        if WEIGHTED:
-            w = w * d["n_pa"].to_numpy(float)   # bootstrap count x exposure in the target season
+    for (s0, s1), d, w, beta in zip(pairs, ds, ws, betas):
         G = _b(d["grade"], w)
         rank = lambda x: _b(pd.Series(x).rank().to_numpy(), w)  # noqa: E731
         p, ic, nv, mv, pt, r2, de = {}, {}, {}, {}, {}, {}, {}
@@ -141,6 +192,12 @@ def season_card(g, pairs):
         both = d["grade_next"].notna().to_numpy()
         wr = w[:, both]
         acc["rel"].append(_r(_b(d.loc[both, "grade"], wr), _b(d.loc[both, "grade_next"], wr), wr))
+        # change r ("moves with the player"): grade change S -> S+1 against the outcome change S -> S+1
+        dg = _b((d["grade_next"] - d["grade"])[both], wr)
+        acc["change"].append({o: _r(dg, _b((d[f"n_{o}"] - d[o])[both], wr), wr) for o in OUTCOMES})
+        pe = projection_error(d, w, beta)
+        for k in ("mse_skill", "cal_slope", "ll_skill"):
+            acc[k].append(pe[k])
         for k, v in (("pred", p), ("ic", ic), ("naive", nv), ("marcel", mv), ("partial", pt), ("dr2", r2), ("desc", de)):
             acc[k].append(v)
         per_pair[f"{s0}->{s1}"] = {"n": len(d), **{o: round(float(p[o][0]), 4) for o in OUTCOMES},
@@ -149,6 +206,8 @@ def season_card(g, pairs):
     def pooled(key, o=None):
         if o is None:
             return np.mean(acc[key], axis=0)
+        if o == "composite" and key == "ll_skill":
+            return np.mean([np.mean([a[x] for a in acc[key]], axis=0) for x in ("k", "bb")], axis=0)
         if o == "composite":
             return np.mean([np.mean([a[x] for a in acc[key]], axis=0) for x in COMPOSITE], axis=0)
         return np.mean([a[o] for a in acc[key]], axis=0)
@@ -169,9 +228,12 @@ def season_card(g, pairs):
         "window": f"{pairs[0][0]}->{pairs[-1][1]}", "n_pairs": int(sum(len(d) for d in ds)), "n_pitchers": int(every["mlbam"].nunique()),
         "spread": {"sd": round(float(g_all.std()), 3), "p10": round(float(g_all.quantile(.1)), 2),
                    "p90": round(float(g_all.quantile(.9)), 2)},
+        "weighting": "next-season PA" if WEIGHTED else "none",
         "reliability_yoy": summ(pooled("rel")),
         **{k: {o: summ(pooled(k, o)) for o in [*OUTCOMES, "composite"]}
-           for k in ("desc", "pred", "ic", "naive", "marcel", "partial", "dr2")},
+           for k in ("desc", "pred", "ic", "naive", "marcel", "partial", "dr2", "change", "mse_skill", "cal_slope")},
+        "ll_skill": {o: summ(pooled("ll_skill", o)) for o in ("k", "bb", "composite")},
+        "beta": {f"{s0}->{s1}": {o: round(float(b[o]), 5) for o in OUTCOMES} for (s0, s1), b in zip(pairs, betas)},
         "worst_pair": min(per_pair.items(), key=lambda kv: kv[1]["composite"])[0],
         "abs_zone_pair": {f"{last[0]}->{last[1]}": per_pair[f"{last[0]}->{last[1]}"]},
         "pairs": per_pair, "deciles": deciles,
@@ -245,11 +307,19 @@ def leaderboard():
     share = lambda s, o: f"{s['pred'][o]['est'] / ceil[o]:.0%}" if o in ceil else ""  # noqa: E731
     side = lambda s, os: np.mean([s["pred"][o]["est"] for o in os])  # noqa: E731
     top = max((c["season"]["n_pairs"] for c in cards.values() if c.get("season")), default=0)
-    rows = []
+    rows, err = [], []
     for n, c in cards.items():
         s = c.get("season")
         if not s:
             continue
+        if "mse_skill" in s:
+            ms = s["mse_skill"]
+            err.append((ms["composite"]["est"], f"| {c['meta']['label']} | {s['n_pairs']:,}{'*' if s['n_pairs'] < .95 * top else ''} "
+                        f"| {f(ms['composite'])} | {ms['k']['est']:+.4f} | {ms['bb']['est']:+.4f} | {ms['rv100']['est']:+.4f} "
+                        f"| {s['ll_skill']['k']['est']:+.4f} | {s['ll_skill']['bb']['est']:+.4f} "
+                        f"| {s['pred']['bb']['est']:.3f} | {share(s, 'bb')} | {s['cal_slope']['composite']['est']:.2f} "
+                        f"| {s['partial']['composite']['mde']:.3f} "
+                        f"| {s['partial']['composite']['mde_seal20']:.3f} |"))
         cls = ("baseline" if c["meta"]["status"] == "baseline"
                else "beats Marcel" if s["marcel"]["composite"]["ci"][0] > 0
                else "adds to Marcel" if s["partial"]["composite"]["ci"][0] > 0
@@ -267,7 +337,11 @@ def leaderboard():
         "which is spent for pitcher models, so this is a like-for-like comparison, not a confirmation. Pairs S -> S+1,",
         "2023-25 (the window every file covers), judge.py's population (>= 50 taken pitches in S+1), pitchers resampled once across pairs (2,000 draws).",
         "",
-        *(["**Weighted**: every r is weighted by the pitcher's next-season PA (`scorecard.py --weighted`).", ""] if WEIGHTED else []),
+        ("**Weighted** (the default): every statistic is weighted by the pitcher's next-season PA. The unweighted board "
+         "(`scorecard.py --unweighted`, docs/model-scorecards-unweighted.md) is descriptive only." if WEIGHTED else
+         "**Unweighted**: descriptive only; a 60-pitch call-up counts as much as a starter. Verdicts use the weighted "
+         "board, docs/model-scorecards.md."),
+        "",
         "Composite = mean r over next-season K/PA, (K-BB)/PA, RV/100, xRV/100 (the judge.py composite).",
         "K side = mean r over K/PA and (K-BB)/PA; run side = mean r over RV/100 and xRV/100. The composite is half",
         "strikeouts, so read the two sides separately. Share of ceiling = next r / the target's noise ceiling, the r",
@@ -284,6 +358,23 @@ def leaderboard():
         "| Next K | K share of ceiling | Next RV/100 | RV share of ceiling | vs Marcel | Partial r given Marcel | dR2 | Class |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         *[r for _, r in sorted(rows, key=lambda t: -t[0])],
+        "",
+        "## Forecast error (Fable 1.1)",
+        "",
+        "Projection = Marcel + beta x grade (grade centred within the pair; beta fit on the other season pairs, so the",
+        "pair being scored is never seen). MSE skill = 1 - MSE(projection) / MSE(Marcel), per outcome; composite = mean",
+        "over the judge composite. Log-loss skill: binomial log loss per PA for K/PA and BB/PA, same comparison. Positive",
+        "= the grade improves Marcel's forecast; the outcome noise caps every skill near a few percent. Cal slope: next",
+        "outcome on the projection (1 = calibrated; below 1 = the projection spreads pitchers too far). Next BB r is",
+        "oriented: + = fewer walks. MDE: smallest partial-r gain (composite) detectable at",
+        "power .80 on all pitchers, and on a 20% pitcher seal; below it, a seal read is underpowered.",
+        "Change r (grade change vs outcome change, in each JSON) is not shown: for a grade built from results it is",
+        "the same-season identity, not \"moves with the player\"; the clean split-half version is Fable 1.8.",
+        "",
+        "| Model | Pairs | MSE skill vs Marcel (composite) | K | BB | RV/100 | Log-loss skill K | Log-loss skill BB | Next BB r "
+        "| BB share of ceiling | Cal slope | MDE all | MDE 20% seal |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        *[r for _, r in sorted(err, key=lambda t: -t[0])],
     ]
     pc = [(n, c) for n, c in cards.items() if c.get("pitch")]
     if pc:
@@ -303,6 +394,29 @@ def leaderboard():
 CACHE = {}
 
 
+def null_check(n, draws=500):
+    """Fable 1.7: the scorecard's false-pass rate. A real grade (naive K/PA) is shuffled across pitchers within
+    each season (outcome blocks stay with their pitcher, the grade loses its owner), then carded n times. The share
+    of runs that pass 'adds to Marcel' or show positive MSE skill (CI above 0) must stay near the 2.5% one-sided rate."""
+    global DRAWS
+    oc = CACHE.setdefault("oc", outcomes())
+    CACHE.setdefault("mc", marcel(oc))
+    rng, keep, DRAWS = np.random.default_rng(SEED), DRAWS, draws
+    hits = {"partial": 0, "mse_skill": 0, "marcel": 0}
+    try:
+        for _ in range(n):
+            g = oc[["mlbam", "season"]].assign(grade=oc.groupby("season")["k"].transform(lambda x: rng.permutation(x.to_numpy())))
+            card = season_card(g, COMMON)
+            for k in hits:
+                hits[k] += card[k]["composite"]["ci"][0] > 0
+    finally:
+        DRAWS = keep
+    res = {"runs": n, "draws": draws, "weighting": "next-season PA" if WEIGHTED else "none",
+           **{f"false_pass_{k}": round(v / n, 4) for k, v in hits.items()}}
+    (RES / f"null_check{'' if WEIGHTED else '_unweighted'}.json").write_text(json.dumps(res, indent=1))
+    return res
+
+
 def main(argv):
     OUT.mkdir(exist_ok=True)
     if "--pitches" in argv:
@@ -316,7 +430,10 @@ def main(argv):
         return
     CACHE["oc"] = oc = outcomes()
     CACHE["mc"] = marcel(oc)
-    argv = [a for a in argv if a != "--weighted"]
+    if "--null" in argv:
+        print(json.dumps(null_check(int(argv[argv.index("--null") + 1])), indent=1))
+        return
+    argv = [a for a in argv if a != "--unweighted"]
     files = [Path(x) for x in argv] or sorted(RES.glob("*_grades.csv"))
     todo = []
     for f in files:
