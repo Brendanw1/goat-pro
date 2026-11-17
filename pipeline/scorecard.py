@@ -3,6 +3,7 @@
     python scorecard.py                       # every results/*_grades.csv + the naive / Marcel baselines
     python scorecard.py results/kplus_grades.csv [more.csv ...]
     python scorecard.py --pitches cache/pred_s4_bb.parquet --pred pred --label whiff --mask swing --name whiff_plus
+    python scorecard.py --weighted            # every r weighted by next-season PA -> docs/model-scorecards-weighted.md
 
 Writes results/scorecards/<name>.json per model and rebuilds docs/model-scorecards.md (the leaderboard).
 
@@ -24,6 +25,13 @@ season_full over 2020..2025), pitchers resampled once across pairs (cluster_w).
   deciles       mean next outcome, top decile minus bottom decile, and monotonicity (Spearman over the 10 means)
 Outcomes: K/PA, BB/PA (sign flipped: fewer is better), (K-BB)/PA, RV/100, xRV/100. Composite = mean over
 K, K-BB, RV/100, xRV/100, the judge.py composite.
+--weighted: every correlation is weighted by the pitcher's next-season PA, so a 60-pitch call-up no longer counts
+as much as a 200-inning starter (the unweighted read is mostly sampling noise in the target: ceiling.py). It writes
+results/scorecards_weighted/ and its own leaderboard; the default (judge.py-exact) files are untouched.
+Leaderboard extras: K side = mean r over K/PA and (K-BB)/PA; run side = mean over RV/100 and xRV/100 (the composite
+is half strikeouts, so a K-only grade can top it without moving runs); share of ceiling = next r / the target's noise
+ceiling (results/ceilings.json, from ceiling.py); `*` on Pairs = under 95% of the largest population on the board,
+so that row is not like-for-like with the rest.
 Marcel: 5/4/3 on S, S-1, S-2 weighted by PA + 1,200 PA of league average (kproj.py). RV/100 and xRV/100 are
 PA-weighted too (pitch counts are not in the outcomes cache).
 
@@ -45,8 +53,9 @@ PIPE = Path(__file__).resolve().parent
 sys.path.insert(0, str(PIPE))
 from judge import _r, cluster_w  # noqa: E402
 
-RES, OUT = PIPE / "results", PIPE / "results" / "scorecards"
-DOC = PIPE.parent / "docs" / "model-scorecards.md"
+WEIGHTED = "--weighted" in sys.argv
+RES, OUT = PIPE / "results", PIPE / "results" / ("scorecards_weighted" if WEIGHTED else "scorecards")
+DOC = PIPE.parent / "docs" / ("model-scorecards-weighted.md" if WEIGHTED else "model-scorecards.md")
 REG = json.loads((PIPE / "scorecard_registry.json").read_text())
 OUTCOMES = {"k": 1, "bb": -1, "kbb": 1, "rv100": 1, "xrv100": 1}   # orientation: + = good for the pitcher
 COMPOSITE = ("k", "kbb", "rv100", "xrv100")
@@ -85,7 +94,7 @@ def marcel(oc):
 def pair_frames(g, oc, mc, pairs):
     q = oc[oc["n_taken"] >= 50]   # judge.py's population: the floor on the target season; S as the grade file has it
     cur = oc.merge(mc.add_prefix("m_").rename(columns={"m_mlbam": "mlbam", "m_season": "season"}), on=["mlbam", "season"])
-    nxt = q[["mlbam", "season", *OUTCOMES]].rename(columns={o: f"n_{o}" for o in OUTCOMES})
+    nxt = q[["mlbam", "season", "pa", *OUTCOMES]].rename(columns={"pa": "n_pa", **{o: f"n_{o}" for o in OUTCOMES}})
     gn = g.rename(columns={"grade": "grade_next"})
     ds = []
     for s0, s1 in pairs:
@@ -113,6 +122,8 @@ def season_card(g, pairs):
     acc = {k: [] for k in ("rel", "pred", "ic", "naive", "marcel", "partial", "dr2", "desc")}
     per_pair = {}
     for (s0, s1), d, w in zip(pairs, ds, ws):
+        if WEIGHTED:
+            w = w * d["n_pa"].to_numpy(float)   # bootstrap count x exposure in the target season
         G = _b(d["grade"], w)
         rank = lambda x: _b(pd.Series(x).rank().to_numpy(), w)  # noqa: E731
         p, ic, nv, mv, pt, r2, de = {}, {}, {}, {}, {}, {}, {}
@@ -228,6 +239,12 @@ def meta(name):
 def leaderboard():
     cards = {p.stem: json.loads(p.read_text()) for p in sorted(OUT.glob("*.json"))}
     f = lambda v: f"{v['est']:+.3f} [{v['ci'][0]:+.3f}, {v['ci'][1]:+.3f}]"  # noqa: E731
+    cp = RES / "ceilings.json"
+    ceil = ({k: v["weighted" if WEIGHTED else "unweighted"]["ceiling"] for k, v in json.loads(cp.read_text())["targets"].items()}
+            if cp.exists() else {})
+    share = lambda s, o: f"{s['pred'][o]['est'] / ceil[o]:.0%}" if o in ceil else ""  # noqa: E731
+    side = lambda s, os: np.mean([s["pred"][o]["est"] for o in os])  # noqa: E731
+    top = max((c["season"]["n_pairs"] for c in cards.values() if c.get("season")), default=0)
     rows = []
     for n, c in cards.items():
         s = c.get("season")
@@ -238,9 +255,10 @@ def leaderboard():
                else "adds to Marcel" if s["partial"]["composite"]["ci"][0] > 0
                else "no forecast edge")
         rows.append((s["pred"]["composite"]["est"], f"| {c['meta']['label']} | {c['meta']['status']} | {c['meta']['where']} "
-                     f"| {s['n_pairs']:,} | {s['spread']['sd']:.1f} | {s['reliability_yoy']['est']:.2f} "
-                     f"| {s['desc']['composite']['est']:.3f} | {f(s['pred']['composite'])} | {s['pred']['k']['est']:.3f} "
-                     f"| {s['pred']['rv100']['est']:.3f} | {f(s['marcel']['composite'])} "
+                     f"| {s['n_pairs']:,}{'*' if s['n_pairs'] < .95 * top else ''} | {s['spread']['sd']:.1f} | {s['reliability_yoy']['est']:.2f} "
+                     f"| {s['desc']['composite']['est']:.3f} | {f(s['pred']['composite'])} "
+                     f"| {side(s, ('k', 'kbb')):.3f} | {side(s, ('rv100', 'xrv100')):.3f} | {s['pred']['k']['est']:.3f} "
+                     f"| {share(s, 'k')} | {s['pred']['rv100']['est']:.3f} | {share(s, 'rv100')} | {f(s['marcel']['composite'])} "
                      f"| {f(s['partial']['composite'])} | {s['dr2']['composite']['est']:.3f} | {cls} |"))
     lines = [
         "# Model scorecards (MLB pitcher grades)",
@@ -249,16 +267,22 @@ def leaderboard():
         "which is spent for pitcher models, so this is a like-for-like comparison, not a confirmation. Pairs S -> S+1,",
         "2023-25 (the window every file covers), judge.py's population (>= 50 taken pitches in S+1), pitchers resampled once across pairs (2,000 draws).",
         "",
+        *(["**Weighted**: every r is weighted by the pitcher's next-season PA (`scorecard.py --weighted`).", ""] if WEIGHTED else []),
         "Composite = mean r over next-season K/PA, (K-BB)/PA, RV/100, xRV/100 (the judge.py composite).",
+        "K side = mean r over K/PA and (K-BB)/PA; run side = mean r over RV/100 and xRV/100. The composite is half",
+        "strikeouts, so read the two sides separately. Share of ceiling = next r / the target's noise ceiling, the r",
+        "a grade would reach knowing every pitcher's true talent in S"
+        + (f" (K/PA {ceil['k']:.2f}, RV/100 {ceil['rv100']:.2f}; `pipeline/ceiling.py`, pairs 2021-26)." if ceil else " (run `ceiling.py`)."),
+        "`*` on Pairs: under 95% of the largest population here, so that row is not like-for-like with the others.",
         "Class: *beats Marcel* = composite r minus the Marcel of each outcome, CI above 0. *adds to Marcel* = partial r",
         "with the next-season outcome given that outcome's Marcel (mean over the composite outcomes), CI above 0: it",
         "carries information Marcel lacks, even if it",
         "loses head to head (E13). *no forecast edge* = neither; it may still be a reliable descriptive grade (YoY r).",
         "These classes are evidence on spent data, not site roles: a role still needs its own pre-registered read.",
         "",
-        "| Model | Status | Where | Pairs | SD | YoY r | Same-season r | Next-season r (composite) | Next K | Next RV/100 "
-        "| vs Marcel | Partial r given Marcel | dR2 | Class |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Model | Status | Where | Pairs | SD | YoY r | Same-season r | Next-season r (composite) | K side | Run side "
+        "| Next K | K share of ceiling | Next RV/100 | RV share of ceiling | vs Marcel | Partial r given Marcel | dR2 | Class |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         *[r for _, r in sorted(rows, key=lambda t: -t[0])],
     ]
     pc = [(n, c) for n, c in cards.items() if c.get("pitch")]
@@ -292,6 +316,7 @@ def main(argv):
         return
     CACHE["oc"] = oc = outcomes()
     CACHE["mc"] = marcel(oc)
+    argv = [a for a in argv if a != "--weighted"]
     files = [Path(x) for x in argv] or sorted(RES.glob("*_grades.csv"))
     todo = []
     for f in files:
