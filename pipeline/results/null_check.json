@@ -1,0 +1,8 @@
+{
+ "runs": 10,
+ "draws": 300,
+ "weighting": "next-season PA",
+ "false_pass_partial": 0.0,
+ "false_pass_mse_skill": 0.0,
+ "false_pass_marcel": 0.0
+}

@@ -10,6 +10,8 @@ Outcome panel per pitcher-season (regular season, >= 50 taken pitches in both se
 Composite = mean over the four outcomes of the pooled delta r (B minus A), pooled = mean over the
 season pairs. Pitchers are resampled within each pair; the same draws serve every outcome, so the
 composite CI is joint. --skip drops a pair's start season (e.g. 2023 for runs tuned on 2023->24).
+Weighting (Fable 1.2, 2026-11-17): every r is weighted by the pitcher's PA in S+1 by default; --unweighted gives the
+pre-2026-11-17 numbers (every dr in RESULTS-MLB.md before then is unweighted). The JSON records which.
 """
 import json
 import os
@@ -25,6 +27,7 @@ from train_mlb import TRAIN_SEASONS, mart  # noqa: E402
 
 LO = int(os.environ.get("GOAT_LO", 2023))
 OUTCOMES = ("k", "kbb", "rv100", "xrv100")
+WEIGHTED = "--unweighted" not in sys.argv
 PITCHERS = sys.argv[sys.argv.index("--pitchers") + 1] if "--pitchers" in sys.argv else ""
 CACHE = Path(__file__).resolve().parent.parent / "cache" / f"outcomes_{LO}.parquet"
 
@@ -93,6 +96,8 @@ def judge(path_a, path_b, skip=(), draws=2000, seed=13):
         ds.append(d.merge(oc[oc["season"] == s1].drop(columns="season"), on="mlbam").dropna(subset=list(OUTCOMES)))
     for (s0, s1), d, w in zip(pairs, ds, cluster_w([d["mlbam"] for d in ds], rng, draws)):
         n = len(d)
+        if WEIGHTED:
+            w = w * d["pa"].to_numpy(float)
         res = {}
         for o in OUTCOMES:
             y = np.broadcast_to(d[o].to_numpy(), w.shape)
@@ -101,7 +106,7 @@ def judge(path_a, path_b, skip=(), draws=2000, seed=13):
         per_pair[f"{s0}->{s1}"] = {"n": n, **{o: float(res[o][0]) for o in OUTCOMES}}
         boot.append(np.vstack([res[o] for o in OUTCOMES]))  # outcomes x (1 + draws)
     B = np.mean(boot, axis=0)  # pooled over pairs: outcomes x (1 + draws)
-    out = {"pairs": per_pair}
+    out = {"weighting": "next-season PA" if WEIGHTED else "none", "pairs": per_pair}
     for i, o in enumerate(list(OUTCOMES) + ["composite"]):
         v = B.mean(0) if o == "composite" else B[i]
         out[o] = {"dr": float(v[0]), "se": float(v[1:].std()), "ci": [float(x) for x in np.percentile(v[1:], [2.5, 97.5])]}
