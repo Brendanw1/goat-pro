@@ -1,0 +1,220 @@
+{
+ "pred": "pred_swing_xrv_dml.parquet",
+ "checkpoints": {
+  "100": {
+   "n_pitcher_seasons": 3351,
+   "wps": {
+    "grade_r": 0.3375,
+    "results_r": 0.44,
+    "grade_minus_results": -0.1026,
+    "ci": [
+     -0.1505,
+     -0.0573
+    ]
+   },
+   "k": {
+    "grade_r": 0.3735,
+    "results_r": 0.3928,
+    "grade_minus_results": -0.0193,
+    "ci": [
+     -0.0633,
+     0.0293
+    ]
+   },
+   "rv100": {
+    "grade_r": 0.2136,
+    "results_r": 0.0923,
+    "grade_minus_results": 0.1213,
+    "ci": [
+     0.0682,
+     0.1717
+    ]
+   }
+  },
+  "200": {
+   "n_pitcher_seasons": 3011,
+   "wps": {
+    "grade_r": 0.3703,
+    "results_r": 0.551,
+    "grade_minus_results": -0.1807,
+    "ci": [
+     -0.2258,
+     -0.1345
+    ]
+   },
+   "k": {
+    "grade_r": 0.4132,
+    "results_r": 0.4945,
+    "grade_minus_results": -0.0813,
+    "ci": [
+     -0.1237,
+     -0.0364
+    ]
+   },
+   "rv100": {
+    "grade_r": 0.2341,
+    "results_r": 0.1417,
+    "grade_minus_results": 0.0923,
+    "ci": [
+     0.0382,
+     0.1443
+    ]
+   }
+  },
+  "300": {
+   "n_pitcher_seasons": 2722,
+   "wps": {
+    "grade_r": 0.384,
+    "results_r": 0.6192,
+    "grade_minus_results": -0.2352,
+    "ci": [
+     -0.279,
+     -0.1854
+    ]
+   },
+   "k": {
+    "grade_r": 0.4266,
+    "results_r": 0.549,
+    "grade_minus_results": -0.1224,
+    "ci": [
+     -0.1632,
+     -0.075
+    ]
+   },
+   "rv100": {
+    "grade_r": 0.2443,
+    "results_r": 0.1791,
+    "grade_minus_results": 0.0653,
+    "ci": [
+     0.0085,
+     0.1199
+    ]
+   }
+  },
+  "500": {
+   "n_pitcher_seasons": 2196,
+   "wps": {
+    "grade_r": 0.4129,
+    "results_r": 0.685,
+    "grade_minus_results": -0.2721,
+    "ci": [
+     -0.3183,
+     -0.2242
+    ]
+   },
+   "k": {
+    "grade_r": 0.4376,
+    "results_r": 0.6105,
+    "grade_minus_results": -0.1729,
+    "ci": [
+     -0.2189,
+     -0.1258
+    ]
+   },
+   "rv100": {
+    "grade_r": 0.2313,
+    "results_r": 0.2187,
+    "grade_minus_results": 0.0126,
+    "ci": [
+     -0.0475,
+     0.0747
+    ]
+   }
+  },
+  "750": {
+   "n_pitcher_seasons": 1474,
+   "wps": {
+    "grade_r": 0.4083,
+    "results_r": 0.7156,
+    "grade_minus_results": -0.3072,
+    "ci": [
+     -0.3543,
+     -0.2592
+    ]
+   },
+   "k": {
+    "grade_r": 0.4406,
+    "results_r": 0.6429,
+    "grade_minus_results": -0.2023,
+    "ci": [
+     -0.2516,
+     -0.1547
+    ]
+   },
+   "rv100": {
+    "grade_r": 0.252,
+    "results_r": 0.2559,
+    "grade_minus_results": -0.004,
+    "ci": [
+     -0.0747,
+     0.0708
+    ]
+   }
+  },
+  "1000": {
+   "n_pitcher_seasons": 994,
+   "wps": {
+    "grade_r": 0.3966,
+    "results_r": 0.7018,
+    "grade_minus_results": -0.3052,
+    "ci": [
+     -0.3696,
+     -0.2381
+    ]
+   },
+   "k": {
+    "grade_r": 0.4486,
+    "results_r": 0.6433,
+    "grade_minus_results": -0.1948,
+    "ci": [
+     -0.2474,
+     -0.1359
+    ]
+   },
+   "rv100": {
+    "grade_r": 0.2706,
+    "results_r": 0.2758,
+    "grade_minus_results": -0.0052,
+    "ci": [
+     -0.0714,
+     0.0754
+    ]
+   }
+  },
+  "1500": {
+   "n_pitcher_seasons": 699,
+   "wps": {
+    "grade_r": 0.425,
+    "results_r": 0.7369,
+    "grade_minus_results": -0.3118,
+    "ci": [
+     -0.375,
+     -0.2389
+    ]
+   },
+   "k": {
+    "grade_r": 0.4818,
+    "results_r": 0.6704,
+    "grade_minus_results": -0.1887,
+    "ci": [
+     -0.2443,
+     -0.1352
+    ]
+   },
+   "rv100": {
+    "grade_r": 0.2724,
+    "results_r": 0.3247,
+    "grade_minus_results": -0.0523,
+    "ci": [
+     -0.1423,
+     0.0407
+    ]
+   }
+  }
+ },
+ "crossover_pitches": {
+  "wps": 100,
+  "k": 100,
+  "rv100": 750
+ }
+}

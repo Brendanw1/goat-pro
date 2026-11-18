@@ -2,6 +2,7 @@
 outcome rows across pairs). Needs cache/outcomes_2020.parquet; skipped without it."""
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 import scorecard as sc
@@ -58,3 +59,21 @@ def test_shuffled_grade_rarely_passes():
     """Fable 1.7: a grade shuffled across pitchers passes 'adds to Marcel' or MSE skill in few of 10 runs."""
     res = sc.null_check(10, draws=300)
     assert res["false_pass_partial"] <= .2 and res["false_pass_mse_skill"] <= .2
+
+
+def test_survivorship_weights():
+    """Fable 1.6: IPW weights average 1 per season, keep at least half the effective N, and up-weight the kind of
+    pitcher who tends not to return (fewer PA in S)."""
+    oc = sc.outcomes()
+    w, info = sc.ipw(oc)
+    assert (w.groupby("season")["ipw"].mean() - 1).abs().max() < 1e-9
+    assert info["ess_share"] >= .5 and 0 < info["return_rate"] < 1
+    m = w.merge(oc, on=["mlbam", "season"])
+    assert np.corrcoef(np.log(m["pa"]), m["ipw"])[0, 1] < 0
+
+
+def test_extras_cover_the_population():
+    """Fable 1.5: GB and xwOBAcon exist for nearly every pitcher-season at the judge floor."""
+    oc = sc.outcomes()
+    q = oc[oc["n_taken"] >= 50]
+    assert q["gb"].notna().mean() > .99 and q["xwobacon"].notna().mean() > .99

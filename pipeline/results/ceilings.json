@@ -96,6 +96,25 @@
     "ceiling": 0.455,
     "oracle": 0.622
    }
+  },
+  "xwobacon": {
+   "pairs": 2698,
+   "unweighted": {
+    "rel_s": 0.093,
+    "rel_s1": 0.155,
+    "yoy": 0.129,
+    "talent_yoy": 1.0,
+    "ceiling": 0.394,
+    "oracle": 0.394
+   },
+   "weighted": {
+    "rel_s": 0.196,
+    "rel_s1": 0.236,
+    "yoy": 0.176,
+    "talent_yoy": 0.82,
+    "ceiling": 0.398,
+    "oracle": 0.486
+   }
   }
  }
 }
