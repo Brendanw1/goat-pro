@@ -23,13 +23,21 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from train_mlb import TRAIN_SEASONS, mart  # noqa: E402
 
 LO = int(os.environ.get("GOAT_LO", 2023))
 OUTCOMES = ("k", "kbb", "rv100", "xrv100")
 WEIGHTED = "--unweighted" not in sys.argv
 PITCHERS = sys.argv[sys.argv.index("--pitchers") + 1] if "--pitchers" in sys.argv else ""
-CACHE = Path(__file__).resolve().parent.parent / "cache" / f"outcomes_{LO}.parquet"
+SALT = sys.argv[sys.argv.index("--salt") + 1] if "--salt" in sys.argv else "p7"   # "fable" = Fable kit seal (3.1)
+# Fable kit mode (setup doc section 2): outcomes come only from the kit's dev file; the mart is never opened and a
+# sealed pitcher in that file is an error, not a filter.
+KIT = os.environ.get("FABLE_OUTCOMES")
+CACHE = Path(KIT) if KIT else Path(__file__).resolve().parent.parent / "cache" / f"outcomes_{LO}.parquet"
+
+
+def sealed(ids, salt):
+    """Pitcher seal: crc32(f"{salt}:{id}") % 5 == 0, about 20% of pitchers."""
+    return pd.Series([zlib.crc32(f"{salt}:{i}".encode()) % 5 == 0 for i in ids], index=getattr(ids, "index", None))
 
 SQL = """
 SELECT season, pitcher, balls, strikes, -delta_run_exp AS rv,
@@ -43,8 +51,13 @@ FROM pitches_all WHERE game_type = 'R' AND season BETWEEN {lo} AND 2026
 
 
 def outcomes() -> pd.DataFrame:
+    if KIT:
+        oc = pd.read_parquet(CACHE)
+        assert not sealed(oc["mlbam"], "fable").any(), "sealed fable: pitchers in the kit outcomes file"
+        return oc
     if CACHE.exists():
         return pd.read_parquet(CACHE)
+    from train_mlb import TRAIN_SEASONS, mart
     df = mart.connect().sql(SQL.format(lo=LO)).df()
     fit = df["season"].isin(TRAIN_SEASONS) & df["bip"] & df["xwoba"].notna() & df["rv"].notna()
     coef = {k: np.polyfit(g["xwoba"], g["rv"], 1) for k, g in df[fit].groupby(["balls", "strikes"])}
@@ -83,9 +96,9 @@ def cluster_w(ids, rng, draws):
 def judge(path_a, path_b, skip=(), draws=2000, seed=13):
     oc = outcomes()
     oc = oc[oc["n_taken"] >= 50]
-    if PITCHERS:  # P7 pitcher seal: dev = 80%, sealed = crc32("p7:" + id) % 5 == 0
-        sealed = oc["mlbam"].map(lambda p: zlib.crc32(f"p7:{p}".encode()) % 5 == 0)
-        oc = oc[sealed if PITCHERS == "sealed" else ~sealed]
+    if PITCHERS:  # pitcher seal: dev = 80%, sealed = crc32(salt + ":" + id) % 5 == 0 (P7: "p7", Fable: "fable")
+        s = sealed(oc["mlbam"], SALT)
+        oc = oc[s if PITCHERS == "sealed" else ~s]
     a = pd.read_csv(path_a).rename(columns={"grade": "ga"})
     b = pd.read_csv(path_b).rename(columns={"grade": "gb"})
     rng = np.random.default_rng(seed)
@@ -119,4 +132,6 @@ if __name__ == "__main__":
     for o in list(OUTCOMES) + ["composite"]:
         print(f"{o:9} pooled dr {res[o]['dr']:+.4f}  se {res[o]['se']:.4f}  ci [{res[o]['ci'][0]:+.4f}, {res[o]['ci'][1]:+.4f}]")
     tag = Path(sys.argv[2]).stem.replace("_grades", "").replace("crossfit_v2_", "") + (f"_{PITCHERS}" if PITCHERS else "")
-    (Path(__file__).resolve().parent / "results" / f"judge_{tag}.json").write_text(json.dumps(res, indent=1))
+    tag += f"_{SALT}" if PITCHERS and SALT != "p7" else ""
+    out_dir = Path(sys.argv[sys.argv.index("--out") + 1]) if "--out" in sys.argv else Path(__file__).resolve().parent / "results"
+    (out_dir / f"judge_{tag}.json").write_text(json.dumps(res, indent=1))
