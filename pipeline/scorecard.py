@@ -62,7 +62,8 @@ WEIGHTED = "--unweighted" not in sys.argv   # default since Fable 1.2: verdicts 
 RES, OUT = PIPE / "results", PIPE / "results" / ("scorecards" if WEIGHTED else "scorecards_unweighted")
 DOC = PIPE.parent / "docs" / ("model-scorecards.md" if WEIGHTED else "model-scorecards-unweighted.md")
 REG = json.loads((PIPE / "scorecard_registry.json").read_text())
-OUTCOMES = {"k": 1, "bb": -1, "kbb": 1, "rv100": 1, "xrv100": 1}   # orientation: + = good for the pitcher
+OUTCOMES = {"k": 1, "bb": -1, "kbb": 1, "rv100": 1, "xrv100": 1,   # orientation: + = good for the pitcher
+            "gb": 1, "xwobacon": -1}   # Fable 1.5: GB/BIP and xwOBA on contact (not in the judge composite)
 COMPOSITE = ("k", "kbb", "rv100", "xrv100")
 COMMON = [(s, s + 1) for s in range(2023, 2026)]   # every grade file covers these: the like-for-like window
 FULL = [(s, s + 1) for s in range(2020, 2026)]
@@ -71,9 +72,31 @@ Z_MDE = 1.96 + 0.84   # two-sided .05, power .80: minimum detectable effect = Z_
 TRAIN = (2023, 2024)
 
 
+EXTRA_SQL = """
+SELECT pitcher AS mlbam, season,
+       count(*) FILTER (description = 'hit_into_play') AS bip,
+       count(*) FILTER (description = 'hit_into_play' AND bb_type = 'ground_ball') AS n_gb,
+       avg(estimated_woba_using_speedangle) FILTER (description = 'hit_into_play') AS xwobacon
+FROM pitches_all WHERE game_type = 'R' AND season BETWEEN 2020 AND 2026 GROUP BY 1, 2
+"""
+
+
+def extras():
+    """GB/BIP and xwOBA on contact per pitcher-season (Fable 1.5), cached apart from outcomes_2020.parquet."""
+    path = PIPE.parent / "cache" / "outcomes_extra_2020.parquet"
+    if not path.exists():
+        from train_mlb import mart
+        mart.connect().sql(EXTRA_SQL).df().to_parquet(path)
+    ex = pd.read_parquet(path)
+    return ex.assign(gb=ex["n_gb"] / ex["bip"].where(ex["bip"] > 0))[["mlbam", "season", "bip", "gb", "xwobacon"]]
+
+
 def outcomes():
     oc = pd.read_parquet(PIPE.parent / "cache" / "outcomes_2020.parquet")
+    oc = oc.merge(extras(), on=["mlbam", "season"], how="left")
     oc["bb"] = oc["bb"] / oc["pa"]
+    for o in ("gb", "xwobacon"):   # no balls in play: the season mean, i.e. Marcel's prior (keeps league means finite)
+        oc[o] = oc[o].fillna(oc.groupby("season")[o].transform("mean"))
     for o, sgn in OUTCOMES.items():
         oc[o] = sgn * oc[o]
     return oc
@@ -164,12 +187,39 @@ def projection_error(d, w, beta):
     return out
 
 
-def season_card(g, pairs):
+def ipw(oc):
+    """Fable 1.6: inverse probability of returning. Who pitches in S+1 (>= 50 taken pitches) is modelled from S
+    alone (log PA, K, BB, RV/100, xRV/100, GB, season), so returners like the pitchers who did not return count for
+    them. Logistic on pitchers with >= 50 taken pitches in S; weights 1/p for returners, capped at their 99th
+    percentile, scaled to mean 1 per season. Returns mlbam, season (= S), ipw, and the effective-N share."""
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler
+    base = oc[(oc["n_taken"] >= 50) & (oc["season"] < 2026)].copy()
+    nxt = oc.loc[oc["n_taken"] >= 50, ["mlbam", "season"]].assign(season=lambda d: d["season"] - 1, back=1)
+    base = base.merge(nxt, on=["mlbam", "season"], how="left").fillna({"back": 0})
+    cols = ["k", "bb", "rv100", "xrv100", "gb"]
+    X = base[cols].fillna(base[cols].median()).assign(lpa=np.log(base["pa"].clip(lower=1)))
+    X = pd.concat([X, pd.get_dummies(base["season"], prefix="s", dtype=float)], axis=1)
+    p = LogisticRegression(max_iter=2000).fit(StandardScaler().fit_transform(X), base["back"]).predict_proba(
+        StandardScaler().fit_transform(X))[:, 1]
+    base["ipw"] = 1 / np.clip(p, .02, 1)
+    r = base[base["back"] == 1].copy()
+    r["ipw"] = r["ipw"].clip(upper=r["ipw"].quantile(.99))
+    r["ipw"] = r["ipw"] / r.groupby("season")["ipw"].transform("mean")
+    ess = float(r["ipw"].sum() ** 2 / (r["ipw"] ** 2).sum() / len(r))
+    return r[["mlbam", "season", "ipw"]], {"return_rate": round(float(base["back"].mean()), 3), "ess_share": round(ess, 3)}
+
+
+def season_card(g, pairs, use_ipw=False):
     oc, mc = CACHE["oc"], CACHE["mc"]
     ds = pair_frames(g, oc, mc, pairs)
     ws = cluster_w([d["mlbam"] for d in ds], np.random.default_rng(SEED), DRAWS)
     if WEIGHTED:   # bootstrap count x exposure in the target season
         ws = [w * d["n_pa"].to_numpy(float) for d, w in zip(ds, ws)]
+    if use_ipw:
+        iw = CACHE["ipw"][0]
+        ws = [w * d[["mlbam", "season"]].merge(iw, on=["mlbam", "season"], how="left")["ipw"].fillna(1).to_numpy()
+              for d, w in zip(ds, ws)]
     betas = crossfit_beta(ds, ws)
     acc = {k: [] for k in ("rel", "pred", "ic", "naive", "marcel", "partial", "dr2", "desc", "change",
                            "mse_skill", "cal_slope", "ll_skill")}
@@ -298,6 +348,14 @@ def meta(name):
     return REG.get(name, {"label": name, "status": "research", "where": ""})
 
 
+def klass(s, c):
+    """Leaderboard class from composite summaries {"marcel": .., "partial": ..}."""
+    return ("baseline" if c["meta"]["status"] == "baseline"
+            else "beats Marcel" if s["marcel"]["ci"][0] > 0
+            else "adds to Marcel" if s["partial"]["ci"][0] > 0
+            else "no forecast edge")
+
+
 def leaderboard():
     cards = {p.stem: json.loads(p.read_text()) for p in sorted(OUT.glob("*.json"))}
     f = lambda v: f"{v['est']:+.3f} [{v['ci'][0]:+.3f}, {v['ci'][1]:+.3f}]"  # noqa: E731
@@ -318,12 +376,12 @@ def leaderboard():
                         f"| {f(ms['composite'])} | {ms['k']['est']:+.4f} | {ms['bb']['est']:+.4f} | {ms['rv100']['est']:+.4f} "
                         f"| {s['ll_skill']['k']['est']:+.4f} | {s['ll_skill']['bb']['est']:+.4f} "
                         f"| {s['pred']['bb']['est']:.3f} | {share(s, 'bb')} | {s['cal_slope']['composite']['est']:.2f} "
+                        f"| {s['pred']['gb']['est']:.3f} | {share(s, 'gb')} | {s['mse_skill']['gb']['est']:+.4f} "
+                        f"| {s['pred']['xwobacon']['est']:.3f} | {share(s, 'xwobacon')} "
+                        f"| {f(s['ipw']['partial']) if 'ipw' in s else ''} | {klass(s.get('ipw'), c) if 'ipw' in s else ''} "
                         f"| {s['partial']['composite']['mde']:.3f} "
                         f"| {s['partial']['composite']['mde_seal20']:.3f} |"))
-        cls = ("baseline" if c["meta"]["status"] == "baseline"
-               else "beats Marcel" if s["marcel"]["composite"]["ci"][0] > 0
-               else "adds to Marcel" if s["partial"]["composite"]["ci"][0] > 0
-               else "no forecast edge")
+        cls = klass({k: s[k]["composite"] for k in ("marcel", "partial")}, c)
         rows.append((s["pred"]["composite"]["est"], f"| {c['meta']['label']} | {c['meta']['status']} | {c['meta']['where']} "
                      f"| {s['n_pairs']:,}{'*' if s['n_pairs'] < .95 * top else ''} | {s['spread']['sd']:.1f} | {s['reliability_yoy']['est']:.2f} "
                      f"| {s['desc']['composite']['est']:.3f} | {f(s['pred']['composite'])} "
@@ -368,12 +426,17 @@ def leaderboard():
         "outcome on the projection (1 = calibrated; below 1 = the projection spreads pitchers too far). Next BB r is",
         "oriented: + = fewer walks. MDE: smallest partial-r gain (composite) detectable at",
         "power .80 on all pitchers, and on a 20% pitcher seal; below it, a seal read is underpowered.",
+        "GB = ground balls per ball in play, xwOBAcon = xwOBA on contact (oriented: + = less damage); neither is in the",
+        "composite (Fable 1.5). IPW: the card re-run with each returner weighted by 1 / P(pitches in S+1 | S stats), so",
+        "the pitchers who lost their job are represented (Fable 1.6); a Class, IPW different from Class is a verdict",
+        "that rests on survivors.",
         "Change r (grade change vs outcome change, in each JSON) is not shown: for a grade built from results it is",
         "the same-season identity, not \"moves with the player\"; the clean split-half version is Fable 1.8.",
         "",
         "| Model | Pairs | MSE skill vs Marcel (composite) | K | BB | RV/100 | Log-loss skill K | Log-loss skill BB | Next BB r "
-        "| BB share of ceiling | Cal slope | MDE all | MDE 20% seal |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| BB share of ceiling | Cal slope | Next GB r | GB share of ceiling | MSE skill GB | Next xwOBAcon r "
+        "| xwOBAcon share of ceiling | Partial r given Marcel, IPW | Class, IPW | MDE all | MDE 20% seal |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         *[r for _, r in sorted(err, key=lambda t: -t[0])],
     ]
     pc = [(n, c) for n, c in cards.items() if c.get("pitch")]
@@ -430,6 +493,8 @@ def main(argv):
         return
     CACHE["oc"] = oc = outcomes()
     CACHE["mc"] = marcel(oc)
+    CACHE["ipw"] = ipw(oc)
+    print("survivorship:", CACHE["ipw"][1], flush=True)
     if "--null" in argv:
         print(json.dumps(null_check(int(argv[argv.index("--null") + 1])), indent=1))
         return
@@ -452,6 +517,9 @@ def main(argv):
         path = OUT / f"{name}.json"
         card = json.loads(path.read_text()) if path.exists() else {}
         card.update({"meta": meta(name), "season": season_card(g, COMMON)})
+        sub = season_card(g, COMMON, use_ipw=True)   # Fable 1.6: the same card, survivorship-weighted
+        card["season"]["ipw"] = {**{k: sub[k]["composite"] for k in ("marcel", "partial", "mse_skill")},
+                                 **CACHE["ipw"][1]}
         if g["season"].min() <= 2020:   # also the full 2020-26 window, for the files that have it
             card["season_full"] = season_card(g, FULL)
         path.write_text(json.dumps(card, indent=1))

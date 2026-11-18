@@ -21,7 +21,8 @@ import numpy as np
 import pandas as pd
 
 PIPE = Path(__file__).resolve().parent
-RATES = {"k": ("k", "pa"), "bb": ("bb", "pa"), "kbb": ("kbb", "pa"), "gb": ("gb", "bip"), "rv100": ("rv", "n_rv")}
+RATES = {"k": ("k", "pa"), "bb": ("bb", "pa"), "kbb": ("kbb", "pa"), "gb": ("gb", "bip"), "rv100": ("rv", "n_rv"),
+         "xwobacon": ("xwc", "bip_x")}
 SQL = """
 SELECT pitcher AS mlbam, season, game_pk, min(game_date) AS date,
        count(*) FILTER (description <> 'hit_into_play') AS n_taken,
@@ -30,7 +31,9 @@ SELECT pitcher AS mlbam, season, game_pk, min(game_date) AS date,
        count(*) FILTER (events IN ('strikeout', 'strikeout_double_play')) AS k,
        count(*) FILTER (events IN ('walk', 'intent_walk')) AS bb,
        count(*) FILTER (bb_type = 'ground_ball') AS gb,
-       count(*) FILTER (description = 'hit_into_play') AS bip
+       count(*) FILTER (description = 'hit_into_play') AS bip,
+       sum(estimated_woba_using_speedangle) FILTER (description = 'hit_into_play') AS xwc,
+       count(estimated_woba_using_speedangle) FILTER (description = 'hit_into_play') AS bip_x
 FROM pitches_all WHERE game_type = 'R' AND season BETWEEN 2021 AND 2026 GROUP BY 1, 2, 3
 """
 
@@ -71,8 +74,9 @@ def demo():
         p = rng.beta(22, 78)
         for s in (2021, 2022):
             for d in range(20):
-                rows.append((m, s, d, 20, 20, rng.binomial(20, p), 0, rng.normal(), 20, rng.binomial(20, .4), 20))
-    g = pd.DataFrame(rows, columns=["mlbam", "season", "date", "n_taken", "pa", "k", "bb", "rv", "n_rv", "gb", "bip"])
+                rows.append((m, s, d, 20, 20, rng.binomial(20, p), 0, rng.normal(), 20, rng.binomial(20, .4), 20, rng.normal(), 20))
+    g = pd.DataFrame(rows, columns=["mlbam", "season", "date", "n_taken", "pa", "k", "bb", "rv", "n_rv", "gb", "bip",
+                                    "xwc", "bip_x"])
     with np.errstate(invalid="ignore"):   # the noise-only rv column has no reliability
         c = ceilings(g)["k"]["unweighted"]
     assert c["talent_yoy"] > .93 and abs(c["ceiling"] - np.sqrt(c["rel_s1"])) < .05, c
