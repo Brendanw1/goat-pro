@@ -15,6 +15,7 @@ sealed read is run by us on the full mart (judge.py --salt fable --pitchers seal
 """
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,7 @@ import pandas as pd
 PIPE = Path(__file__).resolve().parent
 sys.path.insert(0, str(PIPE))
 from judge import sealed  # noqa: E402
+from paths import VT_ROOT  # noqa: E402
 
 SALT = "fable"
 # 3.2: change_test + crossfit_v2 read dev/ under FABLE_DEV (train_mlb.DEV); their imports ride along so the frozen
@@ -33,6 +35,9 @@ SALT = "fable"
 FROZEN = ("pipeline/judge.py", "pipeline/change_test.py", "pipeline/crossfit_v2.py", "pipeline/train_mlb.py",
           "pipeline/stuff_v2.py", "pipeline/physics.py", "pipeline/paths.py")
 MLB_SEASONS = range(2021, 2026)
+# 3.2b: the college judge lives in the private BaseballGOAT repo; frozen from its origin/main into judge/college/
+COLLEGE_REPO = Path(os.environ.get("BASEBALLGOAT", VT_ROOT / "BaseballGOAT"))
+COLLEGE_FROZEN = ("research/fable-phase2/rejudge.py",)
 ID_COLS = ("mlbam", "pitcher", "pid", "PitcherKey")   # first present = the sealed unit (college: pid, not the raw key)
 
 
@@ -40,20 +45,27 @@ def sha(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 
-def freeze(kit):
+def freeze(kit, college=True):
     kit = Path(kit)
-    (kit / "judge").mkdir(parents=True, exist_ok=True)
-    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=PIPE, capture_output=True, text=True, check=True).stdout.strip()
+    (kit / "judge" / "college").mkdir(parents=True, exist_ok=True)
+    git = lambda cwd, *a: subprocess.run(["git", *a], cwd=cwd, capture_output=True, check=True).stdout
+    head = git(PIPE, "rev-parse", "HEAD").decode().strip()
+    files = [(PIPE, "HEAD", f, Path(f).name) for f in FROZEN]
+    meta = {}
+    if college:   # never silently skipped: a real freeze needs the BaseballGOAT checkout
+        git(COLLEGE_REPO, "fetch", "-q", "origin")
+        meta["baseballgoat_commit"] = git(COLLEGE_REPO, "rev-parse", "origin/main").decode().strip()
+        files += [(COLLEGE_REPO, "origin/main", f, f"college/{Path(f).name}") for f in COLLEGE_FROZEN]
     sums = {}
-    for f in FROZEN:   # from the commit, not the working tree, so the hash names reviewed code
-        body = subprocess.run(["git", "show", f"HEAD:{f}"], cwd=PIPE, capture_output=True, check=True).stdout
-        dst = kit / "judge" / Path(f).name
+    for cwd, ref, f, name in files:   # from the commit, not the working tree, so the hash names reviewed code
+        body = git(cwd, "show", f"{ref}:{f}")
+        dst = kit / "judge" / name
         dst.unlink(missing_ok=True)   # re-freeze (a deliberate re-hash) replaces the read-only copy
         dst.write_bytes(body)
         dst.chmod(0o444)
-        sums[dst.name] = hashlib.sha256(body).hexdigest()
+        sums[name] = hashlib.sha256(body).hexdigest()
     (kit / "judge" / "SHA256SUMS").write_text("".join(f"{h}  {n}\n" for n, h in sums.items()))
-    (kit / "KIT.json").write_text(json.dumps({"step": "3.2", "goat_pro_commit": head, "frozen": date.today().isoformat(),
+    (kit / "KIT.json").write_text(json.dumps({"step": "3.2b", "goat_pro_commit": head, **meta, "frozen": date.today().isoformat(),
                                               "seal": f'crc32("{SALT}:" + id) % 5 == 0', "sha256": sums,
                                               "label": "pitcher-held-out, not time-held-out"}, indent=1))
     return sums
@@ -123,8 +135,8 @@ def demo():
         pd.DataFrame({"mlbam": ids[:50]}).to_parquet(Path(t) / "dev/leak.parquet")
         pd.DataFrame({"pid": clean[:50].astype(str), "PitcherKey": ids[:50].astype(str)}).to_parquet(Path(t) / "dev/key.parquet")
         assert list(check(t)) == [str(Path(t) / "dev/leak.parquet")]
-        freeze(t)
-        freeze(t)   # re-freeze over the read-only copies
+        freeze(t, college=False)
+        freeze(t, college=False)   # re-freeze over the read-only copies
         assert verify(t) == []
         f = Path(t) / "judge/judge.py"
         f.chmod(0o644)
