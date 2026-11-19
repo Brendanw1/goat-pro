@@ -48,6 +48,7 @@ def freeze(kit):
     for f in FROZEN:   # from the commit, not the working tree, so the hash names reviewed code
         body = subprocess.run(["git", "show", f"HEAD:{f}"], cwd=PIPE, capture_output=True, check=True).stdout
         dst = kit / "judge" / Path(f).name
+        dst.unlink(missing_ok=True)   # re-freeze (a deliberate re-hash) replaces the read-only copy
         dst.write_bytes(body)
         dst.chmod(0o444)
         sums[dst.name] = hashlib.sha256(body).hexdigest()
@@ -123,6 +124,7 @@ def demo():
         pd.DataFrame({"pid": clean[:50].astype(str), "PitcherKey": ids[:50].astype(str)}).to_parquet(Path(t) / "dev/key.parquet")
         assert list(check(t)) == [str(Path(t) / "dev/leak.parquet")]
         freeze(t)
+        freeze(t)   # re-freeze over the read-only copies
         assert verify(t) == []
         f = Path(t) / "judge/judge.py"
         f.chmod(0o644)
