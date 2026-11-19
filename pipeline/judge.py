@@ -107,6 +107,8 @@ def judge(path_a, path_b, skip=(), draws=2000, seed=13):
     for s0, s1 in pairs:
         d = a[a["season"] == s0].merge(b[b["season"] == s0], on=["mlbam", "season"])
         ds.append(d.merge(oc[oc["season"] == s1].drop(columns="season"), on="mlbam").dropna(subset=list(OUTCOMES)))
+    keep = [i for i, d in enumerate(ds) if len(d)]   # a pair with no outcomes (2025->26 in the Fable dev kit) drops out
+    pairs, ds = [pairs[i] for i in keep], [ds[i] for i in keep]
     for (s0, s1), d, w in zip(pairs, ds, cluster_w([d["mlbam"] for d in ds], rng, draws)):
         n = len(d)
         if WEIGHTED:

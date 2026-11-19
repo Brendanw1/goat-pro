@@ -96,6 +96,8 @@ def grade_seasons(df, boosters, refs, seasons=GRADE_SEASONS):
     """season_grades over the requested seasons; returns (grade rows, scored)."""
     rows, scored_frames = [], []
     for season in seasons:
+        if not (df["season"] == season).any():   # e.g. 2026 in the Fable dev kit (2021-25 only)
+            continue
         r, scored = season_grades(df[df["season"] == season], "stuff",
                                   boosters, refs, FEATURES)
         rows += r
