@@ -85,11 +85,36 @@ A FAIL gets a data / handling / modeling diagnosis, flagged when it could be our
 
 ## Development (2001-2007; nothing here is a claim)
 
-DEV_PLACEHOLDER
+`component_wrc.py dev` (2026-11-19, about 10 s): 7 seasons, 1.31M PA rows, 35 park cells per read. Every number is
+in `results/component_wrc_dev.json`.
+
+- **SCALE** (wOBA scale for the fixed weights) = 1 / slope of team-season R/PA on team-season wOBA, 210 dev
+  team-seasons: **1.3163**. lgR/PA per season .120-.125 (sealed: each sealed season's own league R/PA, a league
+  constant, as the site uses its season constants).
+- Event mapping checked on 2001 plays: IBB rows carry `walk = 1` and `iw = 1` (IBB is tested first), K-reached-safe
+  rows carry `k = 1`, hit flags are exclusive.
+- Factors (H1 2007, pooled 2001-06): EB tau2 1B .0005 / 2B .0092 / 3B .106 / HR .0169; median shrink weight .60 /
+  .89 / .89 / .89. Run PF (a) .92 (Qualcomm) to 1.12 (Coors); Coors m: 1B 1.06, 2B 1.08, 3B 1.45, HR 1.20. **0 clips**
+  (the [0.5, 2] clip never binds on MLB pooled cells).
+- Park term SD in wRC+ points (2007 hitters, 100+ PA): (a) 1.7, (c) 3.6; r(a term, c term) .70.
+
+| read | n (hitters) | r raw | (a) - raw | (c) - raw | **(c) - (a)** | MDE80 of c - a |
+|---|---|---|---|---|---|---|
+| H1 home -> road | 3,004 (845) | .3548 | +.0117 [+.0079, +.0154] | +.0172 [+.0073, +.0259] | **+.0055 [-.0017, +.0125]** | .010 |
+| H2 s -> s+1 road | 2,131 (636) | .4312 | +.0026 [+.0001, +.0050] | +.0038 [-.0024, +.0097] | **+.0012 [-.0037, +.0057]** | .007 |
+
+Dev rule outcome (not a claim): both arms eligible; (c) beats (a) at the point in both designs, neither CI excludes
+0, so the rule would keep (a). No handling bug was found; nothing was changed after the dev read. The sealed block
+has the same structure (7 seasons), so expect MDE80 about .010 (H1) and .007 (H2): the read can detect a gap the size
+of the college H1 effect (+.011) but not much smaller.
 
 ## Freeze
 
-FREEZE_PLACEHOLDER
+Frozen 2026-11-19 before the sealed block was extracted or read:
+- script `pipeline/component_wrc.py` sha256 `d88168ee7f624b2a0854d0935ea54ec39f9b5bdac1f556866e03e640aec42a40`
+- `results/component_wrc_dev.json` sha256 `1c0d5d79ad81529688d80685ca264a7beae87ea625645bd7d6c63d087814e6bb` (SCALE 1.3163 is read from it)
+- `sealed` refuses to run unless the script hash above is in this file and `results/component_wrc_SEALED.json`
+  is absent.
 
 ## Sealed result (2008-2014)
 
