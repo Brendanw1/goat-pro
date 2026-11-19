@@ -118,4 +118,39 @@ Frozen 2026-11-19 before the sealed block was extracted or read:
 
 ## Sealed result (2008-2014)
 
-SEALED_PLACEHOLDER
+`component_wrc.py sealed`, read once 2026-11-19 (script hash as frozen; `results/component_wrc_SEALED.json`
+sha256 `3095cbb1e649ebd4223315017b19ab11c4009293fea7cd4fd79166188e372800`). 7 seasons, 1.30M PA rows, 32-34 park cells per read.
+
+| read | n (hitters) | r raw | (a) - raw | (c) - raw | **(c) - (a)** | MDE80 of c - a |
+|---|---|---|---|---|---|---|
+| H1 home -> road | 3,060 (887) | .3366 | +.0088 [+.0046, +.0132] | +.0076 [-.0006, +.0164] | **-.0012 [-.0069, +.0046]** | .008 |
+| H2 s -> s+1 road | 2,145 (667) | .3683 | +.0033 [+.0005, +.0062] | +.0029 [-.0029, +.0088] | **-.0004 [-.0048, +.0042]** | .006 |
+
+**Verdict by the registered rule: FAIL.** Both arms are eligible, but (c) is below (a) at the point in both designs and
+neither CI excludes 0. The college finding did not hold up on MLB: **keep one run-scale PF** on MLB, and do not tell
+the owner it was confirmed.
+
+What the read can and cannot say:
+- **Power.** MDE80 is .008 (H1) and .006 (H2). The college gain (+.011 in both designs) is above both, and the
+  sealed H1 CI upper bound (+.0046) and H2 upper bound (+.0042) exclude it. **A college-sized gain of (c) over (a) is
+  ruled out on MLB**; a gain under about .005 in r is not.
+- (a) beats raw with a CI clear of 0 in both designs; (c) does not in either. (c) adds variance: its park term is
+  2.2x the size of (a)'s (SD 4.1 vs 1.9 wRC+ points, 2014 hitters with 100+ PA; r between the terms .71).
+- Clips: 26 events, all triples at Dodger Stadium in the 2009 read (m_3B .496, at the boundary). No other clip.
+- 6.9% of 2008 PAs had no cell in either arm (Yankee Stadium and Shea closed after 2008, so no other block season
+  had them); factor 1 in both arms, so the comparison stays fair.
+- Dev (2001-07) had (c) ahead at the point (+.0055, +.0012), CIs spanning 0; the sealed block reverses the sign.
+  Taken together the two blocks say the arms are close on MLB, with no gain for (c) that the data can detect.
+
+### Failure diagnosis
+
+| candidate | type | could it be our error? | evidence |
+|---|---|---|---|
+| MLB park spread is small, so the extra component detail is mostly noise | data | no | (c) moves hitters 2.2x as much as (a) and gains less; component tau2 small except 3B (.06-.08) and HR (.02-.03); 1B median shrink .32-.53 |
+| (c) applies the full shrunk ratio, (a) keeps only 0.45 of its ratio | modeling | **possibly (design choice ported from college)** | the run arm's 0.45 keep was tuned on college forecasts; (c) has no keep fraction in either the college or this port, so on MLB it may over-adjust. Not tested here (the sealed block is spent; any re-test is provisional) |
+| results-only factors instead of the college physics prior | modeling | no | the MLB EB prereg found the physics prior adds nothing on MLB results (PREREG-park-eb.md) |
+| fence moves under one Retrosheet park id (Citi Field 2012, Petco and Safeco 2013) | data | no | same for both arms; affects pooled factors equally |
+| event mapping, factor key, leave-out seasons, clips | handling | checked, no bug found | mapping checked on 2001 flags; 0 clips on dev, 26 at the boundary on sealed; leave-out excludes every read season in both arms |
+
+**Retrosheet 2008-14 is now spent for park-factor claims** (hitter outcomes were read in aggregate, a weak seal for
+later hitter claims). Dev block 2001-07 is read for this claim.
