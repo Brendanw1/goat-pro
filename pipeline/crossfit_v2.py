@@ -27,7 +27,8 @@ from physics import add_physics  # noqa: E402
 import train_mlb as tm  # noqa: E402
 from train_mlb import frozen_scale, load_features  # noqa: E402
 
-RESULTS = Path(__file__).resolve().parent / "results"
+RESULTS = Path(tm.DEV, "results") if tm.DEV else Path(__file__).resolve().parent / "results"
+CACHE_OUT = Path(tm.DEV, "cache") if tm.DEV else RESULTS.parent.parent / "cache"   # untracked per-pitch dumps
 K = 4
 # --by-type: one booster per Statcast pitch type x batter side instead of per class
 TYPE_OF = {"FF": "FF", "SI": "SI", "FC": "FC", "SL": "SL", "ST": "ST", "SW": "ST",
@@ -343,7 +344,8 @@ def main() -> None:
         print("          yoy " + ", ".join(f"{k} {v:.3f}" for k, v in g["yoy"].items()))
         print("          grade vs naive " + ", ".join(
             f"{k} {v['grade']:.3f}/{v['naive']:.3f}" for k, v in g["predictiveness_vs_naive"].items()))
-    RESULTS.mkdir(exist_ok=True)
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    CACHE_OUT.mkdir(parents=True, exist_ok=True)
     tag = f"_{re.sub(r'[^A-Za-z0-9_]+', '', fset.replace('+', 'P').replace('-', 'M')).strip('_')}" if fset else ""
     (RESULTS / f"crossfit_v2{tag}.json").write_text(json.dumps(out, indent=1, default=lambda o: o.item()))
     pd.DataFrame([{"mlbam": r["mlbam"], "season": r["season"], "grade": r["grade"]} for r in cf_rows]
@@ -358,10 +360,10 @@ def main() -> None:
     if shap is not None:  # per-pitch TreeSHAP (whiff_shap.py scales it to Whiff+ points), untracked cache
         sd = pd.DataFrame(shap, columns=[*stuff_v2.FEATURES, "bias"], index=df.index)
         sd[["pitcher", "season", "pitch_type", "stand", "swing"]] = df[["pitcher", "season", "pitch_type", "stand", "swing"]]
-        sd.assign(pred=pred).to_parquet(RESULTS.parent.parent / "cache" / f"shap{tag}.parquet")
+        sd.assign(pred=pred).to_parquet(CACHE_OUT / f"shap{tag}.parquet")
     if "--save-pred" in sys.argv:  # per-pitch out-of-fold predictions (step5.py), untracked cache
         df.assign(pred=pred)[["pitcher", "season", "pitch_type", "stand", "pred", "spin_eff",
-                              "whiff", "swing"]].to_parquet(RESULTS.parent.parent / "cache" / f"pred{tag}.parquet")
+                              "whiff", "swing"]].to_parquet(CACHE_OUT / f"pred{tag}.parquet")
 
 
 if __name__ == "__main__":

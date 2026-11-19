@@ -5,6 +5,7 @@ builds and checks it.
     python fable_kit.py freeze KIT_DIR   # judge.py at git HEAD -> KIT_DIR/judge/ + SHA256SUMS + KIT.json
     python fable_kit.py verify KIT_DIR   # every frozen file still matches SHA256SUMS
     python fable_kit.py check KIT_DIR    # zero fable:-sealed pitcher IDs in any parquet/csv under KIT_DIR/dev
+    python fable_kit.py dev-mlb KIT_DIR  # mart 2021-25 regular season minus sealed pitchers -> KIT_DIR/dev/mlb
     python fable_kit.py demo
 
 Seal: crc32("fable:" + id) % 5 == 0, about 20% of pitchers, MLB mlbam and college pid alike (judge.sealed). It is
@@ -27,8 +28,12 @@ sys.path.insert(0, str(PIPE))
 from judge import sealed  # noqa: E402
 
 SALT = "fable"
-FROZEN = ("pipeline/judge.py",)   # change_test.py + crossfit_v2.py join in 3.2, once they read dev/ instead of the mart
-ID_COLS = ("mlbam", "pitcher", "pid", "PitcherKey")
+# 3.2: change_test + crossfit_v2 read dev/ under FABLE_DEV (train_mlb.DEV); their imports ride along so the frozen
+# copies run from KIT_DIR/judge alone
+FROZEN = ("pipeline/judge.py", "pipeline/change_test.py", "pipeline/crossfit_v2.py", "pipeline/train_mlb.py",
+          "pipeline/stuff_v2.py", "pipeline/physics.py", "pipeline/paths.py")
+MLB_SEASONS = range(2021, 2026)
+ID_COLS = ("mlbam", "pitcher", "pid", "PitcherKey")   # first present = the sealed unit (college: pid, not the raw key)
 
 
 def sha(p):
@@ -47,7 +52,7 @@ def freeze(kit):
         dst.chmod(0o444)
         sums[dst.name] = hashlib.sha256(body).hexdigest()
     (kit / "judge" / "SHA256SUMS").write_text("".join(f"{h}  {n}\n" for n, h in sums.items()))
-    (kit / "KIT.json").write_text(json.dumps({"step": "3.1", "goat_pro_commit": head, "frozen": date.today().isoformat(),
+    (kit / "KIT.json").write_text(json.dumps({"step": "3.2", "goat_pro_commit": head, "frozen": date.today().isoformat(),
                                               "seal": f'crc32("{SALT}:" + id) % 5 == 0', "sha256": sums,
                                               "label": "pitcher-held-out, not time-held-out"}, indent=1))
     return sums
@@ -68,12 +73,40 @@ def check(kit):
         d = pd.read_parquet(f) if f.suffix == ".parquet" else pd.read_csv(f)
         cols = [c for c in ID_COLS if c in d]
         assert cols, f"{f}: no pitcher ID column ({ID_COLS})"
-        n = sum(int(sealed(d[c].dropna().astype(str).unique(), SALT).sum()) for c in cols)
+        n = int(sealed(d[cols[0]].dropna().astype(str).unique(), SALT).sum())
         seen += 1
         if n:
             bad[str(f)] = n
     assert seen, "no dev tables found"
     return bad
+
+
+def dev_mlb(kit):
+    """Regular-season pitches 2021-25 with every fable:-sealed pitcher removed, one parquet per season, plus the
+    names of the kept pitchers and next-season outcomes computed from these rows only (judge.outcomes on dev)."""
+    from train_mlb import mart   # the real mart: never run this with FABLE_DEV set
+    import os
+    assert not os.environ.get("FABLE_DEV"), "dev-mlb reads the full mart; unset FABLE_DEV"
+    out = Path(kit, "dev", "mlb")
+    out.mkdir(parents=True, exist_ok=True)
+    con = mart.connect()
+    ids = con.sql(f"SELECT DISTINCT pitcher FROM pitches_all WHERE game_type = 'R' AND season BETWEEN "
+                  f"{min(MLB_SEASONS)} AND {max(MLB_SEASONS)} AND pitcher IS NOT NULL").df()["pitcher"]
+    keep = pd.DataFrame({"pitcher": ids[~sealed(ids, SALT).to_numpy()].astype("int64")})
+    con.register("keep", keep)
+    rows = {}
+    for s in MLB_SEASONS:
+        f = out / f"pitches_{s}.parquet"
+        con.execute(f"COPY (SELECT p.* FROM pitches_all p JOIN keep k ON p.pitcher = k.pitcher "
+                    f"WHERE p.game_type = 'R' AND p.season = {s}) TO '{f.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
+        rows[s] = con.sql(f"SELECT count(*) FROM read_parquet('{f.as_posix()}')").fetchone()[0]
+    con.sql("SELECT DISTINCT CAST(key_mlbam AS BIGINT) AS pitcher, name_first, name_last FROM register "
+            "WHERE key_mlbam IS NOT NULL").df().merge(keep).drop_duplicates("pitcher").to_parquet(out / "names.parquet")
+    # outcomes from dev rows only (the xRV-on-contact fit never sees a sealed pitcher)
+    env = {**os.environ, "FABLE_DEV": str(Path(kit).resolve()), "GOAT_LO": str(min(MLB_SEASONS))}
+    subprocess.run([sys.executable, "-c", "import judge, pathlib, sys; judge.CACHE = pathlib.Path(sys.argv[1]); "
+                    "judge.outcomes()", str((out / "outcomes.parquet").resolve())], cwd=PIPE, env=env, check=True)
+    return {"pitchers_kept": len(keep), "pitchers_sealed": int(len(ids) - len(keep)), "rows": rows}
 
 
 def demo():
@@ -87,6 +120,7 @@ def demo():
         pd.DataFrame({"mlbam": clean}).to_parquet(Path(t) / "dev/ok.parquet")
         assert check(t) == {}
         pd.DataFrame({"mlbam": ids[:50]}).to_parquet(Path(t) / "dev/leak.parquet")
+        pd.DataFrame({"pid": clean[:50].astype(str), "PitcherKey": ids[:50].astype(str)}).to_parquet(Path(t) / "dev/key.parquet")
         assert list(check(t)) == [str(Path(t) / "dev/leak.parquet")]
         freeze(t)
         assert verify(t) == []
@@ -107,6 +141,8 @@ if __name__ == "__main__":
         b = verify(arg)
         print("ok" if not b else f"CHANGED: {b}")
         sys.exit(1 if b else 0)
+    elif cmd == "dev-mlb":
+        print(json.dumps(dev_mlb(arg), indent=1, default=int))
     elif cmd == "check":
         b = check(arg)
         print("ok: zero sealed IDs in dev/" if not b else f"SEALED IDS FOUND: {b}")

@@ -55,14 +55,28 @@ import pandas as pd
 
 from paths import MART_DIR  # noqa: E402
 sys.path.insert(0, str(MART_DIR))
-import mart  # noqa: E402
+# Fable kit dev mode (BaseballGOAT docs/fable-research-setup.md section 2, step 3.2): FABLE_DEV=KIT_DIR swaps the mart
+# for KIT_DIR/dev/mlb (2021-25, fable:-sealed pitchers removed, fable_kit.py dev-mlb) and keeps every cache in KIT_DIR.
+DEV = os.environ.get("FABLE_DEV")
+if DEV:
+    class mart:  # noqa: N801  (stands in for the savant_mart module: connect() only)
+        @staticmethod
+        def connect():
+            d = Path(DEV, "dev", "mlb").as_posix()
+            con = duckdb.connect()
+            con.execute(f"CREATE VIEW pitches_all AS SELECT * FROM read_parquet('{d}/pitches_*.parquet', union_by_name=true)")
+            con.execute("CREATE VIEW register AS SELECT pitcher AS key_mlbam, name_first, name_last "
+                        f"FROM read_parquet('{d}/names.parquet')")
+            return con
+else:
+    import mart  # noqa: E402
 
 PIPE = Path(__file__).resolve().parent
 MODELS = PIPE / "models"
 EXPORT = PIPE.parent / "data" / "export"
 # feature frame + booster cache; keyed on mart contents + code + spec, so it
 # self-invalidates. GOAT_NO_CACHE=1 forces a rebuild.
-CACHE = PIPE / "cache"
+CACHE = Path(DEV, "cache") if DEV else PIPE / "cache"
 USE_CACHE = os.environ.get("GOAT_NO_CACHE") != "1"
 
 TRAIN_SEASONS = (2023, 2024)

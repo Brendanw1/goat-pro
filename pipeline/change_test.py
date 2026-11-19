@@ -12,6 +12,7 @@ shuffle, which treated a pitcher's three pitches as independent. SELECTION SET (
 """
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +21,7 @@ import pandas as pd
 PIPE = Path(__file__).resolve().parent
 sys.path.insert(0, str(PIPE))
 from judge import _r, cluster_w  # noqa: E402
-from train_mlb import CLASS_OF  # noqa: E402
+from train_mlb import CLASS_OF, DEV  # noqa: E402
 
 PT_SQL = """
 SELECT pitcher, season, pitch_type, 100 * avg(-delta_run_exp) AS rv100,
@@ -34,9 +35,10 @@ MIN = {"n_sw": 50, "n_bip": 30}
 
 
 def pt_outcomes():
-    path = PIPE.parent / "cache" / "pt_outcomes_2020.parquet"
+    path = (Path(DEV, "cache") if DEV else PIPE.parent / "cache") / "pt_outcomes_2020.parquet"
     if not path.exists():
         from train_mlb import mart
+        path.parent.mkdir(parents=True, exist_ok=True)
         mart.connect().sql(PT_SQL).df().to_parquet(path)
     return pd.read_parquet(path)
 
@@ -73,7 +75,7 @@ def demo():
     pt = pd.concat([pd.DataFrame({"pitcher": np.arange(n) // 3, "season": s, "pitch_type": np.tile(["FF", "SL", "CH"], n // 3),
                                   "pred": p0 + (s - 2023) * step, "wps": p0 + (s - 2023) * step + rng.normal(0, .04, n),
                                   "csw": .3, "rv100": 0.0, "n_sw": 200, "gb": .4, "n_bip": 60}) for s in (2023, 2024)])
-    tmp = PIPE.parent / "cache" / "_change_demo.csv"
+    tmp = Path(tempfile.mkdtemp()) / "_change_demo.csv"
     pt.drop(columns=["rv100", "gb", "n_bip"]).to_csv(tmp, index=False)
     try:
         j = pairs(tmp, pt[["pitcher", "season", "pitch_type", "rv100", "gb", "n_bip"]])
@@ -94,4 +96,6 @@ if __name__ == "__main__":
         res[Path(path).stem] = {"all": stats(j, rng), **{c: stats(g, rng) for c, g in j.groupby("pclass")}}
         print(Path(path).stem, json.dumps(res[Path(path).stem]))
     if res:
-        (PIPE / "results" / "change_test.json").write_text(json.dumps(res, indent=1))
+        out = Path(DEV, "results") if DEV else PIPE / "results"
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "change_test.json").write_text(json.dumps(res, indent=1))
